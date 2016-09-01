@@ -1,0 +1,21 @@
+{
+  "name": "github.highcharts.com",
+  "version": "1.0.0",
+  "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
+  "main": "index.js",
+  "dependencies": {},
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/highcharts/github.highcharts.com.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/highcharts/github.highcharts.com/issues"
+  },
+  "homepage": "https://github.com/highcharts/github.highcharts.com#readme"
+}
