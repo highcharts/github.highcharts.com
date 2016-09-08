@@ -32,23 +32,35 @@ const folder = path => {
 };
 
 /**
- * Download a single file
+ * Download a single file.
  * @param  {string} base   Base url
  * @param  {string} path   Location of file. Url is base + '/' + path
  * @param  {string} output Where to output the file
- * @return {undefiend} returns nothing
+ * @return {Promise} Returns a promise when resolved contains the status code and path to the file. 
  */
 const downloadFile = (base, path, output) => {
-    const fs = require('fs');
-    const https = require('https');
-    let url = base + '/' + path;
-    let outputPath = output + '/' + path;
-
-    createDirectory(folder(outputPath));
-    let file = fs.createWriteStream(outputPath);
-    https.get(url, response => {
-        response.pipe(file);
-        file.on('finish', () => file.close());
+    return new Promise((resolve) => {
+        const fs = require('fs');
+        const https = require('https');
+        let url = base + '/' + path;
+        let outputPath = output + '/' + path;
+        createDirectory(folder(outputPath));
+        https.get(url, response => {
+            if (response.statusCode === 200) {
+                let file = fs.createWriteStream(outputPath);
+                response.pipe(file);
+                file.on('finish', () => {
+                    resolve({
+                        status: response.statusCode,
+                        path: outputPath
+                    });
+                });
+            } else {
+                resolve({
+                    status: response.statusCode
+                });
+            }
+        });
     });
 };
 
@@ -57,11 +69,12 @@ const downloadFile = (base, path, output) => {
  * @param  {string} base The base url
  * @param  {[string]} filePaths Array of filepaths.
  * @param  {string} output Where to output the file
- * @return {undefined}           [description]
+ * @return {Promise} Returns a promise which is resolved when all files are downloaded
  */
 const downloadFiles = (base, filePaths, output) => {
-    filePaths.forEach(path => {
-        downloadFile(base, path, output);
+    return new Promise((resolve) => {
+        let promises = filePaths.map(path => downloadFile(base, path, output));
+        Promise.all(promises).then((values) => resolve(values));
     });
 };
 
@@ -69,10 +82,10 @@ const downloadFiles = (base, filePaths, output) => {
  * Download all the files in the js folder of the repository
  * @param  {string} output Where to output all the files
  * @param  {string} url Url to the repository in raw format
- * @return {undefined} returns nothing
+ * @return {Promise} Returns a promise which is resolved when all files are downloaded
  */
 const downloadJSFolder = (output, url) => {
-    downloadFiles(url, [
+    return downloadFiles(url, [
         'js/masters/highcharts-3d.src.js',
         'js/masters/highcharts-more.src.js',
         'js/masters/highcharts.src.js',
@@ -215,7 +228,23 @@ const downloadJSFolder = (output, url) => {
     ], output);
 };
 
+/**
+ * Download all the files in the assembler folder of the repository
+ * @param  {string} output Where to output all the files
+ * @param  {string} url Url to the repository in raw format
+ * @return {Promise} Returns a promise which is resolved when all files are downloaded
+ */
+const downloadAssembler = (output, url) => {
+    return downloadFiles(url, [
+        'assembler/build.js',
+        'assembler/dependencies.js',
+        'assembler/process.js',
+        'assembler/utilities.js'
+    ], output);
+};
+
 module.exports = {
+    downloadAssembler: downloadAssembler,
     downloadFile: downloadFile,
     downloadFiles: downloadFiles,
     downloadJSFolder: downloadJSFolder
