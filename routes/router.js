@@ -7,6 +7,11 @@ const interpreter = require('../helper/interpreter.js');
 const downloadJSFolder = helper.downloadJSFolder;
 const downloadAssembler = helper.downloadAssembler;
 
+router.get('/favicon.ico', (req, res) => {
+	const pathIndex = path.resolve(__dirname + '/../assets/favicon.ico');
+	res.sendFile(pathIndex);  
+});
+
 router.get('/', (req, res) => {
 	if (req.query.parts) {
 		const branch = 'krevje';
