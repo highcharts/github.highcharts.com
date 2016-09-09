@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const router = express.Router();
 const helper = require('../helper/download.js');
+const interpreter = require('../helper/interpreter.js');
 const downloadJSFolder = helper.downloadJSFolder;
 const downloadAssembler = helper.downloadAssembler;
 
@@ -20,20 +21,31 @@ router.get('/', (req, res) => {
 });
 
 router.get('*', (req, res) => {
-	const branch = 'krevje';
+	const branch = interpreter.getBranch(req.url);
+	const file = interpreter.getFile(branch, req.url);
 	const url = 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch;
 	downloadAssembler('./tmp', url)
 		.then(result => (result[0].status === 200) ? downloadJSFolder('./tmp', url) : false)
 		.then(result => {
-			let msg = '';
-			if (result === false) {
-				msg = 'no assembler, return static file or 404';
-			} else {
+			let msg = false;
+			if (result !== false) {
 				msg = 'we have an assembler';
 			}
+			return msg;
+		})
+		.then(result => {
+			let msg = result;
+			if (result === false) {
+				msg = 'no assembler, return static file or 404';
+			}
+			return msg;
+		})
+		.then(result => {
 			res.json({
-				message: msg
-			});
+				branch: branch,
+				url: req.url,
+				msg: result
+			})
 		});
 });
 
