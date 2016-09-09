@@ -1,35 +1,5 @@
 'use strict';
-/**
- * Takes a folder path and creates all the missing folders
- * @param  {string} path Path to directory
- * @return {undefined} Returns nothing
- */
-const createDirectory = path => {
-    const fs = require('fs');
-    const folders = path.split('/');
-    folders.reduce((base, name) => {
-        const path = base + name;
-        try {
-            fs.statSync(path);
-        } catch (err) {
-            fs.mkdirSync(path);
-        }
-        return path + '/';
-    }, '');
-}
-
-/**
- * Gets directory path from a file path
- * @param  {string} path File path
- * @return {string} Path to directory where the file is located
- */
-const folder = path => {
-    let folderPath = '.';
-    if (path !== '') {
-        folderPath = path.substring(0, path.lastIndexOf('/'));
-    }
-    return folderPath + '/';
-};
+const U = require('./utilities.js');
 
 /**
  * Download a single file.
@@ -44,7 +14,7 @@ const downloadFile = (base, path, output) => {
         const https = require('https');
         let url = base + '/' + path;
         let outputPath = output + '/' + path;
-        createDirectory(folder(outputPath));
+        U.createDirectory(U.folder(outputPath));
         https.get(url, response => {
             if (response.statusCode === 200) {
                 let file = fs.createWriteStream(outputPath);
