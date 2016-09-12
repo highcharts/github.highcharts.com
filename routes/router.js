@@ -4,8 +4,10 @@ const path = require('path');
 const router = express.Router();
 const helper = require('../helper/download.js');
 const interpreter = require('../helper/interpreter.js');
+const build = require('../assembler/build.js').build;
 const downloadJSFolder = helper.downloadJSFolder;
 const downloadAssembler = helper.downloadAssembler;
+const output = './tmp';
 
 router.get('/favicon.ico', (req, res) => {
 	const pathIndex = path.resolve(__dirname + '/../assets/favicon.ico');
@@ -15,7 +17,7 @@ router.get('/favicon.ico', (req, res) => {
 router.get('/', (req, res) => {
 	if (req.query.parts) {
 		const branch = 'krevje';
-		downloadJSFolder('./tmp', 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch);
+		downloadJSFolder(output, 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch);
 		res.json({
 			message: 'return a file'
 		});
@@ -27,30 +29,38 @@ router.get('/', (req, res) => {
 
 router.get('*', (req, res) => {
 	const branch = interpreter.getBranch(req.url);
-	const file = interpreter.getFile(branch, req.url);
+	// const file = interpreter.getType(branch, req.url);
+	const type = 'classic';
+	// const file = interpreter.getFile(branch, req.url);
+	const file = 'highcharts.src.js';
 	const url = 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch;
-	downloadAssembler('./tmp', url)
-		.then(result => (result[0].status === 200) ? downloadJSFolder('./tmp', url) : false)
+	downloadAssembler(output, url)
+		.then(result => (result[0].status === 200) ? downloadJSFolder(output, url) : false)
 		.then(result => {
 			let msg = false;
 			if (result !== false) {
-				msg = 'we have an assembler';
+				try {
+					build({
+						base: output + '/js/masters/',
+						output: output + '/output/',
+						files: [file],
+						type: type
+					});
+					msg = path.resolve(__dirname + '/../tmp/output/' + file);
+				} catch (err) {
+					console.log(err)
+					console.log(err.stack)
+				}
 			}
 			return msg;
 		})
 		.then(result => {
-			let msg = result;
-			if (result === false) {
-				msg = 'no assembler, return static file or 404';
+			if (false) {
+				res.sendFile(result);
+			} else {
+				res.status(404)
+					.send('Invalid file path ' + req.url + '.<br>Do you think this is an error, or you need help to continue, please contact <a href="http://www.highcharts.com/support">Highcharts support</a>.');
 			}
-			return msg;
-		})
-		.then(result => {
-			res.json({
-				branch: branch,
-				url: req.url,
-				msg: result
-			})
 		});
 });
 
