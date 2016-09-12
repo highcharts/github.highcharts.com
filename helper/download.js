@@ -56,6 +56,7 @@ const downloadFiles = (base, filePaths, output) => {
  */
 const downloadJSFolder = (output, url) => {
     return downloadFiles(url, [
+        'css/highcharts.scss',
         'js/masters/highcharts-3d.src.js',
         'js/masters/highcharts-more.src.js',
         'js/masters/highcharts.src.js',
