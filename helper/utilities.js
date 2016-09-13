@@ -69,10 +69,26 @@ const copyFile = (path, output) => {
     fs.createReadStream(base + path).pipe(fs.createWriteStream(outFile));
 };
 
+const writeFile = (path, content) => {
+    const fs = require('fs');
+    createDirectory(folder(path));
+    fs.writeFileSync(path, content);
+};
+
+const debug = (d, text) => {
+    if (d) {
+        /* eslint-disable no-console */
+        console.log(text);
+        /* eslint-enable no-console */
+    }
+};
+
 module.exports = {
     copyFile,
     createDirectory,
+    debug,
     exists,
     folder,
-    getFilesInFolder
+    getFilesInFolder,
+    writeFile
 };

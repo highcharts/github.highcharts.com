@@ -4,6 +4,7 @@ const path = require('path');
 const router = express.Router();
 const helper = require('../helper/download.js');
 const interpreter = require('../helper/interpreter.js');
+const U = require('../helper/utilities.js');
 const build = require('../assembler/build.js').build;
 const downloadJSFolder = helper.downloadJSFolder;
 const downloadAssembler = helper.downloadAssembler;
@@ -37,18 +38,13 @@ router.get('*', (req, res) => {
 		.then(result => {
 			let msg = false;
 			if (result !== false) {
-				try {
-					build({
-						base: output + '/js/masters/',
-						output: output + '/output/',
-						files: [file],
-						type: type
-					});
-					msg = path.resolve(__dirname + '/../tmp/output/' + file);
-				} catch (err) {
-					console.log(err)
-					console.log(err.stack)
-				}
+				build({
+					base: output + '/js/masters/',
+					output: output + '/output/',
+					files: [file],
+					type: type
+				});
+				msg = path.resolve(__dirname + '/../tmp/output/' + file);
 			}
 			return msg;
 		})
@@ -59,6 +55,18 @@ router.get('*', (req, res) => {
 				res.status(404)
 					.send('Invalid file path ' + req.url + '.<br>Do you think this is an error, or you need help to continue, please contact <a href="http://www.highcharts.com/support">Highcharts support</a>.');
 			}
+		})
+		.catch((err) => {
+			const date = new Date();
+			const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
+			const content = err.message + '\n\r' + err.stack;
+			try {
+				U.writeFile('./logs/' + name + '.log', content);
+			} catch (e) {
+				U.debug(true, e.message);
+			}
+			res.status(500)
+				.send('Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.');
 		});
 });
 
