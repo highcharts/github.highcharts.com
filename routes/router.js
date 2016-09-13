@@ -29,10 +29,8 @@ router.get('/', (req, res) => {
 
 router.get('*', (req, res) => {
 	const branch = interpreter.getBranch(req.url);
-	// const file = interpreter.getType(branch, req.url);
-	const type = 'classic';
-	// const file = interpreter.getFile(branch, req.url);
-	const file = 'highcharts.src.js';
+	const type = interpreter.getType(branch, req.url);
+	const file = interpreter.getFile(branch, type, req.url);
 	const url = 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch;
 	downloadAssembler(output, url)
 		.then(result => (result[0].status === 200) ? downloadJSFolder(output, url) : false)
@@ -55,7 +53,7 @@ router.get('*', (req, res) => {
 			return msg;
 		})
 		.then(result => {
-			if (false) {
+			if (result) {
 				res.sendFile(result);
 			} else {
 				res.status(404)
