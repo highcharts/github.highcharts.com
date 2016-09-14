@@ -7,6 +7,7 @@ const interpreter = require('../helper/interpreter.js');
 const U = require('../helper/utilities.js');
 const build = require('../assembler/build.js').build;
 const output = './tmp';
+const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
 const handleError = (err, res) => {
 	const date = new Date();
 	const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
@@ -70,7 +71,7 @@ router.get('/favicon.ico', (req, res) => {
 router.get('/', (req, res) => {
 	if (req.query.parts) {
 		const branch = 'krevje';
-		D.downloadJSFolder(output, 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch);
+		D.downloadJSFolder(output, downloadURL + branch);
 		res.json({
 			message: 'return a file'
 		});
@@ -82,9 +83,8 @@ router.get('/', (req, res) => {
 
 router.get('*', (req, res) => {
 	const branch = interpreter.getBranch(req.url);
-	const url = 'https://raw.githubusercontent.com/highcharts/highcharts/';
-	D.urlExists(url + branch + '/assembler/build.js')
-		.then(result => result ? serveBuildFile(url, req.url, res) : serveStaticFile(url, req.url, res))
+	D.urlExists(downloadURL + branch + '/assembler/build.js')
+		.then(result => result ? serveBuildFile(downloadURL, req.url, res) : serveStaticFile(downloadURL, req.url, res))
 		.then(result => {
 			if (result.file) {
 				res.sendFile(result.file);
