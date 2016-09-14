@@ -41,19 +41,22 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 	const file = interpreter.getFile(branch, type, requestURL);
 	return D.downloadJSFolder(output, repositoryURL + branch)
 		.then(() => {
-			let msg = {};
-			if (!U.exists(output + '/js/masters/' + file)) {
-				msg.status = 404;
-			} else {
+			let obj = {
+				status: 404
+			};
+			if (U.exists(output + '/js/masters/' + file)) {
 				build({
 					base: output + '/js/masters/',
 					output: output + '/output/',
 					files: [file],
 					type: type
 				});
-				msg.file = path.resolve(__dirname + '/../tmp/output/' + file);
+				obj = {
+					file: path.resolve(__dirname + '/../tmp/output/' + file),
+					status: 200
+				}
 			}
-			return msg;
+			return obj;
 		})
 		.catch(err => handleError(err, res));
 }
