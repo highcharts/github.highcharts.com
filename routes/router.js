@@ -2,13 +2,53 @@
 const express = require('express');
 const path = require('path');
 const router = express.Router();
-const helper = require('../helper/download.js');
+const D = require('../helper/download.js');
 const interpreter = require('../helper/interpreter.js');
 const U = require('../helper/utilities.js');
 const build = require('../assembler/build.js').build;
-const downloadJSFolder = helper.downloadJSFolder;
-const downloadAssembler = helper.downloadAssembler;
 const output = './tmp';
+const handleError = (err, res) => {
+	const date = new Date();
+	const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
+	const content = err.message + '\n\r' + err.stack;
+	try {
+		U.writeFile('./logs/' + name + '.log', content);
+	} catch (e) {
+		U.debug(true, e.message);
+	}
+	res.status(500)
+		.send('Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.');
+};
+
+const serveStaticFile = url => {
+	return {
+		status: 404
+	}
+}
+
+const serveBuildFile = (repositoryURL, requestURL, res) => {
+	const branch = interpreter.getBranch(requestURL);
+	const type = interpreter.getType(branch, requestURL);
+	const file = interpreter.getFile(branch, type, requestURL);
+	return D.downloadJSFolder(output, repositoryURL)
+		.then(() => {
+			let msg = {};
+			if (!U.exists(output + '/js/masters/' + file)) {
+				msg.status = 404;
+			} else {
+				build({
+					base: output + '/js/masters/',
+					output: output + '/output/',
+					files: [file],
+					type: type
+				});
+				msg.file = path.resolve(__dirname + '/../tmp/output/' + file);
+			}
+			return msg;
+		})
+		.catch(err => handleError(err, res));
+}
+
 
 router.get('/favicon.ico', (req, res) => {
 	const pathIndex = path.resolve(__dirname + '/../assets/favicon.ico');
@@ -18,7 +58,7 @@ router.get('/favicon.ico', (req, res) => {
 router.get('/', (req, res) => {
 	if (req.query.parts) {
 		const branch = 'krevje';
-		downloadJSFolder(output, 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch);
+		D.downloadJSFolder(output, 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch);
 		res.json({
 			message: 'return a file'
 		});
@@ -30,44 +70,21 @@ router.get('/', (req, res) => {
 
 router.get('*', (req, res) => {
 	const branch = interpreter.getBranch(req.url);
-	const type = interpreter.getType(branch, req.url);
-	const file = interpreter.getFile(branch, type, req.url);
 	const url = 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch;
-	downloadAssembler(output, url)
-		.then(result => (result[0].status === 200) ? downloadJSFolder(output, url) : false)
+	D.urlExists(url + '/assembler/build.js')
 		.then(result => {
-			let msg = false;
-			if (result !== false) {
-				build({
-					base: output + '/js/masters/',
-					output: output + '/output/',
-					files: [file],
-					type: type
-				});
-				msg = path.resolve(__dirname + '/../tmp/output/' + file);
-			}
-			return msg;
+			console.log('Assembler exists: ' + result);
+			return result ? serveBuildFile(url, req.url, res) : serveStaticFile(url, res);
 		})
 		.then(result => {
-			if (result) {
-				res.sendFile(result);
+			if (result.file) {
+				res.sendFile(result.file);
 			} else {
-				res.status(404)
+				res.status(result.status)
 					.send('Invalid file path ' + req.url + '.<br>Do you think this is an error, or you need help to continue, please contact <a href="http://www.highcharts.com/support">Highcharts support</a>.');
 			}
 		})
-		.catch((err) => {
-			const date = new Date();
-			const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
-			const content = err.message + '\n\r' + err.stack;
-			try {
-				U.writeFile('./logs/' + name + '.log', content);
-			} catch (e) {
-				U.debug(true, e.message);
-			}
-			res.status(500)
-				.send('Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.');
-		});
+		.catch(err => handleError(err, res));
 });
 
 module.exports = router;

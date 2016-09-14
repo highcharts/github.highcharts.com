@@ -1,6 +1,13 @@
 'use strict';
 const U = require('./utilities.js');
 
+const urlExists = url => {
+    const https = require('https');
+    return new Promise(resolve => {
+        https.get(url, response => resolve(response.statusCode === 200));
+    });
+};
+
 /**
  * Download a single file.
  * @param  {string} base   Base url
@@ -218,5 +225,6 @@ module.exports = {
     downloadAssembler: downloadAssembler,
     downloadFile: downloadFile,
     downloadFiles: downloadFiles,
-    downloadJSFolder: downloadJSFolder
+    downloadJSFolder: downloadJSFolder,
+    urlExists
 };
