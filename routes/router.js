@@ -20,17 +20,26 @@ const handleError = (err, res) => {
 		.send('Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.');
 };
 
-const serveStaticFile = url => {
-	return {
-		status: 404
-	}
+const serveStaticFile = (repositoryURL, requestURL, res) => {
+	const branch = interpreter.getBranch(requestURL);
+	const file = interpreter.getFile(branch, 'classic', requestURL);
+	return new Promise(resolve => {
+		D.downloadFile(repositoryURL + branch + '/js/', file, output + '/output/')
+			.then(result => {
+				resolve({
+					file: ((result.status === 200) ? path.resolve(__dirname + '/../tmp/output/' + file) : false),
+					status:((result.status === 200) ? 200 : 404)
+				})
+			})
+			.catch(err => handleError(err, res))
+	});
 }
 
 const serveBuildFile = (repositoryURL, requestURL, res) => {
 	const branch = interpreter.getBranch(requestURL);
 	const type = interpreter.getType(branch, requestURL);
 	const file = interpreter.getFile(branch, type, requestURL);
-	return D.downloadJSFolder(output, repositoryURL)
+	return D.downloadJSFolder(output, repositoryURL + branch)
 		.then(() => {
 			let msg = {};
 			if (!U.exists(output + '/js/masters/' + file)) {
@@ -70,12 +79,9 @@ router.get('/', (req, res) => {
 
 router.get('*', (req, res) => {
 	const branch = interpreter.getBranch(req.url);
-	const url = 'https://raw.githubusercontent.com/highcharts/highcharts/' + branch;
-	D.urlExists(url + '/assembler/build.js')
-		.then(result => {
-			console.log('Assembler exists: ' + result);
-			return result ? serveBuildFile(url, req.url, res) : serveStaticFile(url, res);
-		})
+	const url = 'https://raw.githubusercontent.com/highcharts/highcharts/';
+	D.urlExists(url + branch + '/assembler/build.js')
+		.then(result => result ? serveBuildFile(url, req.url, res) : serveStaticFile(url, req.url, res))
 		.then(result => {
 			if (result.file) {
 				res.sendFile(result.file);
