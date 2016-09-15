@@ -1,5 +1,104 @@
 'use strict';
 /**
+ * Returns fileOptions for the build script
+ * @return {Object} Object containing all fileOptions
+ */
+const getFileOptions = () => {
+	const DS = '[\\\\\\\/][^\\\\\\\/]'; // Regex: Single directory seperator
+	const folders = {
+		'parts': 'parts' + DS + '+\.js$',
+		'parts-more': 'parts-more' + DS + '+\.js$'
+	};
+	// @todo Shorten this logic and make it more dynamic
+	return {
+		'modules/accessibility.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/annotations.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/boost.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/broken-axis.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/canvasrenderer.experimental.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/canvgrenderer-extended.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/data.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/drilldown.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/exporting.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/funnel.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/heatmap.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/map.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/map-parser.src.js': {
+			exclude: new RegExp([folders.parts, 'data\.src\.js$'].join('|')),
+			umd: false
+		},
+		'modules/no-data-to-display.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/offline-exporting.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/overlapping-datalabels.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/series-label.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'modules/solid-gauge.src.js': {
+			exclude: new RegExp([folders.parts, 'GaugeSeries\.js$'].join('|')),
+			umd: false
+		},
+		'modules/treemap.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'highcharts-more.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		},
+		'highcharts-3d.src.js': {
+			exclude: new RegExp(folders.parts),
+			umd: false
+		}
+	};
+};
+
+/**
  * Return which branch/tag/commit to gather the file from. Defaults to master.
  * @param  {string} url Request url
  * @return {string} Returns which branch/tag/commit to look in.
@@ -66,5 +165,6 @@ const getFile = (branch, type, url) => {
 module.exports = {
 	getBranch,
 	getFile,
+	getFileOptions,
 	getType
 };

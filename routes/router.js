@@ -8,6 +8,7 @@ const U = require('../helper/utilities.js');
 const build = require('../assembler/build.js').build;
 const output = './tmp';
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
+const fileOptions = interpreter.getFileOptions();
 const handleError = (err, res) => {
 	const date = new Date();
 	const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
@@ -50,7 +51,8 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 					base: output + '/js/masters/',
 					output: output + '/output/',
 					files: [file],
-					type: type
+					type: type,
+					fileOptions: fileOptions
 				});
 				obj = {
 					file: path.resolve(__dirname + '/../tmp/output/' + file),
