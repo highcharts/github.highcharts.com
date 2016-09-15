@@ -1,12 +1,12 @@
 'use strict';
 const express = require('express');
-const path = require('path');
 const router = express.Router();
 const D = require('../helper/download.js');
 const I = require('../helper/interpreter.js');
 const U = require('../helper/utilities.js');
 const build = require('../assembler/build.js').build;
-const output = './tmp';
+const tmpFolder = './tmp/' + U.randomString(8) + '/';
+const outputFolder = tmpFolder + 'output/' ;
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
 const fileOptions = I.getFileOptions();
 const handleError = (err, res) => {
@@ -26,10 +26,10 @@ const serveStaticFile = (repositoryURL, requestURL, res) => {
 	const branch = I.getBranch(requestURL);
 	const file = I.getFile(branch, 'classic', requestURL);
 	return new Promise(resolve => {
-		D.downloadFile(repositoryURL + branch + '/js/', file, output + '/output/')
+		D.downloadFile(repositoryURL + branch + '/js/', file, outputFolder)
 			.then(result => {
 				resolve({
-					file: ((result.status === 200) ? path.resolve(__dirname + '/../tmp/output/' + file) : false),
+					file: ((result.status === 200) ? U.cleanPath(__dirname + '/../' + outputFolder + file) : false),
 					status:((result.status === 200) ? 200 : 404)
 				})
 			})
@@ -41,21 +41,21 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 	const branch = I.getBranch(requestURL);
 	const type = I.getType(branch, requestURL);
 	const file = I.getFile(branch, type, requestURL);
-	return D.downloadJSFolder(output, repositoryURL + branch)
+	return D.downloadJSFolder(tmpFolder, repositoryURL + branch)
 		.then(() => {
 			let obj = {
 				status: 404
 			};
-			if (U.exists(output + '/js/masters/' + file)) {
+			if (U.exists(tmpFolder + 'js/masters/' + file)) {
 				build({
-					base: output + '/js/masters/',
-					output: output + '/output/',
+					base: tmpFolder + 'js/masters/',
+					output: outputFolder,
 					files: [file],
 					type: type,
 					fileOptions: fileOptions
 				});
 				obj = {
-					file: path.resolve(__dirname + '/../tmp/output/' + file),
+					file: U.cleanPath(__dirname + '/../' + outputFolder + file),
 					status: 200
 				}
 			}
@@ -66,19 +66,19 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 
 
 router.get('/favicon.ico', (req, res) => {
-	const pathIndex = path.resolve(__dirname + '/../assets/favicon.ico');
+	const pathIndex = U.cleanPath(__dirname + '/../assets/favicon.ico');
 	res.sendFile(pathIndex);  
 });
 
 router.get('/', (req, res) => {
 	if (req.query.parts) {
 		const branch = 'krevje';
-		D.downloadJSFolder(output, downloadURL + branch);
+		D.downloadJSFolder(tmpFolder, downloadURL + branch);
 		res.json({
 			message: 'return a file'
 		});
 	} else {
-		const pathIndex = path.resolve(__dirname + '/../views/index.html');
+		const pathIndex = U.cleanPath(__dirname + '/../views/index.html');
 		res.sendFile(pathIndex);  
 	}
 });

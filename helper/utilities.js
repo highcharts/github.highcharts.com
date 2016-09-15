@@ -83,12 +83,34 @@ const debug = (d, text) => {
     }
 };
 
+const randomString = (length) => {
+    const possible = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const arr = Array.from({ length: length });
+    return arr.map(() => {
+        const index = Math.floor(Math.random() * possible.length);
+        return possible.charAt(index);
+    }).join('');
+}
+
+const cleanPath = path => {
+    let p = path;
+    while (p.indexOf('/./') > -1) {
+        p = p.replace('/./', '/');
+    }
+    while (p.indexOf('/../') > -1) {
+        p = p.replace(/[\\\/]([^\\\/]+[\\\/]\.\.[\\\/])/g, '/');
+    }
+    return p;
+};
+
 module.exports = {
+    cleanPath,
     copyFile,
     createDirectory,
     debug,
     exists,
     folder,
     getFilesInFolder,
+    randomString,
     writeFile
 };

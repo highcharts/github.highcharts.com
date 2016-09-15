@@ -20,7 +20,7 @@ const downloadFile = (base, path, output) => {
         const fs = require('fs');
         const https = require('https');
         let url = base + '/' + path;
-        let outputPath = output + '/' + path;
+        let outputPath = output + path;
         U.createDirectory(U.folder(outputPath));
         https.get(url, response => {
             if (response.statusCode === 200) {
