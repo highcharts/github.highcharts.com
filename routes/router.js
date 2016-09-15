@@ -3,12 +3,12 @@ const express = require('express');
 const path = require('path');
 const router = express.Router();
 const D = require('../helper/download.js');
-const interpreter = require('../helper/interpreter.js');
+const I = require('../helper/interpreter.js');
 const U = require('../helper/utilities.js');
 const build = require('../assembler/build.js').build;
 const output = './tmp';
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
-const fileOptions = interpreter.getFileOptions();
+const fileOptions = I.getFileOptions();
 const handleError = (err, res) => {
 	const date = new Date();
 	const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
@@ -23,8 +23,8 @@ const handleError = (err, res) => {
 };
 
 const serveStaticFile = (repositoryURL, requestURL, res) => {
-	const branch = interpreter.getBranch(requestURL);
-	const file = interpreter.getFile(branch, 'classic', requestURL);
+	const branch = I.getBranch(requestURL);
+	const file = I.getFile(branch, 'classic', requestURL);
 	return new Promise(resolve => {
 		D.downloadFile(repositoryURL + branch + '/js/', file, output + '/output/')
 			.then(result => {
@@ -38,9 +38,9 @@ const serveStaticFile = (repositoryURL, requestURL, res) => {
 }
 
 const serveBuildFile = (repositoryURL, requestURL, res) => {
-	const branch = interpreter.getBranch(requestURL);
-	const type = interpreter.getType(branch, requestURL);
-	const file = interpreter.getFile(branch, type, requestURL);
+	const branch = I.getBranch(requestURL);
+	const type = I.getType(branch, requestURL);
+	const file = I.getFile(branch, type, requestURL);
 	return D.downloadJSFolder(output, repositoryURL + branch)
 		.then(() => {
 			let obj = {
@@ -84,7 +84,7 @@ router.get('/', (req, res) => {
 });
 
 router.get('*', (req, res) => {
-	const branch = interpreter.getBranch(req.url);
+	const branch = I.getBranch(req.url);
 	D.urlExists(downloadURL + branch + '/assembler/build.js')
 		.then(result => result ? serveBuildFile(downloadURL, req.url, res) : serveStaticFile(downloadURL, req.url, res))
 		.then(result => {
