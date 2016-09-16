@@ -172,6 +172,10 @@ const getFile = (branch, type, url) => {
 	// Check if it is a .js file
 	if (sections[sections.length - 1].endsWith('.js')) {
 		filename = sections.join('/');
+		// Redirect .js requests to .src.js
+		if (!filename.endsWith('.src.js')) {
+			filename = filename.replace('.js', '.src.js');
+		}
 	}
 	return filename;
 };
