@@ -112,7 +112,9 @@ const getBranch = url => {
 	 *  and the first section is not indicating one of the js folders,
 	 *  then assume first section is a branch/tag/commit
 	 */
-	if (sections.length > 1 && folders.indexOf(sections[0]) === -1) {
+	if (sections.length > 1 && 
+		['stock', 'maps'].indexOf(sections[0]) === -1 && 
+		folders.indexOf(sections[0]) === -1) {
 		branch = sections[0];
 	}
 	return branch;
@@ -129,6 +131,12 @@ const getType = (branch, url) => {
 	let sections = url.substring(1).split('/');
 	// Remove branch from path
 	if (sections[0] === branch) {
+		sections.splice(0, 1);
+	}
+	/**
+	 * If the first section is either stock or maps, then remove it.
+	 */
+	if (sections[0] === 'stock' || sections[0] === 'maps') {
 		sections.splice(0, 1);
 	}
 	// Check if it is a .js file
@@ -149,6 +157,12 @@ const getFile = (branch, type, url) => {
 	let sections = url.substring(1).split('/');
 	// Remove branch from path
 	if (sections[0] === branch) {
+		sections.splice(0, 1);
+	}
+	/**
+	 * If the first section is either stock or maps, then remove it.
+	 */
+	if (sections[0] === 'stock' || sections[0] === 'maps') {
 		sections.splice(0, 1);
 	}
 	// Remove branch from path
