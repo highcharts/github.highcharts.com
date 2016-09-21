@@ -4,13 +4,13 @@ const getFilesInFolder = (base, path, includeSubfolders) => {
     let filenames = [],
         filepath,
         isDirectory;
-    base = __dirname + '/' + base;
     path = (typeof path === 'undefined') ? '' : path + '/';
-    fs.readdirSync(base + path).forEach((filename) => {
-        filepath = base + path + filename;
+    let folderPath = __dirname + '/' + base + path;
+    fs.readdirSync(folderPath).forEach((filename) => {
+        filepath = folderPath + filename;
         isDirectory = fs.lstatSync(filepath).isDirectory();
         if (isDirectory && includeSubfolders) {
-            filenames = filenames.concat(getFilesInFolder(base, includeSubfolders, path + filename + '/'));
+            filenames = filenames.concat(getFilesInFolder(base, path + filename, includeSubfolders));
         } else if (!isDirectory) {
             filenames.push(path + filename);
         }
