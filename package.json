@@ -12,7 +12,8 @@
     "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/eslint \"**/*.js\"",
-    "update-assembler": "node ./helper/update-assembler.js"
+    "update-assembler": "node ./helper/update-assembler.js",
+    "update-download-source": "node ./helper/update-download-source.js"
   },
   "repository": {
     "type": "git",
