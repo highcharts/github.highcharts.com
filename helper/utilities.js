@@ -75,6 +75,47 @@ const writeFile = (path, content) => {
     fs.writeFileSync(path, content);
 };
 
+/**
+ * Removes a file.
+ * Creates a promise which resolves when the file is deleted.
+ * Promise is rejected if the file does not exist.
+ * @param  {string} path Path to file
+ * @returns {Promise} Returns a promise which resolves when the file is deleted.
+ */
+const removeFile = path => new Promise((resolve, reject) => {
+    const fs = require('fs');
+    if (exists(path)) {
+        fs.unlink(path, () => {
+            resolve(true);
+        });
+    } else {
+        reject('File does not exist: ' + path);
+    }
+});
+
+/**
+ * Removes a directory.
+ * Creates a promise which resolves when the directory is deleted.
+ * Promise is rejected if the file does not exist.
+ * @param  {string} path Path to file
+ * @returns {Promise} Returns a promise which resolves when the file is deleted.
+ */
+const removeDirectory = path => new Promise((resolve, reject) => {
+    const fs = require('fs');
+    if (exists(path)) {
+        const files = fs.readdirSync(path);
+        const promises = files.map(file => path + '/' + file)
+            .map(itemPath => (fs.statSync(itemPath).isDirectory()) ? removeDirectory(itemPath) : removeFile(itemPath));
+        Promise.all(promises).then(() => {
+            fs.rmdirSync(path);
+            resolve(true);
+        })
+        .catch(err => reject(err.message + '\n\r' + err.stack));
+    } else {
+        reject('Directory does not exist: ' + path);
+    }
+});
+
 const debug = (d, text) => {
     if (d) {
         /* eslint-disable no-console */
@@ -112,5 +153,7 @@ module.exports = {
     folder,
     getFilesInFolder,
     randomString,
+    removeDirectory,
+    removeFile,
     writeFile
 };
