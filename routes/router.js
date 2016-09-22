@@ -64,6 +64,38 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 		.catch(err => handleError(err, res));
 }
 
+const serveDownloadFile = (jsonParts, compile) => {
+	return new Promise((resolve, reject) => {
+		const parts = JSON.parse(jsonParts);
+		const importFolder = '../../source/download/js/';
+		const sourceFolder = './source/download/js/';
+		let imports = ['import Highcharts from \'' + importFolder + 'parts/Globals.js\';'];
+		imports = imports.concat(parts.reduce((arr, obj) => {
+			let path = obj.baseUrl + '/' + obj.name + '.js'
+			if (U.exists(sourceFolder + path)) {
+				arr.push('import \'' + importFolder + path + '\';');
+			}
+			return arr;
+		}, []));
+		imports.push('exports Highcharts;\n\r');
+		U.writeFile(tmpFolder + 'custom.js', imports.join('\n\r'));
+		build({
+			base: tmpFolder,
+			jsBase: sourceFolder,
+			output: outputFolder,
+			files: ['custom.js'],
+			type: 'classic'
+		});
+		if (U.exists(tmpFolder + 'custom.js')) {
+			resolve({
+				file: U.cleanPath(__dirname + '/../' + outputFolder + 'custom.js')
+			})
+		} else {
+			reject('Could not find the compiled file. Path: ' + tmpFolder + 'custom.js');
+		}
+	});
+};
+
 
 router.get('/favicon.ico', (req, res) => {
 	const pathIndex = U.cleanPath(__dirname + '/../assets/favicon.ico');
@@ -71,16 +103,18 @@ router.get('/favicon.ico', (req, res) => {
 });
 
 router.get('/', (req, res) => {
-	if (req.query.parts) {
-		const branch = 'krevje';
-		D.downloadJSFolder(tmpFolder, downloadURL + branch);
-		res.json({
-			message: 'return a file'
-		});
-	} else {
-		const pathIndex = U.cleanPath(__dirname + '/../views/index.html');
-		res.sendFile(pathIndex);  
-	}
+	const parts = req.query.parts;
+	const compile = req.query.compile === 'true';
+	(parts ? serveDownloadFile(parts, compile) : Promise.resolve({ file: U.cleanPath(__dirname + '/../views/index.html') }))
+		.then(result => {
+			if (result.file) {
+				res.sendFile(result.file);
+			} else {
+				res.status(result.status)
+					.send('Invalid file path ' + req.url + '.<br>Do you think this is an error, or you need help to continue, please contact <a href="http://www.highcharts.com/support">Highcharts support</a>.');
+			}
+		})
+		.catch(err => handleError(err, res));
 });
 
 router.get('*', (req, res) => {
