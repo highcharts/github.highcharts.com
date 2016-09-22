@@ -12,7 +12,7 @@ const fileOptions = I.getFileOptions();
 const handleError = (err, res) => {
 	const date = new Date();
 	const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
-	const content = err.message + '\n\r' + err.stack;
+	const content = (typeof err === 'object') ? err.message + '\n\r' + err.stack : err;
 	try {
 		U.writeFile('./logs/' + name + '.log', content);
 	} catch (e) {
@@ -20,6 +20,25 @@ const handleError = (err, res) => {
 	}
 	res.status(500)
 		.send('Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.');
+};
+
+const handleResult = (result, res) => {
+	let promise;
+	if (result.file) {
+		res.sendFile(result.file, () => {
+			if (U.exists(tmpFolder)) {
+				promise = U.removeDirectory(tmpFolder);
+			}
+		});
+	} else {
+		res.status(result.status)
+			.send(result.message, () => {
+				if (U.exists(tmpFolder)) {
+					promise = U.removeDirectory(tmpFolder);
+				}
+			});
+	}
+	return promise;
 };
 
 const serveStaticFile = (repositoryURL, requestURL, res) => {
@@ -86,12 +105,12 @@ const serveDownloadFile = (jsonParts, compile) => {
 			files: ['custom.js'],
 			type: 'classic'
 		});
-		if (U.exists(tmpFolder + 'custom.js')) {
+		if (U.exists(outputFolder + 'custom.js')) {
 			resolve({
 				file: U.cleanPath(__dirname + '/../' + outputFolder + 'custom.js')
 			})
 		} else {
-			reject('Could not find the compiled file. Path: ' + tmpFolder + 'custom.js');
+			reject('Could not find the compiled file. Path: ' + outputFolder + 'custom.js');
 		}
 	});
 };
@@ -106,14 +125,7 @@ router.get('/', (req, res) => {
 	const parts = req.query.parts;
 	const compile = req.query.compile === 'true';
 	(parts ? serveDownloadFile(parts, compile) : Promise.resolve({ file: U.cleanPath(__dirname + '/../views/index.html') }))
-		.then(result => {
-			if (result.file) {
-				res.sendFile(result.file);
-			} else {
-				res.status(result.status)
-					.send('Invalid file path ' + req.url + '.<br>Do you think this is an error, or you need help to continue, please contact <a href="http://www.highcharts.com/support">Highcharts support</a>.');
-			}
-		})
+		.then(result => handleResult(result, res))
 		.catch(err => handleError(err, res));
 });
 
@@ -121,14 +133,7 @@ router.get('*', (req, res) => {
 	const branch = I.getBranch(req.url);
 	D.urlExists(downloadURL + branch + '/assembler/build.js')
 		.then(result => result ? serveBuildFile(downloadURL, req.url, res) : serveStaticFile(downloadURL, req.url, res))
-		.then(result => {
-			if (result.file) {
-				res.sendFile(result.file);
-			} else {
-				res.status(result.status)
-					.send('Invalid file path ' + req.url + '.<br>Do you think this is an error, or you need help to continue, please contact <a href="http://www.highcharts.com/support">Highcharts support</a>.');
-			}
-		})
+		.then(result => handleResult(result, res))
 		.catch(err => handleError(err, res));
 });
 
