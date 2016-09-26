@@ -71,6 +71,7 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 					output: outputFolder,
 					files: [file],
 					type: type,
+					version: branch,
 					fileOptions: fileOptions
 				});
 				obj = {
@@ -88,6 +89,7 @@ const serveDownloadFile = (jsonParts, compile) => {
 		const parts = JSON.parse(jsonParts);
 		const importFolder = '../../source/download/js/';
 		const sourceFolder = './source/download/js/';
+		const version = '5.0.0-custom'; // @todo Improve logic for versioning.
 		let imports = ['import Highcharts from \'' + importFolder + 'parts/Globals.js\';'];
 		imports = imports.concat(parts.reduce((arr, obj) => {
 			let path = obj.baseUrl + '/' + obj.name + '.js'
@@ -103,7 +105,8 @@ const serveDownloadFile = (jsonParts, compile) => {
 			jsBase: sourceFolder,
 			output: outputFolder,
 			files: ['custom.js'],
-			type: 'classic'
+			type: 'classic',
+			version: version
 		});
 		if (U.exists(outputFolder + 'custom.js')) {
 			resolve({
