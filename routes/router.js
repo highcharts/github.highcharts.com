@@ -69,6 +69,7 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 					base: tmpFolder + 'js/masters/',
 					output: outputFolder,
 					files: [file],
+					pretty: false,
 					type: type,
 					version: branch,
 					fileOptions: fileOptions
