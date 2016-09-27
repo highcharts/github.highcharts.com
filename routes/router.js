@@ -31,12 +31,10 @@ const handleResult = (result, res) => {
 			}
 		});
 	} else {
-		res.status(result.status)
-			.send(result.message, () => {
-				if (U.exists(tmpFolder)) {
-					promise = U.removeDirectory(tmpFolder);
-				}
-			});
+		res.status(result.status).send(result.message);
+		if (U.exists(tmpFolder)) {
+			promise = U.removeDirectory(tmpFolder);
+		}
 	}
 	return promise;
 };
@@ -49,7 +47,8 @@ const serveStaticFile = (repositoryURL, requestURL, res) => {
 			.then(result => {
 				resolve({
 					file: ((result.status === 200) ? U.cleanPath(__dirname + '/../' + outputFolder + file) : false),
-					status:((result.status === 200) ? 200 : 404)
+					status:((result.status === 200) ? 200 : 404),
+					message: ((result.status === 200) ? false : 'Could not find file ' + branch + '/' + file)
 				})
 			})
 			.catch(err => handleError(err, res))
