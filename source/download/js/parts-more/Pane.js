@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from '../parts/Globals.js';
 import '../parts/Utilities.js';
@@ -71,7 +76,7 @@ extend(Pane.prototype, {
 	 * The default background options
 	 */
 	defaultBackgroundOptions: {
-		className: 'highcharts-pane', // docs
+		className: 'highcharts-pane',
 		shape: 'circle',
 		/*= if (build.classic) { =*/
 		borderWidth: 1,

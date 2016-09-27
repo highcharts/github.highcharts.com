@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -11,7 +16,6 @@ import './Tick.js';
 		AxisPlotLineOrBandExtension = H.AxisPlotLineOrBandExtension,
 		correctFloat = H.correctFloat,
 		defaultOptions = H.defaultOptions,
-		defaultPlotOptions = H.defaultPlotOptions,
 		defined = H.defined,
 		deg2rad = H.deg2rad,
 		destroyObjectProperties = H.destroyObjectProperties,
@@ -877,11 +881,16 @@ H.Axis.prototype = {
 	nameToX: function (point) {
 		var explicitCategories = isArray(this.categories),
 			names = explicitCategories ? this.categories : this.names,
-			nameX,
+			nameX = point.options.x,
 			x;
 
 		point.series.requireSorting = false;
-		nameX = pick(point.options.x, inArray(point.name, names)); // #2522
+
+		if (!defined(nameX)) {
+			nameX = this.options.nameToX === false ?
+				point.series.autoIncrement() : 
+				inArray(point.name, names);
+		}
 		if (nameX === -1) { // The name is not found in currenct categories
 			if (!explicitCategories) {
 				x = names.length;
@@ -1207,7 +1216,7 @@ H.Axis.prototype = {
 		}
 
 		// Prevent ticks from getting so close that we can't draw the labels
-		if (!this.tickAmount && this.len) { // Color axis with disabled legend has no length
+		if (!this.tickAmount) {
 			axis.tickInterval = axis.unsquish();
 		}
 
@@ -1779,7 +1788,7 @@ H.Axis.prototype = {
 			labelMetrics = this.labelMetrics(),
 			textOverflowOption = labelOptions.style && labelOptions.style.textOverflow,
 			css,
-			labelLength = 0,
+			maxLabelLength = 0,
 			label,
 			i,
 			pos;
@@ -1789,20 +1798,22 @@ H.Axis.prototype = {
 			attr.rotation = labelOptions.rotation || 0; // #4443
 		}
 
+		// Get the longest label length
+		each(tickPositions, function (tick) {
+			tick = ticks[tick];
+			if (tick && tick.labelLength > maxLabelLength) {
+				maxLabelLength = tick.labelLength;
+			}
+		});
+		this.maxLabelLength = maxLabelLength;
+		
+
 		// Handle auto rotation on horizontal axis
 		if (this.autoRotation) {
 
-			// Get the longest label length
-			each(tickPositions, function (tick) {
-				tick = ticks[tick];
-				if (tick && tick.labelLength > labelLength) {
-					labelLength = tick.labelLength;
-				}
-			});
-
 			// Apply rotation only if the label is too wide for the slot, and
 			// the label is wider than its height.
-			if (labelLength > innerWidth && labelLength > labelMetrics.h) {
+			if (maxLabelLength > innerWidth && maxLabelLength > labelMetrics.h) {
 				attr.rotation = this.labelRotation;
 			} else {
 				this.labelRotation = 0;
@@ -1843,7 +1854,7 @@ H.Axis.prototype = {
 		// Add ellipsis if the label length is significantly longer than ideal
 		if (attr.rotation) {
 			css = { 
-				width: (labelLength > chart.chartHeight * 0.5 ? chart.chartHeight * 0.33 : chart.chartHeight) + 'px'
+				width: (maxLabelLength > chart.chartHeight * 0.5 ? chart.chartHeight * 0.33 : chart.chartHeight) + 'px'
 			};
 			if (!textOverflowOption) {
 				css.textOverflow = 'ellipsis';
@@ -1909,7 +1920,7 @@ H.Axis.prototype = {
 			clip,
 			directionFactor = [-1, 1, 1, -1][side],
 			n,
-			className = options.className, // docs
+			className = options.className,
 			textAlign,
 			axisParent = axis.axisParent, // Used in color axis
 			lineHeightCorrection,
@@ -1926,11 +1937,11 @@ H.Axis.prototype = {
 		if (!axis.axisGroup) {
 			axis.gridGroup = renderer.g('grid')
 				.attr({ zIndex: options.gridZIndex || 1 })
-				.addClass('highcharts-' + this.coll.toLowerCase() + '-grid ' + (className || '')) // docs: className
+				.addClass('highcharts-' + this.coll.toLowerCase() + '-grid ' + (className || ''))
 				.add(axisParent);
 			axis.axisGroup = renderer.g('axis')
 				.attr({ zIndex: options.zIndex || 2 })
-				.addClass('highcharts-' + this.coll.toLowerCase() + ' ' + (className || '')) // docs: className
+				.addClass('highcharts-' + this.coll.toLowerCase() + ' ' + (className || ''))
 				.add(axisParent);
 			axis.labelGroup = renderer.g('axis-labels')
 				.attr({ zIndex: labelOptions.zIndex || 7 })
@@ -2367,7 +2378,8 @@ H.Axis.prototype = {
 			stackKey,
 			plotLinesAndBands = axis.plotLinesAndBands,
 			i,
-			n;
+			n,
+			keepProps;
 
 		// Remove the events
 		if (!keepEvents) {
@@ -2401,9 +2413,10 @@ H.Axis.prototype = {
 
 
 		// Delete all properties and fall back to the prototype.
-		// Preserve the series, needed for Axis.update.
+		// Preserve some properties, needed for Axis.update (#4317).
+		keepProps = ['names', 'series', 'userMax', 'userMin'];
 		for (n in axis) {
-			if (axis.hasOwnProperty(n) && n !== 'series') {
+			if (axis.hasOwnProperty(n) && inArray(n, keepProps) === -1) {
 				delete axis[n];
 			}
 		}
@@ -2463,7 +2476,7 @@ H.Axis.prototype = {
 				this.cross = graphic = this.chart.renderer
 					.path()
 					.addClass('highcharts-crosshair highcharts-crosshair-' + 
-						(categorized ? 'category ' : 'thin ') + options.className) // docs: className
+						(categorized ? 'category ' : 'thin ') + options.className)
 					.attr({
 						zIndex: pick(options.zIndex, 2)
 					})

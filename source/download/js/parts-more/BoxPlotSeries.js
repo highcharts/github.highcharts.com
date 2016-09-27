@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from '../parts/Globals.js';
 import '../parts/Utilities.js';
@@ -15,7 +20,7 @@ seriesType('boxplot', 'column', {
 	threshold: null,
 	tooltip: {
 		/*= if (!build.classic) { =*/
-		pointFormat: '<span class="highcharts-color-{point.colorIndex}">\u25CF</span> <b> {series.name}</b><br/>' + // docs
+		pointFormat: '<span class="highcharts-color-{point.colorIndex}">\u25CF</span> <b> {series.name}</b><br/>' +
 			'Maximum: {point.high}<br/>' +
 			'Upper quartile: {point.q3}<br/>' +
 			'Median: {point.median}<br/>' +

@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from '../parts/Globals.js';
 import '../parts/Utilities.js';
@@ -31,7 +36,7 @@ defaultOptions.mapNavigation = {
 		x: 0,
 		width: 18,
 		height: 18,
-		padding: 5, // docs
+		padding: 5,
 		/*= if (build.classic) { =*/
 		style: {
 			fontSize: '15px',

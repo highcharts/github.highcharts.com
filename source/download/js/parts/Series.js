@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -22,14 +27,12 @@ import './SvgRenderer.js';
 		grep = H.grep,
 		isArray = H.isArray,
 		isNumber = H.isNumber,
-		isObject = H.isObject,
 		isString = H.isString,
 		LegendSymbolMixin = H.LegendSymbolMixin, // @todo add as a requirement
 		merge = H.merge,
 		pick = H.pick,
 		Point = H.Point, // @todo  add as a requirement
 		removeEvent = H.removeEvent,
-		seriesType = H.seriesType,
 		splat = H.splat,
 		stableSort = H.stableSort,
 		SVGElement = H.SVGElement,
@@ -419,7 +422,7 @@ H.Series = H.seriesType('line', null, { // base series options
 			userOptions = this.userOptions,
 			indexName = prop + 'Index',
 			counterName = prop + 'Counter',
-			len = defaults ? defaults.length : this.chart[prop + 'Count'],
+			len = defaults ? defaults.length : pick(this.chart.options.chart[prop + 'Count'], this.chart[prop + 'Count']),
 			setting;
 
 		if (!value) {
@@ -591,7 +594,8 @@ H.Series = H.seriesType('line', null, { // base series options
 			}
 
 			// redraw
-			series.isDirty = series.isDirtyData = chart.isDirtyBox = true;
+			series.isDirty = chart.isDirtyBox = true;
+			series.isDirtyData = !!oldData;
 			animation = false;
 		}
 
@@ -1039,13 +1043,8 @@ H.Series = H.seriesType('line', null, { // base series options
 		var series = this,
 			chart = series.chart,
 			clipRect,
-			animation = series.options.animation,
+			animation = animObject(series.options.animation),
 			sharedClipKey;
-
-		// Animation option is set to true
-		if (animation && !isObject(animation)) {
-			animation = defaultPlotOptions[series.type].animation;
-		}
 
 		// Initialize the animation. Set up the clipping rectangle.
 		if (init) {
@@ -1156,7 +1155,9 @@ H.Series = H.seriesType('line', null, { // base series options
 
 					/*= if (build.classic) { =*/
 					// Presentational attributes
-					graphic.attr(series.pointAttribs(point, point.selected && 'select'));
+					if (graphic) {
+						graphic.attr(series.pointAttribs(point, point.selected && 'select'));
+					}
 					/*= } =*/
 
 					if (graphic) {
@@ -1178,11 +1179,12 @@ H.Series = H.seriesType('line', null, { // base series options
 	pointAttribs: function (point, state) {
 		var seriesMarkerOptions = this.options.marker,
 			seriesStateOptions,
-			pointMarkerOptions = (point && point.options && point.options.marker) || {},
+			pointOptions = point && point.options,
+			pointMarkerOptions = (pointOptions && pointOptions.marker) || {},
 			pointStateOptions,
 			strokeWidth = seriesMarkerOptions.lineWidth,
 			color = this.color,
-			pointColorOption = point && point.options.color,
+			pointColorOption = pointOptions && pointOptions.color,
 			pointColor = point && point.color,
 			zoneColor,
 			fill,
@@ -1648,7 +1650,7 @@ H.Series = H.seriesType('line', null, { // base series options
 				.add(parent);
 
 			group.addClass('highcharts-series-' + this.index + ' highcharts-' + this.type + '-series highcharts-color-' + this.colorIndex +
-				' ' + (this.options.className || '')); // docs: className
+				' ' + (this.options.className || ''));
 		}
 
 		// Place it on first and subsequent (redraw) calls

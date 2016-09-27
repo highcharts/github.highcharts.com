@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -49,7 +54,7 @@ H.PlotLineOrBand.prototype = {
 			zIndex = pick(options.zIndex, 0),
 			events = options.events,
 			attribs = {
-				'class': 'highcharts-plot-' + (isBand ? 'band ' : 'line ') + (options.className || '') // docs: className
+				'class': 'highcharts-plot-' + (isBand ? 'band ' : 'line ') + (options.className || '')
 			},
 			groupAttribs = {},
 			renderer = axis.chart.renderer,

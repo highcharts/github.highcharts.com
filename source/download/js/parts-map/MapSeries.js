@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from '../parts/Globals.js';
 import '../parts/Utilities.js';
@@ -307,6 +312,7 @@ seriesType('map', 'scatter', {
 
 		if (mapData) {
 			if (mapData.type === 'FeatureCollection') {
+				this.mapTitle = mapData.title;
 				mapData = H.geojson(mapData, this.type, this);
 			}
 

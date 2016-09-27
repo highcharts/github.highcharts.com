@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -695,6 +700,7 @@ Navigator.prototype = {
 				ordinal: baseXaxis.options.ordinal
 			}, navigatorOptions.xAxis, {
 				id: 'navigator-x-axis',
+				yAxis: 'navigator-y-axis',
 				isX: true,
 				type: 'datetime',
 				index: xAxisIndex,
@@ -844,7 +850,7 @@ Navigator.prototype = {
 
 		// Iterate through series and add the ones that should be shown in navigator
 		each(chart.series || [], function (series, i) {
-			if (series.options.showInNavigator || (i === baseSeriesOptions || series.options.id === baseSeriesOptions) &&
+			if (series.options.showInNavigator || (i === baseSeriesOptions || series.options.id === baseSeriesOptions) && // docs: showInNavigator
 					series.options.showInNavigator !== false) {
 				baseSeries.push(series);
 			}
@@ -883,7 +889,7 @@ Navigator.prototype = {
 				navSeriesMixin.name = 'Navigator ' + (i + 1);
 
 				baseOptions = base.options || {};
-				baseNavigatorOptions = baseOptions.navigatorOptions || {};
+				baseNavigatorOptions = baseOptions.navigatorOptions || {}; // docs: navigatorOptions
 				mergedNavSeriesOptions = merge(baseOptions, navSeriesMixin, chartNavigatorOptions, baseNavigatorOptions);
 
 				// Merge data separately. Do a slice to avoid mutating the navigator options from base series (#4923).

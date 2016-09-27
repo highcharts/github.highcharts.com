@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -59,10 +64,6 @@ Chart.prototype = {
 	 * Hook for modules
 	 */
 	callbacks: [],
-
-	/*= if (!build.classic) { =*/
-	colorCount: 10, // docs - make this an option?
-	/*= } =*/
 
 	/**
 	 * Handle the arguments passed to the constructor
@@ -491,7 +492,7 @@ Chart.prototype = {
 				})
 				.add();
 
-				// Update methods, shortcut to Chart.setTitle // docs. Sample created
+				// Update methods, shortcut to Chart.setTitle
 				chart[name].update = function (o) {
 					chart.setTitle(!i && o, i && o);
 				};
@@ -1339,13 +1340,13 @@ Chart.prototype = {
 	/**
 	 * Show chart credits based on config options
 	 */
-	addCredits: function (credits) { // docs. credits/credits-update example
+	addCredits: function (credits) {
 		var chart = this;
 
 		credits = merge(true, this.options.credits, credits);
 		if (credits.enabled && !this.credits) {
 			this.credits = this.renderer.text(
-				credits.text + (this.mapCredits || ''), // Add mapCredits here to avoid appending them to options (creates export issues)
+				credits.text + (this.mapCredits || ''),
 				0,
 				0
 			)
@@ -1366,7 +1367,7 @@ Chart.prototype = {
 			.align(credits.position);
 
 			// Dynamically update
-			this.credits.update = function (options) { // docs. credits/credits-update example
+			this.credits.update = function (options) {
 				chart.credits = chart.credits.destroy();
 				chart.addCredits(options);
 			};

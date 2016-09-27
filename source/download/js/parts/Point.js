@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -28,7 +33,8 @@ Point.prototype = {
 
 		var point = this,
 			colors,
-			colorCount = series.chart.colorCount;
+			colorCount = series.chart.options.chart.colorCount,
+			colorIndex;
 
 		point.series = series;
 		/*= if (build.classic) { =*/
@@ -42,15 +48,16 @@ Point.prototype = {
 			point.color = point.color || colors[series.colorCounter];
 			colorCount = colors.length;
 			/*= } =*/
-			point.colorIndex = series.colorCounter;
+			colorIndex = series.colorCounter;
 			series.colorCounter++;
 			// loop back to zero
 			if (series.colorCounter === colorCount) {
 				series.colorCounter = 0;
 			}
 		} else {
-			point.colorIndex = series.colorIndex;
+			colorIndex = series.colorIndex;
 		}
+		point.colorIndex = pick(point.colorIndex, colorIndex);
 
 		series.chart.pointCount++;
 		return point;
@@ -72,11 +79,19 @@ Point.prototype = {
 		extend(point, options);
 		point.options = point.options ? extend(point.options, options) : options;
 
+		// Since options are copied into the Point instance, some accidental options must be shielded (#5681)
+		if (options.group) {
+			delete point.group;
+		}
+
 		// For higher dimension series types. For instance, for ranges, point.y is mapped to point.low.
 		if (pointValKey) {
 			point.y = point[pointValKey];
 		}
-		point.isNull = point.x === null || !isNumber(point.y, true); // #3571, check for NaN
+		point.isNull = pick(
+			point.isValid && !point.isValid(),
+			point.x === null || !isNumber(point.y, true)
+		); // #3571, check for NaN
 
 		// If no x is set by now, get auto incremented value. All points must have an
 		// x value, however the y value can be null to create a gap in the series
@@ -154,7 +169,7 @@ Point.prototype = {
 			(this.selected ? ' highcharts-point-select' : '') + 
 			(this.negative ? ' highcharts-negative' : '') + 
 			(this.colorIndex !== undefined ? ' highcharts-color-' + this.colorIndex : '') +
-			(this.options.className ? ' ' + this.options.className : ''); // docs
+			(this.options.className ? ' ' + this.options.className : '');
 	},
 
 	/**

@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -51,7 +56,7 @@ H.Tooltip.prototype = {
 
 
 		// Create the label
-		if (this.split) { // docs. Sample created.
+		if (this.split) {
 			this.label = this.chart.renderer.g('tooltip');
 		} else {
 			this.label = chart.renderer.label(
@@ -66,7 +71,7 @@ H.Tooltip.prototype = {
 					'tooltip'
 				)
 				.attr({
-					padding: options.padding, // docs
+					padding: options.padding,
 					r: options.borderRadius,
 					display: 'none' // #2301, #2657, #3532, #5570
 				});

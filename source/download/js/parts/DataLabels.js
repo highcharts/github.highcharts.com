@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -273,9 +278,6 @@ Series.prototype.drawDataLabels = function () {
 					)
 					.attr(attr);
 
-					// docs: 
-					// - New className option.
-					// - Default color class name to allow contrast colors. Demo created.
 					dataLabel.addClass('highcharts-data-label-color-' + point.colorIndex + ' ' + (options.className || ''));
 
 					/*= if (build.classic) { =*/

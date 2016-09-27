@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -1215,10 +1220,6 @@ SVGElement.prototype = {
 		var convert = { left: 'start', center: 'middle', right: 'end' };
 		this.element.setAttribute('text-anchor', convert[value]);
 	},
-	opacitySetter: function (value, key, element) {
-		this[key] = value;
-		element.setAttribute(key, value);
-	},
 	titleSetter: function (value) {
 		var titleNode = this.element.getElementsByTagName('title')[0];
 		if (!titleNode) {
@@ -1329,6 +1330,11 @@ SVGElement.prototype.translateXSetter = SVGElement.prototype.translateYSetter =
 			this[key] = value;
 			this.doTransform = true;
 		};
+// These setters both set the key on the instance itself plus as an attribute
+SVGElement.prototype.opacitySetter = SVGElement.prototype.displaySetter = function (value, key, element) {
+	this[key] = value;
+	element.setAttribute(key, value);
+};
 
 /*= if (build.classic) { =*/
 // WebKit and Batik have problems with a stroke-width of zero, so in this case we remove the 
@@ -1356,7 +1362,6 @@ SVGRenderer = H.SVGRenderer = function () {
 SVGRenderer.prototype = {
 	Element: SVGElement,
 	SVG_NS: SVG_NS,
-	urlSymbolRX: /^url\((.*?)\)$/,
 	/**
 	 * Initialize the SVGRenderer
 	 * @param {Object} container
@@ -1443,7 +1448,9 @@ SVGRenderer.prototype = {
 	},
 	/*= if (!build.classic) { =*/
 	/**
-	 * General method for adding a definition. Can be used for gradients, fills, filters etc. // docs: todo: return node
+	 * General method for adding a definition. Can be used for gradients, fills, filters etc.
+	 *
+	 * @return SVGElement The inserted node 
 	 */
 	definition: function (def) {
 		var ren = this;
@@ -1723,7 +1730,8 @@ SVGRenderer.prototype = {
 							// Check width and apply soft breaks or ellipsis
 							if (width) {
 								var words = span.replace(/([^\^])-/g, '$1- ').split(' '), // #1273
-									hasWhiteSpace = spans.length > 1 || lineNo || (words.length > 1 && textStyles.whiteSpace !== 'nowrap'),
+									noWrap = textStyles.whiteSpace === 'nowrap',
+									hasWhiteSpace = spans.length > 1 || lineNo || (words.length > 1 && !noWrap),
 									tooLong,
 									actualWidth,
 									rest = [],
@@ -1766,9 +1774,8 @@ SVGRenderer.prototype = {
 										words = rest;
 										rest = [];
 
-										if (words.length) {
-											
-											tspan = doc.createElementNS(renderer.SVG_NS, 'tspan');
+										if (words.length && !noWrap) {
+											tspan = doc.createElementNS(SVG_NS, 'tspan');
 											attr(tspan, {
 												dy: dy,
 												x: parentX
@@ -2112,13 +2119,16 @@ SVGRenderer.prototype = {
 		renderer.width = width;
 		renderer.height = height;
 
-		renderer.boxWrapper[pick(animate, true) ? 'animate' : 'attr']({
+		renderer.boxWrapper.animate({
 			width: width,
 			height: height
-		});
-
-		renderer.boxWrapper.attr({
-			viewBox: '0 0 ' + width + ' ' + height
+		}, {
+			step: function () {
+				this.attr({
+					viewBox: '0 0 ' + this.attr('width') + ' ' + this.attr('height')
+				});
+			},
+			duration: pick(animate, true) ? undefined : 0
 		});
 
 		while (i--) {
@@ -2133,7 +2143,7 @@ SVGRenderer.prototype = {
 	 */
 	g: function (name) {
 		var elem = this.createElement('g');
-		return defined(name) ? elem.attr({ 'class': 'highcharts-' + name }) : elem;
+		return name ? elem.attr({ 'class': 'highcharts-' + name }) : elem;
 	},
 
 	/**
@@ -2199,7 +2209,7 @@ SVGRenderer.prototype = {
 				height,
 				options
 			),
-
+			imageRegex = /^url\((.*?)\)$/,
 			imageSrc,
 			centerImage,
 			symbolSizes = {};
@@ -2225,10 +2235,10 @@ SVGRenderer.prototype = {
 
 
 		// image symbols
-		} else if (this.urlSymbolRX.test(symbol)) {
+		} else if (imageRegex.test(symbol)) {
 
 			
-			imageSrc = symbol.match(this.urlSymbolRX)[1];
+			imageSrc = symbol.match(imageRegex)[1];
 
 			// Create the image synchronously, add attribs async
 			obj = this.image(imageSrc);
@@ -2622,7 +2632,7 @@ SVGRenderer.prototype = {
 	label: function (str, x, y, shape, anchorX, anchorY, useHTML, baseline, className) {
 
 		var renderer = this,
-			wrapper = renderer.g('label'),
+			wrapper = renderer.g(className !== 'button' && 'label'),
 			text = wrapper.text = renderer.text('', 0, 0, useHTML)
 				.attr({
 					zIndex: 1
@@ -2640,7 +2650,7 @@ SVGRenderer.prototype = {
 			deferredAttr = {},
 			strokeWidth,
 			baselineOffset,
-			hasBGImage = renderer.urlSymbolRX.test(shape),
+			hasBGImage = /^url\((.*?)\)$/.test(shape),
 			needsBox = hasBGImage,
 			getCrispAdjust,
 			updateBoxSize,
@@ -2691,7 +2701,10 @@ SVGRenderer.prototype = {
 						renderer.symbol(shape) :
 						renderer.rect();
 					
-					box.addClass('highcharts-label-box' + (className ? ' highcharts-' + className + '-box' : ''));
+					box.addClass(
+						(className === 'button' ? '' : 'highcharts-label-box') + // Don't use label className for buttons
+						(className ? ' highcharts-' + className + '-box' : '')
+					);
 
 					box.add(wrapper);
 

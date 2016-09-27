@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 var timers = [];
@@ -360,7 +365,7 @@ H.merge = function () {
 					value = original[key];
 
 					// Copy the contents of objects, but not arrays or DOM nodes
-					if (value && typeof value === 'object' && Object.prototype.toString.call(value) !== '[object Array]' &&
+					if (Highcharts.isObject(value, true) &&
 							key !== 'renderTo' && typeof value.nodeType !== 'number') {
 						copy[key] = doCopy(copy[key] || {}, value);
 
@@ -411,7 +416,8 @@ H.isString = function (s) {
  * @param {Boolean} strict Also checks that the object is not an array
  */
 H.isArray = function (obj) {
-	return Object.prototype.toString.call(obj) === '[object Array]';
+	var str = Object.prototype.toString.call(obj);
+	return str === '[object Array]' || str === '[object Array Iterator]';
 };
 
 /**

@@ -1,8 +1,11 @@
 /**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ *
  * Dark blue theme for Highcharts JS
  * @author Torstein Honsi
  */
-
 'use strict';
 import Highcharts from '../parts/Globals.js';
 Highcharts.theme = {

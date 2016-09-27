@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -44,7 +49,7 @@ H.Color.prototype = {
 
 	// Collection of named colors. Can be extended from the outside by adding colors
 	// to Highcharts.Color.prototype.names.
-	names: { // docs: Describe how it can be extended
+	names: {
 		white: '#ffffff',
 		black: '#000000'
 	},

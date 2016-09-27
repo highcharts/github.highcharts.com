@@ -1,3 +1,8 @@
+/**
+ * (c) 2010-2016 Torstein Honsi
+ *
+ * License: www.highcharts.com/license
+ */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -269,7 +274,12 @@ seriesType('column', 'line', {
 
 			// Register shape type and arguments to be used in drawPoints
 			point.shapeType = 'rect';
-			point.shapeArgs = series.crispCol(barX, barY, barW, barH);
+			point.shapeArgs = series.crispCol.apply(
+				series,
+				point.isNull ? 
+					[point.plotX, yAxis.len / 2, 0, 0] : // #3169, drilldown from null must have a position to work from
+					[barX, barY, barW, barH]
+			);
 		});
 
 	},
@@ -306,11 +316,10 @@ seriesType('column', 'line', {
 			zone,
 			brightness;
 		
+		// Handle zone colors
 		if (point && this.zones.length) {
 			zone = point.getZone();
-			if (zone && zone.color) {
-				fill = zone.color;
-			}
+			fill = (zone && zone.color) || point.options.color || this.color; // When zones are present, don't use point.color (#4267)
 		}
 
 		// Select or hover states
