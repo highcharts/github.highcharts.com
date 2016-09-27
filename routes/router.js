@@ -90,9 +90,11 @@ const serveDownloadFile = (jsonParts, compile) => {
 		const parts = JSON.parse(jsonParts);
 		const importFolder = '../../source/download/js/';
 		const sourceFolder = './source/download/js/';
-		const version = '5.0.0-custom'; // @todo Improve logic for versioning.
+		const version = '5.0.0 custom build'; // @todo Improve logic for versioning.
 		let outputFile = 'custom.src.js';
-		let imports = ['import Highcharts from \'' + importFolder + 'parts/Globals.js\';'];
+		let imports = ['/**', ' * @license @product.name@ JS v@product.version@ (@product.date@)', ' *', ' * (c) 2009-2016 Torstein Honsi', ' *', ' * License: www.highcharts.com/license', ' */'];
+		imports.push('\'use strict\';');
+		imports.push('import Highcharts from \'' + importFolder + 'parts/Globals.js\';');
 		imports = imports.concat(parts.reduce((arr, obj) => {
 			let path = obj.baseUrl + '/' + obj.name + '.js'
 			if (U.exists(sourceFolder + path)) {
@@ -100,8 +102,8 @@ const serveDownloadFile = (jsonParts, compile) => {
 			}
 			return arr;
 		}, []));
-		imports.push('exports Highcharts;\n\r');
-		U.writeFile(tmpFolder + outputFile, imports.join('\n\r'));
+		imports.push('export default Highcharts;\r\n');
+		U.writeFile(tmpFolder + outputFile, imports.join('\r\n'));
 		build({
 			base: tmpFolder,
 			jsBase: sourceFolder,
