@@ -23,20 +23,15 @@ const handleError = (err, res) => {
 };
 
 const handleResult = (result, res) => {
-	let promise;
-	if (result.file) {
-		res.sendFile(result.file, () => {
-			if (U.exists(tmpFolder)) {
-				promise = U.removeDirectory(tmpFolder);
-			}
-		});
-	} else {
-		res.status(result.status).send(result.message);
-		if (U.exists(tmpFolder)) {
-			promise = U.removeDirectory(tmpFolder);
+	return new Promise((resolve, reject) => {
+		if (result.file) {
+			res.sendFile(result.file, (err) => (err ? reject(err) : resolve()));
+		} else {
+			res.status(result.status).send(result.message);
+			resolve();
 		}
-	}
-	return promise;
+	})
+	.then(() => (U.exists(tmpFolder) ? U.removeDirectory(tmpFolder) : false))
 };
 
 const serveStaticFile = (repositoryURL, requestURL, res) => {
@@ -75,7 +70,7 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 					fileOptions: fileOptions
 				});
 				obj = {
-					file: U.cleanPath(__dirname + '/../' + outputFolder + file),
+					file: U.cleanPath(__dirname + '/../' + outputFolder + (type === 'css' ? 'js/' : '') + file),
 					status: 200
 				}
 			}
