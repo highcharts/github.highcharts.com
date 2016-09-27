@@ -11,7 +11,7 @@ const compile = (path) => {
     const outputPath = path.replace('.src.js', '.js');
     const src = U.getFile(path);
     const out = closureCompiler.compile({
-        compilationLevel: 'ADVANCED',
+        compilationLevel: 'SIMPLE_OPTIMIZATIONS',
         jsCode: [{
             src: src
         }],
