@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
-  "dependencies": {},
-  "devDependencies": {
-    "eslint": "^3.4.0",
+  "dependencies": {
     "express": "^4.14.0"
+  },
+  "devDependencies": {
+    "eslint": "^3.4.0"
   },
   "scripts": {
     "start": "node app.js",
