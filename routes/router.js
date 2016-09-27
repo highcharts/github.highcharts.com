@@ -86,10 +86,12 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 
 const serveDownloadFile = (jsonParts, compile) => {
 	return new Promise((resolve, reject) => {
+		const C = require('../helper/compiler.js');
 		const parts = JSON.parse(jsonParts);
 		const importFolder = '../../source/download/js/';
 		const sourceFolder = './source/download/js/';
 		const version = '5.0.0-custom'; // @todo Improve logic for versioning.
+		let outputFile = 'custom.src.js';
 		let imports = ['import Highcharts from \'' + importFolder + 'parts/Globals.js\';'];
 		imports = imports.concat(parts.reduce((arr, obj) => {
 			let path = obj.baseUrl + '/' + obj.name + '.js'
@@ -99,21 +101,23 @@ const serveDownloadFile = (jsonParts, compile) => {
 			return arr;
 		}, []));
 		imports.push('exports Highcharts;\n\r');
-		U.writeFile(tmpFolder + 'custom.js', imports.join('\n\r'));
+		U.writeFile(tmpFolder + outputFile, imports.join('\n\r'));
 		build({
 			base: tmpFolder,
 			jsBase: sourceFolder,
 			output: outputFolder,
-			files: ['custom.js'],
+			files: [outputFile],
 			type: 'classic',
 			version: version
 		});
-		if (U.exists(outputFolder + 'custom.js')) {
-			resolve({
-				file: U.cleanPath(__dirname + '/../' + outputFolder + 'custom.js')
-			})
+		if (compile) {
+			C.compile(outputFolder + outputFile);
+			outputFile = 'custom.js';
+		}
+		if (U.exists(outputFolder + outputFile)) {
+			resolve({ file: U.cleanPath(__dirname + '/../' + outputFolder + outputFile) })
 		} else {
-			reject('Could not find the compiled file. Path: ' + outputFolder + 'custom.js');
+			reject('Could not find the compiled file. Path: ' + outputFolder + outputFile);
 		}
 	});
 };

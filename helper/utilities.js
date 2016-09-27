@@ -29,6 +29,11 @@ const exists = path => {
     return exists;
 };
 
+const getFile = path => {
+    const fs = require('fs');
+    return (exists(path) ? fs.readFileSync(path, 'utf8') : null);
+};
+
 /**
  * Gets directory path from a file path
  * @param  {string} path File path
@@ -151,6 +156,7 @@ module.exports = {
     debug,
     exists,
     folder,
+    getFile,
     getFilesInFolder,
     randomString,
     removeDirectory,
