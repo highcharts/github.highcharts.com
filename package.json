@@ -4,7 +4,8 @@
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
   "dependencies": {
-    "express": "^4.14.0"
+    "express": "^4.14.0",
+    "js-beautify": "^1.6.4"
   },
   "devDependencies": {
     "eslint": "^3.4.0"
