@@ -48,8 +48,8 @@ seriesType('map', 'scatter', {
 	allAreas: true,
 
 	animation: false, // makes the complex shapes slow
-	nullColor: '${palette.nullPointColor}',
-	borderColor: '${palette.mapStroke}',
+	nullColor: '${palette.neutralColor3}',
+	borderColor: '${palette.neutralColor20}',
 	borderWidth: 1,
 	marker: null,
 	stickyTracking: false,
@@ -78,7 +78,7 @@ seriesType('map', 'scatter', {
 			halo: null
 		},
 		select: {
-			color: '${palette.pointSelectFill}'
+			color: '${palette.neutralColor20}'
 		}
 	}
 
@@ -255,7 +255,7 @@ seriesType('map', 'scatter', {
 
 		// Collect mapData from chart options if not defined on series
 		if (!mapData && globalMapData) {
-			mapData = typeof globalMapData === 'string' ? Highcharts.maps[globalMapData] : globalMapData;
+			mapData = typeof globalMapData === 'string' ? H.maps[globalMapData] : globalMapData;
 		}
 
 		if (joinByNull) {
@@ -298,7 +298,7 @@ seriesType('map', 'scatter', {
 		this.getBox(data);
 
 		// Pick up transform definitions for chart
-		this.chart.mapTransforms = mapTransforms = chartOptions && chartOptions.mapTransforms || mapData && mapData['hc-transform'] || mapTransforms; // docs
+		this.chart.mapTransforms = mapTransforms = chartOptions && chartOptions.mapTransforms || mapData && mapData['hc-transform'] || mapTransforms;
 
 		// Cache cos/sin of transform rotation angle
 		if (mapTransforms) {
@@ -550,7 +550,12 @@ seriesType('map', 'scatter', {
 		// setAttribute directly, because the stroke-widthSetter method expects a stroke color also to be
 		// set.
 		if (!supportsVectorEffect) {
-			series.group.element.setAttribute('stroke-width', series.options[series.pointAttrToOptions['stroke-width']] / (scaleX || 1));
+			series.group.element.setAttribute(
+				'stroke-width',
+				series.options[
+					(series.pointAttrToOptions && series.pointAttrToOptions['stroke-width']) || 'borderWidth'
+				] / (scaleX || 1)
+			);
 		}
 
 		this.drawMapDataLabels();

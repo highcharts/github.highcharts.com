@@ -269,7 +269,7 @@ Legend.prototype = {
 	setText: function (item) {
 		var options = this.options;
 		item.legendItem.attr({
-			text: options.labelFormat ? Highcharts.format(options.labelFormat, item) : options.labelFormatter.call(item)
+			text: options.labelFormat ? H.format(options.labelFormat, item) : options.labelFormatter.call(item)
 		});
 	},
 
@@ -810,14 +810,17 @@ H.LegendSymbolMixin = {
 	 * @param {Object} item The series (this) or point
 	 */
 	drawRectangle: function (legend, item) {
-		var symbolHeight = legend.options.symbolHeight || legend.fontMetrics.f;
+		var options = legend.options,
+			symbolHeight = options.symbolHeight || legend.fontMetrics.f,
+			square = options.squareSymbol,
+			symbolWidth = square ? symbolHeight : legend.symbolWidth; // docs: square
 
 		item.legendSymbol = this.chart.renderer.rect(
-			0,
+			square ? (legend.symbolWidth - symbolHeight) / 2 : 0,
 			legend.baseline - symbolHeight + 1, // #3988
-			legend.symbolWidth,
+			symbolWidth,
 			symbolHeight,
-			legend.options.symbolRadius || 0
+			pick(legend.options.symbolRadius, symbolHeight / 2) // docs: new default
 		)
 		.addClass('highcharts-point')
 		.attr({
