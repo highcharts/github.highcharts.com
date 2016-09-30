@@ -69,6 +69,7 @@ const downloadJSFolder = (output, url) => {
         'js/masters/highcharts.src.js',
         'js/masters/highmaps.src.js',
         'js/masters/highstock.src.js',
+        'js/masters/modules/accessibility.src.js',
         'js/masters/modules/annotations.src.js',
         'js/masters/modules/boost.src.js',
         'js/masters/modules/broken-axis.src.js',
