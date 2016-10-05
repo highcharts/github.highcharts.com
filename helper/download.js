@@ -92,6 +92,8 @@ const downloadJSFolder = (output, url) => {
         'js/masters/modules/overlapping-datalabels.src.js',
         'js/masters/modules/series-label.src.js',
         'js/masters/modules/solid-gauge.src.js',
+        'js/masters/modules/wip.grid-axis.src.js',
+        'js/masters/modules/wip.xrange-series.src.js',
         'js/masters/modules/treemap.src.js',
         'js/modules/accessibility.src.js',
         'js/modules/annotations.src.js',
