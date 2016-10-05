@@ -10,83 +10,19 @@ const getFileOptions = () => {
 		'parts-more': 'parts-more' + DS + '+\.js$'
 	};
 	// @todo Shorten this logic and make it more dynamic
-	return {
-		'modules/accessibility.src.js': {
+	let fileOptions = ['accessibility', 'annotations', 'boost', 'broken-axis',
+	'canvasrenderer.experimental', 'canvgrenderer-extended', 'data', 'drilldown',
+	'exporting', 'funnel', 'heatmap', 'map', 'map-parser', 'no-data-to-display', 
+	'offline-exporting', 'overlapping-datalabels', 'series-label', 'solid-gauge',
+	'treemap', 'wip.grid-axis', 'wip.xrange-series', 'highcharts-more', 'highcharts-3d'].reduce((obj, file) => {
+		obj['modules/' + file + '.src.js'] = {
 			exclude: new RegExp(folders.parts),
 			umd: false
-		},
-		'modules/annotations.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/boost.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/broken-axis.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/canvasrenderer.experimental.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/canvgrenderer-extended.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/data.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/drilldown.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/exporting.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/funnel.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/heatmap.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/map.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/map-parser.src.js': {
-			exclude: new RegExp([folders.parts, 'data\.src\.js$'].join('|')),
-			umd: false
-		},
-		'modules/no-data-to-display.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/offline-exporting.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/overlapping-datalabels.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/series-label.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
-		'modules/solid-gauge.src.js': {
-			exclude: new RegExp([folders.parts, 'GaugeSeries\.js$'].join('|')),
-			umd: false
-		},
-		'modules/treemap.src.js': {
-			exclude: new RegExp(folders.parts),
-			umd: false
-		},
+		};
+		return obj;
+	}, {});
+	fileOptions['modules/solid-gauge.src.js'].exclude = new RegExp([folders.parts, 'GaugeSeries\.js$'].join('|'));
+	Object.assign(fileOptions, {
 		'highcharts-more.src.js': {
 			exclude: new RegExp(folders.parts),
 			umd: false
@@ -95,7 +31,8 @@ const getFileOptions = () => {
 			exclude: new RegExp(folders.parts),
 			umd: false
 		}
-	};
+	});
+	return fileOptions;
 };
 
 /**
