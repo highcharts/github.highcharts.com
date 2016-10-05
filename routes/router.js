@@ -9,6 +9,14 @@ const tmpFolder = './tmp/' + U.randomString(8) + '/';
 const outputFolder = tmpFolder + 'output/' ;
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
 const fileOptions = I.getFileOptions();
+
+/**
+ * Handle any errors that is catched in the routers.
+ * Respond with a proper message to the requester.
+ * @param  {Error|string} err Can either be an Error object
+ * @param  {object} res Express response object.
+ * @return {undefined}
+ */
 const handleError = (err, res) => {
 	const date = new Date();
 	const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
@@ -22,6 +30,13 @@ const handleError = (err, res) => {
 		.send('Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.');
 };
 
+/**
+ * Handle result after processing the request.
+ * Respond with a proper message to the requester.
+ * @param  {object} result Object containing information of the result of the request.
+ * @param  {object} res Express response object.
+ * @return {Promise} Returns a promise which resolves after response is sent, and temp folder is deleted.
+ */
 const handleResult = (result, res) => {
 	return new Promise((resolve, reject) => {
 		if (result.file) {
@@ -34,6 +49,13 @@ const handleResult = (result, res) => {
 	.then(() => (U.exists(tmpFolder) ? U.removeDirectory(tmpFolder) : false))
 };
 
+/**
+ * Used to handle a request for a static file.
+ * @param  {string} repositoryURL Url to download the file.
+ * @param  {string} requestURL The url which the request was sent to.
+ * @param  {object} res Express response object.
+ * @return {Promise} Returns a promise which resolves after file is downloaded.
+ */
 const serveStaticFile = (repositoryURL, requestURL, res) => {
 	const branch = I.getBranch(requestURL);
 	const file = I.getFile(branch, 'classic', requestURL);
@@ -50,6 +72,13 @@ const serveStaticFile = (repositoryURL, requestURL, res) => {
 	});
 }
 
+/**
+ * Used to handle requests for non-static files.
+ * @param  {string} repositoryURL Url to download the file.
+ * @param  {string} requestURL The url which the request was sent to.
+ * @param  {object} res Express response object.
+ * @return {Promise} Returns a promise which resolves after file is built.
+ */
 const serveBuildFile = (repositoryURL, requestURL, res) => {
 	const branch = I.getBranch(requestURL);
 	const type = I.getType(branch, requestURL);
@@ -79,6 +108,12 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 		.catch(err => handleError(err, res));
 }
 
+/**
+ * Used to handle request from the Highcharts Download Builder.
+ * @param  {string} jsonParts Requested part files.
+ * @param  {boolean} compile Wether or not to run the Closure Compiler on result.
+ * @return {Promise} Returns a promise which resolves after file is built.
+ */
 const serveDownloadFile = (jsonParts, compile) => {
 	return new Promise((resolve, reject) => {
 		const C = require('../helper/compiler.js');
@@ -119,12 +154,20 @@ const serveDownloadFile = (jsonParts, compile) => {
 	});
 };
 
-
+/**
+ * Requests to /favicon.ico
+ * Always returns the icon file.
+ */
 router.get('/favicon.ico', (req, res) => {
 	const pathIndex = U.cleanPath(__dirname + '/../assets/favicon.ico');
 	res.sendFile(pathIndex);  
 });
 
+/**
+ * Requests to /
+ * When the parameter parts is sent, then it is a request from the Download Builder.
+ * Otherwise respond with the homepage.
+ */
 router.get('/', (req, res) => {
 	const parts = req.query.parts;
 	const compile = req.query.compile === 'true';
@@ -133,6 +176,10 @@ router.get('/', (req, res) => {
 		.catch(err => handleError(err, res));
 });
 
+/**
+ * Everything not matching the previous routers.
+ * Requests for distribution file, built with part files from github.
+ */
 router.get('*', (req, res) => {
 	const branch = I.getBranch(req.url);
 	D.urlExists(downloadURL + branch + '/assembler/build.js')
