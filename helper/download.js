@@ -111,6 +111,8 @@ const downloadJSFolder = (output, url) => {
         'js/modules/series-label.src.js',
         'js/modules/solid-gauge.src.js',
         'js/modules/treemap.src.js',
+        'js/modules/wip.grid-axis.src.js',
+        'js/modules/wip.xrange-series.src.js',
         'js/parts/AreaSeries.js',
         'js/parts/AreaSplineSeries.js',
         'js/parts/Axis.js',
