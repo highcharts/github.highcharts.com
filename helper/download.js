@@ -1,6 +1,11 @@
 'use strict';
 const U = require('./utilities.js');
 
+/**
+ * Check if a url returns 200.
+ * @param  {string} url Url to check
+ * @return {Promise} Returns a Promise which resolves when the a response from the url is given. Returns true if statusCode is 200, otherwise false.
+ */
 const urlExists = url => {
     const https = require('https');
     return new Promise(resolve => {
@@ -223,9 +228,9 @@ const downloadAssembler = (output, url) => {
 };
 
 module.exports = {
-    downloadAssembler: downloadAssembler,
-    downloadFile: downloadFile,
-    downloadFiles: downloadFiles,
-    downloadJSFolder: downloadJSFolder,
+    downloadAssembler,
+    downloadFile,
+    downloadFiles,
+    downloadJSFolder,
     urlExists
 };
