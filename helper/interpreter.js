@@ -10,11 +10,32 @@ const getFileOptions = () => {
 		'parts-more': 'parts-more' + DS + '+\.js$'
 	};
 	// @todo Shorten this logic and make it more dynamic
-	let fileOptions = ['accessibility', 'annotations', 'boost', 'broken-axis',
-	'canvasrenderer.experimental', 'canvgrenderer-extended', 'data', 'drilldown',
-	'exporting', 'funnel', 'heatmap', 'map', 'map-parser', 'no-data-to-display', 
-	'offline-exporting', 'overlapping-datalabels', 'series-label', 'solid-gauge',
-	'treemap', 'wip.grid-axis', 'wip.xrange-series', 'highcharts-more', 'highcharts-3d'].reduce((obj, file) => {
+	let fileOptions = [
+		'accessibility',
+		'annotations',
+		'boost',
+		'broken-axis',
+		'canvasrenderer.experimental',
+		'canvgrenderer-extended',
+		'data',
+		'drilldown',
+		'exporting',
+		'funnel',
+		'gantt',
+		'grid-axis',
+		'highcharts-3d',
+		'highcharts-more',
+		'heatmap',
+		'map',
+		'map-parser',
+		'no-data-to-display',
+		'offline-exporting',
+		'overlapping-datalabels',
+		'series-label',
+		'solid-gauge',
+		'treemap',
+		'xrange-series'
+	].reduce((obj, file) => {
 		obj['modules/' + file + '.src.js'] = {
 			exclude: new RegExp(folders.parts),
 			umd: false
