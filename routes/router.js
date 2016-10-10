@@ -155,6 +155,13 @@ const serveDownloadFile = (jsonParts, compile) => {
 };
 
 /**
+ * Health check url
+ */
+router.get('/health', (req, res) => {
+	res.sendStatus(200);
+});
+
+/**
  * Requests to /favicon.ico
  * Always returns the icon file.
  */
