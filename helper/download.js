@@ -1,6 +1,4 @@
 'use strict';
-const U = require('./utilities.js');
-
 /**
  * Check if a url returns 200.
  * @param  {string} url Url to check
@@ -21,6 +19,7 @@ const urlExists = url => {
  * @return {Promise} Returns a promise when resolved contains the status code and path to the file. 
  */
 const downloadFile = (base, path, output) => {
+    const U = require('./utilities.js');
     return new Promise((resolve) => {
         const fs = require('fs');
         const https = require('https');
