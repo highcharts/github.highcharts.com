@@ -1,5 +1,6 @@
 # custom ignores
 tmp
+config.json
 
 # Logs
 logs

@@ -83,7 +83,7 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 	const branch = I.getBranch(requestURL);
 	const type = I.getType(branch, requestURL);
 	const file = I.getFile(branch, type, requestURL);
-	return D.downloadJSFolder(tmpFolder, repositoryURL + branch)
+	return D.downloadJSFolder(tmpFolder, repositoryURL, branch)
 		.then(() => {
 			let obj = {
 				status: 404
