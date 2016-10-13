@@ -41,9 +41,9 @@ Do deployment of new version.
 ## File Structure
 ### Folders
 ```
+- app
 - assembler
 - assets
-- helper
 - logs
 - node_modules
 - source
@@ -51,16 +51,14 @@ Do deployment of new version.
 - views
 ```
 
+#### app
+Contains all the application JS code.
+
 #### assembler
 All the files of the Highcharts assembler, copied directly from the Highcharts repository.
 
 #### assets
 Contains assets like CSS, images, etc.
-
-#### helper
-Contains all the application JS code.
-
-`@todo` Rename folder to `app`
 
 #### logs
 Temporary folder where error logs are written to.
