@@ -8,7 +8,6 @@ const build = require('../assembler/build.js').build;
 const tmpFolder = './tmp/' + U.randomString(8) + '/';
 const outputFolder = tmpFolder + 'output/' ;
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
-const fileOptions = I.getFileOptions();
 
 /**
  * Handle any errors that is catched in the routers.
@@ -59,7 +58,7 @@ const handleResult = (result, res) => {
 const serveStaticFile = (repositoryURL, requestURL, res) => {
 	const branch = I.getBranch(requestURL);
 	const file = I.getFile(branch, 'classic', requestURL);
-	return new Promise(resolve => {
+	return new Promise((resolve, reject) => {
 		D.downloadFile(repositoryURL + branch + '/js/', file, outputFolder)
 			.then(result => {
 				resolve({
@@ -68,7 +67,7 @@ const serveStaticFile = (repositoryURL, requestURL, res) => {
 					message: ((result.status === 200) ? false : 'Could not find file ' + branch + '/' + file)
 				})
 			})
-			.catch(err => handleError(err, res))
+			.catch(reject)
 	});
 }
 
@@ -89,6 +88,7 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 				status: 404
 			};
 			if (U.exists(tmpFolder + 'js/masters/' + file)) {
+				const fileOptions = I.getFileOptions(tmpFolder + 'js/masters/');
 				build({
 					base: tmpFolder + 'js/masters/',
 					output: outputFolder,
@@ -104,8 +104,7 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 				}
 			}
 			return obj;
-		})
-		.catch(err => handleError(err, res));
+		});
 }
 
 /**
