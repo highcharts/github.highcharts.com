@@ -1,10 +1,11 @@
 {
   "name": "github.highcharts.com",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
   "dependencies": {
     "express": "^4.14.0",
+    "forever": "^0.15.2",
     "google-closure-compiler-js": "^20160916.0.0",
     "js-beautify": "^1.6.4"
   },
@@ -12,7 +13,8 @@
     "eslint": "^3.4.0"
   },
   "scripts": {
-    "start": "node app.js",
+    "start": "node node_modules\\forever\\bin\\forever start app.js",
+    "stop": "node node_modules\\forever\\bin\\forever stop app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/eslint \"**/*.js\"",
     "update-assembler": "node ./helper/update-assembler.js",

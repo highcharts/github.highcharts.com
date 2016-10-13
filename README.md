@@ -10,9 +10,12 @@ Clone repository and put the repository folder in the same folder which the High
 Open a CLI and run the command: `npm install`
 
 ## Run the application
-Open a CLI and run the command: `node app.js`
+Open a CLI and run the command: `npm run start`
 
-Open `http://localhost:8085` in a browser and you should see the index page of the app.
+Open `http://localhost:80` in a browser and you should see the index page of the app.
+You can edit which port the application listens to, by setting the attribute `port` in `config.json`.
+
+To stop the application from running, open a CLI and run `npm run stop`.
 
 ## Update the Highcharts version used in the Download Builder
 Open a CLI and run the following command:
