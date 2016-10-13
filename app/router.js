@@ -1,3 +1,7 @@
+/**
+ * Setup of url routing, takes care of serving any result, and handling of errors.
+ * @author Jon Arild Nygard
+ */
 'use strict';
 const express = require('express');
 const router = express.Router();

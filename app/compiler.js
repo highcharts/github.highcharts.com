@@ -1,3 +1,8 @@
+/**
+ * Contains all processes related to compiling of files.
+ * @author Jon Arild Nygard
+ * @todo Add license
+ */
 'use strict';
 /**
  * Compile a single file.

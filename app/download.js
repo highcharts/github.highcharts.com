@@ -1,3 +1,8 @@
+/**
+ * Contains all procedures related to requests and downloading of files.
+ * @author Jon Arild Nygard
+ * @todo Add license
+ */
 'use strict';
 /**
  * Check if a url returns 200.

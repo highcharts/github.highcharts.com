@@ -1,3 +1,10 @@
+/**
+ * Utility script to help interacting with the file system on the server.
+ * @author Jon Arild Nygard
+ * @todo Add license
+ * @todo Move debug and randomString to a seperate file.
+ * @todo Give script a more relevant name. E.g filesystem.js.
+ */
 'use strict';
 const getFilesInFolder = (base, path, includeSubfolders) => {
     const fs = require('fs');

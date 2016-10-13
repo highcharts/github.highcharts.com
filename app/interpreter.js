@@ -1,3 +1,9 @@
+/**
+ * Handles all procedures with interpreting a request from the user.
+ * Looks at the request url and finds out which version of and file from the Highcharts library to return.
+ * @author Jon Arild Nygard
+ * @todo Add license
+ */
 'use strict';
 /**
  * Returns fileOptions for the build script
