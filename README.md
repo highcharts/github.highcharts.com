@@ -43,7 +43,6 @@ Do deployment of new version.
 - helper
 - logs
 - node_modules
-- routes
 - source
 - tmp
 - views
@@ -70,11 +69,6 @@ Important: Shall not be committed to Github, nor deployed.
 Where the Node modules are installed.
 
 Important: Shall not be committed to Github, nor deployed.
-
-#### routes
-Where the code of the routers are located.
-
-`@todo` Move `router.js` to the `helper` folder, and then delete the empty `routes` folder.
 
 #### source
 Where the source files of the Download Builder is located.

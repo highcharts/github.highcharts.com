@@ -1,9 +1,9 @@
 'use strict';
 const express = require('express');
 const router = express.Router();
-const D = require('../helper/download.js');
-const I = require('../helper/interpreter.js');
-const U = require('../helper/utilities.js');
+const D = require('./download.js');
+const I = require('./interpreter.js');
+const U = require('./utilities.js');
 const build = require('../assembler/build.js').build;
 const tmpFolder = './tmp/' + U.randomString(8) + '/';
 const outputFolder = tmpFolder + 'output/' ;
@@ -116,7 +116,7 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
  */
 const serveDownloadFile = (jsonParts, compile) => {
 	return new Promise((resolve, reject) => {
-		const C = require('../helper/compiler.js');
+		const C = require('./compiler.js');
 		const parts = JSON.parse(jsonParts);
 		const importFolder = '../../source/download/js/';
 		const sourceFolder = './source/download/js/';

@@ -1,6 +1,6 @@
 'use strict';
 const express = require('express');
-const router = require('./routes/router.js');
+const router = require('./helper/router.js');
 const app = express();
 const port = process.env.PORT || 80;
 
