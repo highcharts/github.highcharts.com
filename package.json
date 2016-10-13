@@ -15,6 +15,7 @@
   "scripts": {
     "start": "node node_modules\\forever\\bin\\forever start server.js",
     "stop": "node node_modules\\forever\\bin\\forever stop server.js",
+    "restart": "node node_modules\\forever\\bin\\forever restart server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/eslint \"**/*.js\"",
     "update-assembler": "node ./app/update-assembler.js",
