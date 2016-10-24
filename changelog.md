@@ -8,3 +8,4 @@
 - Updated `getFileOptions` to dynamically know what fileOptions should be.
 
 ## 1.2.0 [WIP]
+- Configured [forever](https://www.npmjs.com/package/forever) log files. 
