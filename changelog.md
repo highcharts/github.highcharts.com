@@ -9,3 +9,4 @@
 
 ## 1.2.0 [WIP]
 - Configured [forever](https://www.npmjs.com/package/forever) log files. 
+- Keep already built Highcharts files for improved performance. 

@@ -9,8 +9,7 @@ const D = require('./download.js');
 const I = require('./interpreter.js');
 const U = require('./utilities.js');
 const build = require('../assembler/build.js').build;
-const tmpFolder = './tmp/' + U.randomString(8) + '/';
-const outputFolder = tmpFolder + 'output/' ;
+const tmpFolder = './tmp/';
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
 
 /**
@@ -49,29 +48,32 @@ const handleResult = (result, res) => {
 			resolve();
 		}
 	})
-	.then(() => (U.exists(tmpFolder) ? U.removeDirectory(tmpFolder) : false))
+	.then(() => (result.delete && result.file) ? U.removeFile(result.file) : '');
 };
 
 /**
  * Used to handle a request for a static file.
  * @param  {string} repositoryURL Url to download the file.
  * @param  {string} requestURL The url which the request was sent to.
- * @param  {object} res Express response object.
  * @return {Promise} Returns a promise which resolves after file is downloaded.
  */
-const serveStaticFile = (repositoryURL, requestURL, res) => {
+const serveStaticFile = (repositoryURL, requestURL) => {
 	const branch = I.getBranch(requestURL);
 	const file = I.getFile(branch, 'classic', requestURL);
+	const folder = tmpFolder + branch + '/';
+	const outputFolder = folder + 'output/';
 	return new Promise((resolve, reject) => {
-		D.downloadFile(repositoryURL + branch + '/js/', file, outputFolder)
-			.then(result => {
-				resolve({
-					file: ((result.status === 200) ? U.cleanPath(__dirname + '/../' + outputFolder + file) : false),
-					status:((result.status === 200) ? 200 : 404),
-					message: ((result.status === 200) ? false : 'Could not find file ' + branch + '/' + file)
-				})
+		(U.exists(outputFolder + file) ? 
+			Promise.resolve({ status: 200 }) : 
+			D.downloadFile(repositoryURL + branch + '/js/', file, outputFolder)
+		).then(result => {
+			resolve({
+				file: ((result.status === 200) ? U.cleanPath(__dirname + '/../' + outputFolder + file) : false),
+				status:((result.status === 200) ? 200 : 404),
+				message: ((result.status === 200) ? false : 'Could not find file ' + branch + '/' + file)
 			})
-			.catch(reject)
+		})
+		.catch(reject)
 	});
 }
 
@@ -79,22 +81,25 @@ const serveStaticFile = (repositoryURL, requestURL, res) => {
  * Used to handle requests for non-static files.
  * @param  {string} repositoryURL Url to download the file.
  * @param  {string} requestURL The url which the request was sent to.
- * @param  {object} res Express response object.
  * @return {Promise} Returns a promise which resolves after file is built.
  */
-const serveBuildFile = (repositoryURL, requestURL, res) => {
+const serveBuildFile = (repositoryURL, requestURL) => {
 	const branch = I.getBranch(requestURL);
 	const type = I.getType(branch, requestURL);
 	const file = I.getFile(branch, type, requestURL);
-	return D.downloadJSFolder(tmpFolder, repositoryURL, branch)
+	const folder = tmpFolder + branch + '/';
+	const outputFolder = folder + 'output/';
+	return (U.exists(folder + 'js/masters/') ? Promise.resolve() : D.downloadJSFolder(folder, repositoryURL, branch))
 		.then(() => {
 			let obj = {
-				status: 404
+				file: U.cleanPath(__dirname + '/../' + outputFolder + (type === 'css' ? 'js/' : '') + file),
+				status: 200
 			};
-			if (U.exists(tmpFolder + 'js/masters/' + file)) {
-				const fileOptions = I.getFileOptions(tmpFolder + 'js/masters/');
+			if (!U.exists(outputFolder + (type === 'css' ? 'js/' : '') + file) &&
+				U.exists(folder + 'js/masters/' + file)) {
+				const fileOptions = I.getFileOptions(folder + 'js/masters/');
 				build({
-					base: tmpFolder + 'js/masters/',
+					base: folder + 'js/masters/',
 					output: outputFolder,
 					files: [file],
 					pretty: false,
@@ -102,13 +107,14 @@ const serveBuildFile = (repositoryURL, requestURL, res) => {
 					version: branch,
 					fileOptions: fileOptions
 				});
+			} else {
 				obj = {
-					file: U.cleanPath(__dirname + '/../' + outputFolder + (type === 'css' ? 'js/' : '') + file),
-					status: 200
-				}
+					status: 404
+				};
 			}
 			return obj;
-		});
+		})
+		.catch(Promise.reject);
 }
 
 /**
@@ -124,6 +130,8 @@ const serveDownloadFile = (jsonParts, compile) => {
 		const importFolder = '../../source/download/js/';
 		const sourceFolder = './source/download/js/';
 		const version = '5.0.0 custom build'; // @todo Improve logic for versioning.
+		const folder = tmpFolder + 'download/';
+		const outputFolder = folder + 'output/'; 
 		let outputFile = 'custom.src.js';
 		let imports = ['/**', ' * @license @product.name@ JS v@product.version@ (@product.date@)', ' *', ' * (c) 2009-2016 Torstein Honsi', ' *', ' * License: www.highcharts.com/license', ' */'];
 		imports.push('\'use strict\';');
@@ -136,9 +144,9 @@ const serveDownloadFile = (jsonParts, compile) => {
 			return arr;
 		}, []));
 		imports.push('export default Highcharts;\r\n');
-		U.writeFile(tmpFolder + outputFile, imports.join('\r\n'));
+		U.writeFile(folder + outputFile, imports.join('\r\n'));
 		build({
-			base: tmpFolder,
+			base: folder,
 			jsBase: sourceFolder,
 			output: outputFolder,
 			files: [outputFile],
@@ -150,7 +158,10 @@ const serveDownloadFile = (jsonParts, compile) => {
 			outputFile = 'custom.js';
 		}
 		if (U.exists(outputFolder + outputFile)) {
-			resolve({ file: U.cleanPath(__dirname + '/../' + outputFolder + outputFile) })
+			resolve({ 
+				file: U.cleanPath(__dirname + '/../' + outputFolder + outputFile),
+				delete: true
+			});
 		} else {
 			reject('Could not find the compiled file. Path: ' + outputFolder + outputFile);
 		}
@@ -193,7 +204,7 @@ router.get('/', (req, res) => {
 router.get('*', (req, res) => {
 	const branch = I.getBranch(req.url);
 	D.urlExists(downloadURL + branch + '/assembler/build.js')
-		.then(result => result ? serveBuildFile(downloadURL, req.url, res) : serveStaticFile(downloadURL, req.url, res))
+		.then(result => result ? serveBuildFile(downloadURL, req.url) : serveStaticFile(downloadURL, req.url))
 		.then(result => handleResult(result, res))
 		.catch(err => handleError(err, res));
 });
