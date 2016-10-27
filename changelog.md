@@ -13,3 +13,5 @@
 - Added functionality to validate a Webhook from Github.
 - Added /update which listens to push events from repository, and removes the stored source files.
 - On startup the server outputs which port it listens to.
+- Updated assembler files.
+- Updated source files used in download builder to v5.0.2.
