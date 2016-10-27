@@ -684,7 +684,12 @@ H.dateFormat = function (format, timestamp, capitalize) {
 	// do the replaces
 	for (key in replacements) {
 		while (format.indexOf('%' + key) !== -1) { // regex would do it in one line, but this is faster
-			format = format.replace('%' + key, typeof replacements[key] === 'function' ? replacements[key](timestamp) : replacements[key]);
+			format = format.replace(
+				'%' + key,
+				typeof replacements[key] === 'function' ?
+					replacements[key](timestamp) :
+					replacements[key]
+			);
 		}
 	}
 
@@ -1039,9 +1044,13 @@ H.getStyle = function (el, prop) {
 
 	// For width and height, return the actual inner pixel size (#4913)
 	if (prop === 'width') {
-		return Math.min(el.offsetWidth, el.scrollWidth) - H.getStyle(el, 'padding-left') - H.getStyle(el, 'padding-right');
+		return Math.min(el.offsetWidth, el.scrollWidth) -
+			H.getStyle(el, 'padding-left') -
+			H.getStyle(el, 'padding-right');
 	} else if (prop === 'height') {
-		return Math.min(el.offsetHeight, el.scrollHeight) - H.getStyle(el, 'padding-top') - H.getStyle(el, 'padding-bottom');
+		return Math.min(el.offsetHeight, el.scrollHeight) -
+			H.getStyle(el, 'padding-top') -
+			H.getStyle(el, 'padding-bottom');
 	}
 
 	// Otherwise, get the computed style
@@ -1356,23 +1365,23 @@ H.animate = function (el, params, opt) {
 H.seriesType = function (type, parent, options, props, pointProps) { // docs: add to API + extending Highcharts
 	var defaultOptions = H.getOptions(),
 		seriesTypes = H.seriesTypes;
-    
-    // Merge the options
-    defaultOptions.plotOptions[type] = H.merge(
-        defaultOptions.plotOptions[parent], 
-        options
-    );
-    
-    // Create the class
-    seriesTypes[type] = H.extendClass(seriesTypes[parent] || function () {}, props);
-    seriesTypes[type].prototype.type = type;
+	
+	// Merge the options
+	defaultOptions.plotOptions[type] = H.merge(
+		defaultOptions.plotOptions[parent], 
+		options
+	);
+	
+	// Create the class
+	seriesTypes[type] = H.extendClass(seriesTypes[parent] || function () {}, props);
+	seriesTypes[type].prototype.type = type;
 
-    // Create the point class if needed
-    if (pointProps) {
+	// Create the point class if needed
+	if (pointProps) {
 		seriesTypes[type].prototype.pointClass = H.extendClass(H.Point, pointProps);
-    }
+	}
 
-    return seriesTypes[type];
+	return seriesTypes[type];
 };
 
 /**

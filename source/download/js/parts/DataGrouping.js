@@ -9,22 +9,22 @@ import './Utilities.js';
 import './Axis.js';
 import './Series.js';
 import './Tooltip.js';
-	var arrayMax = H.arrayMax,
-		arrayMin = H.arrayMin,
-		Axis = H.Axis,
-		defaultPlotOptions = H.defaultPlotOptions,
-		defined = H.defined,
-		each = H.each,
-		error = H.error,
-		extend = H.extend,
-		format = H.format,
-		isNumber = H.isNumber,
-		merge = H.merge,
-		pick = H.pick,
-		Point = H.Point,
-		Series = H.Series,
-		Tooltip = H.Tooltip,
-		wrap = H.wrap;
+var arrayMax = H.arrayMax,
+	arrayMin = H.arrayMin,
+	Axis = H.Axis,
+	defaultPlotOptions = H.defaultPlotOptions,
+	defined = H.defined,
+	each = H.each,
+	error = H.error,
+	extend = H.extend,
+	format = H.format,
+	isNumber = H.isNumber,
+	merge = H.merge,
+	pick = H.pick,
+	Point = H.Point,
+	Series = H.Series,
+	Tooltip = H.Tooltip,
+	wrap = H.wrap;
 	
 /* ****************************************************************************
  * Start data grouping module												 *
@@ -298,7 +298,9 @@ seriesProto.processData = function () {
 		chart = series.chart,
 		options = series.options,
 		dataGroupingOptions = options.dataGrouping,
-		groupingEnabled = series.allowDG !== false && dataGroupingOptions && pick(dataGroupingOptions.enabled, chart.options._stock),
+		groupingEnabled = series.allowDG !== false && dataGroupingOptions &&
+			pick(dataGroupingOptions.enabled, chart.options._stock),
+		visible = series.visible || !chart.options.chart.ignoreHiddenSeries,
 		hasGroupedData,
 		skip;
 
@@ -308,7 +310,8 @@ seriesProto.processData = function () {
 	series.hasProcessed = true; // #2692
 
 	// skip if processData returns false or if grouping is disabled (in that order) or #5493
-	skip = baseProcessData.apply(series, arguments) === false || !groupingEnabled || !series.visible;
+	skip = baseProcessData.apply(series, arguments) === false ||
+		!groupingEnabled || !visible;
 	if (!skip) {
 		series.destroyGroupedData();
 

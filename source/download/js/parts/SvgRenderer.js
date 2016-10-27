@@ -7,41 +7,42 @@
 import H from './Globals.js';
 import './Utilities.js';
 import './Color.js';
-	var SVGElement,
-		SVGRenderer,
+var SVGElement,
+	SVGRenderer,
 
-		addEvent = H.addEvent,
-		animate = H.animate,
-		attr = H.attr,
-		charts = H.charts,
-		color = H.color,
-		css = H.css,
-		createElement = H.createElement,
-		defined = H.defined,
-		deg2rad = H.deg2rad,
-		destroyObjectProperties = H.destroyObjectProperties,
-		doc = H.doc,
-		each = H.each,
-		extend = H.extend,
-		erase = H.erase,
-		grep = H.grep,
-		hasTouch = H.hasTouch,
-		isArray = H.isArray,
-		isFirefox = H.isFirefox,
-		isMS = H.isMS,
-		isObject = H.isObject,
-		isString = H.isString,
-		isWebKit = H.isWebKit,
-		merge = H.merge,
-		noop = H.noop,
-		pick = H.pick,
-		pInt = H.pInt,
-		removeEvent = H.removeEvent,
-		splat = H.splat,
-		stop = H.stop,
-		svg = H.svg,
-		SVG_NS = H.SVG_NS,
-		win = H.win;
+	addEvent = H.addEvent,
+	animate = H.animate,
+	attr = H.attr,
+	charts = H.charts,
+	color = H.color,
+	css = H.css,
+	createElement = H.createElement,
+	defined = H.defined,
+	deg2rad = H.deg2rad,
+	destroyObjectProperties = H.destroyObjectProperties,
+	doc = H.doc,
+	each = H.each,
+	extend = H.extend,
+	erase = H.erase,
+	grep = H.grep,
+	hasTouch = H.hasTouch,
+	isArray = H.isArray,
+	isFirefox = H.isFirefox,
+	isMS = H.isMS,
+	isObject = H.isObject,
+	isString = H.isString,
+	isWebKit = H.isWebKit,
+	merge = H.merge,
+	noop = H.noop,
+	pick = H.pick,
+	pInt = H.pInt,
+	removeEvent = H.removeEvent,
+	splat = H.splat,
+	stop = H.stop,
+	svg = H.svg,
+	SVG_NS = H.SVG_NS,
+	symbolSizes = H.symbolSizes,
+	win = H.win;
 
 /**
  * A wrapper object for SVG elements
@@ -1219,6 +1220,10 @@ SVGElement.prototype = {
 		var convert = { left: 'start', center: 'middle', right: 'end' };
 		this.element.setAttribute('text-anchor', convert[value]);
 	},
+	opacitySetter: function (value, key, element) {		
+		this[key] = value;		
+		element.setAttribute(key, value);		
+	},
 	titleSetter: function (value) {
 		var titleNode = this.element.getElementsByTagName('title')[0];
 		if (!titleNode) {
@@ -1303,7 +1308,11 @@ SVGElement.prototype = {
 						// Insert before the first element with a higher zIndex
 						pInt(otherZIndex) > value ||
 						// If no zIndex given, insert before the first element with a zIndex
-						(!defined(value) && defined(otherZIndex))
+						(!defined(value) && defined(otherZIndex)) ||
+						// Negative zIndex versus no zIndex:
+						// On all levels except the highest. If the parent is <svg>,
+						// then we don't want to put items before <desc> or <defs>
+						(value < 0 && !defined(otherZIndex) && parentNode !== renderer.box)
 
 					)) {
 					parentNode.insertBefore(element, otherElement);
@@ -1329,11 +1338,6 @@ SVGElement.prototype.translateXSetter = SVGElement.prototype.translateYSetter =
 			this[key] = value;
 			this.doTransform = true;
 		};
-// These setters both set the key on the instance itself plus as an attribute
-SVGElement.prototype.opacitySetter = SVGElement.prototype.displaySetter = function (value, key, element) {
-	this[key] = value;
-	element.setAttribute(key, value);
-};
 
 /*= if (build.classic) { =*/
 // WebKit and Batik have problems with a stroke-width of zero, so in this case we remove the 
@@ -2210,8 +2214,7 @@ SVGRenderer.prototype = {
 			),
 			imageRegex = /^url\((.*?)\)$/,
 			imageSrc,
-			centerImage,
-			symbolSizes = {};
+			centerImage;
 
 		if (symbolFn) {
 			obj = this.path(path);
@@ -2242,10 +2245,17 @@ SVGRenderer.prototype = {
 			// Create the image synchronously, add attribs async
 			obj = this.image(imageSrc);
 
-			// The image width is not always the same as the symbol width. The image may be centered within the symbol,
-			// as is the case when image shapes are used as label backgrounds, for example in flags.
-			obj.imgwidth = pick(symbolSizes[imageSrc] && symbolSizes[imageSrc].width, options && options.width);
-			obj.imgheight = pick(symbolSizes[imageSrc] && symbolSizes[imageSrc].height, options && options.height);
+			// The image width is not always the same as the symbol width. The
+			// image may be centered within the symbol, as is the case when
+			// image shapes are used as label backgrounds, for example in flags.
+			obj.imgwidth = pick(
+				symbolSizes[imageSrc] && symbolSizes[imageSrc].width,
+				options && options.width
+			);
+			obj.imgheight = pick(
+				symbolSizes[imageSrc] && symbolSizes[imageSrc].height,
+				options && options.height
+			);
 			/**
 			 * Set the size and position
 			 */
@@ -2257,20 +2267,22 @@ SVGRenderer.prototype = {
 			};
 
 			/**
-			 * Width and height setters that take both the image's physical size and the label size into 
-			 * consideration, and translates the image to center within the label.
+			 * Width and height setters that take both the image's physical size
+			 * and the label size into consideration, and translates the image
+			 * to center within the label.
 			 */
 			each(['width', 'height'], function (key) {
 				obj[key + 'Setter'] = function (value, key) {
 					var attribs = {},
-						imgSize = this['img' + key];
+						imgSize = this['img' + key],
+						trans = key === 'width' ? 'translateX' : 'translateY';
 					this[key] = value;
 					if (defined(imgSize)) {
 						if (this.element) {
 							this.element.setAttribute(key, imgSize);
 						}
 						if (!this.alignByTranslate) {
-							attribs[key === 'width' ? 'translateX' : 'translateY'] = (this[key] - imgSize) / 2;
+							attribs[trans] = ((this[key] || 0) - imgSize) / 2;
 							this.attr(attribs);
 						}
 					}

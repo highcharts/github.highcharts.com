@@ -10,34 +10,34 @@ import './Options.js';
 import './Legend.js';
 import './Point.js';
 import './SvgRenderer.js';
-	var addEvent = H.addEvent,
-		animObject = H.animObject,
-		arrayMax = H.arrayMax,
-		arrayMin = H.arrayMin,
-		correctFloat = H.correctFloat,
-		Date = H.Date,
-		defaultOptions = H.defaultOptions,
-		defaultPlotOptions = H.defaultPlotOptions,
-		defined = H.defined,
-		each = H.each,
-		erase = H.erase,
-		error = H.error,
-		extend = H.extend,
-		fireEvent = H.fireEvent,
-		grep = H.grep,
-		isArray = H.isArray,
-		isNumber = H.isNumber,
-		isString = H.isString,
-		LegendSymbolMixin = H.LegendSymbolMixin, // @todo add as a requirement
-		merge = H.merge,
-		pick = H.pick,
-		Point = H.Point, // @todo  add as a requirement
-		removeEvent = H.removeEvent,
-		splat = H.splat,
-		stableSort = H.stableSort,
-		SVGElement = H.SVGElement,
-		syncTimeout = H.syncTimeout,
-		win = H.win;
+var addEvent = H.addEvent,
+	animObject = H.animObject,
+	arrayMax = H.arrayMax,
+	arrayMin = H.arrayMin,
+	correctFloat = H.correctFloat,
+	Date = H.Date,
+	defaultOptions = H.defaultOptions,
+	defaultPlotOptions = H.defaultPlotOptions,
+	defined = H.defined,
+	each = H.each,
+	erase = H.erase,
+	error = H.error,
+	extend = H.extend,
+	fireEvent = H.fireEvent,
+	grep = H.grep,
+	isArray = H.isArray,
+	isNumber = H.isNumber,
+	isString = H.isString,
+	LegendSymbolMixin = H.LegendSymbolMixin, // @todo add as a requirement
+	merge = H.merge,
+	pick = H.pick,
+	Point = H.Point, // @todo  add as a requirement
+	removeEvent = H.removeEvent,
+	splat = H.splat,
+	stableSort = H.stableSort,
+	SVGElement = H.SVGElement,
+	syncTimeout = H.syncTimeout,
+	win = H.win;
 
 /**
  * @classDescription The base function which all other series types inherit from. The data in the series is stored
@@ -88,6 +88,9 @@ H.Series = H.seriesType('line', null, { // base series options
 		radius: 4,
 		states: { // states for a single point
 			hover: {
+				animation: {
+					duration: 50
+				},
 				enabled: true,
 				radiusPlus: 2,
 				/*= if (build.classic) { =*/
@@ -123,7 +126,7 @@ H.Series = H.seriesType('line', null, { // base series options
 			fontSize: '11px',
 			fontWeight: 'bold',
 			color: 'contrast',
-			textShadow: '1px 1px contrast, -1px -1px contrast, -1px 1px contrast, 1px -1px contrast' // docs
+			textShadow: '1px 1px contrast, -1px -1px contrast, -1px 1px contrast, 1px -1px contrast'
 		},
 		// backgroundColor: undefined,
 		// borderColor: undefined,
@@ -171,10 +174,10 @@ H.Series = H.seriesType('line', null, { // base series options
 	//}
 	turboThreshold: 1000
 	// zIndex: null
-},
+
 
 // Prototype properties
-{
+}, {
 	isCartesian: true,
 	pointClass: Point,
 	sorted: true, // requires the data to be sorted
@@ -469,11 +472,6 @@ H.Series = H.seriesType('line', null, { // base series options
 		var seriesMarkerOption = this.options.marker;
 
 		this.getCyclic('symbol', seriesMarkerOption.symbol, this.chart.options.symbols);
-
-		// don't substract radius in image symbols (#604)
-		if (/^url/.test(this.symbol)) {
-			seriesMarkerOption.radius = 0;
-		}
 	},
 
 	drawLegendSymbol: LegendSymbolMixin.drawLineMarker,
@@ -933,6 +931,7 @@ H.Series = H.seriesType('line', null, { // base series options
 			point.plotY = plotY = (typeof yValue === 'number' && yValue !== Infinity) ?
 				Math.min(Math.max(-1e5, yAxis.translate(yValue, 0, 1, 0, 1)), 1e5) : // #3201
 				undefined;
+
 			point.isInside = plotY !== undefined && plotY >= 0 && plotY <= yAxis.len && // #3519
 				plotX >= 0 && plotX <= xAxis.len;
 
@@ -1087,13 +1086,10 @@ H.Series = H.seriesType('line', null, { // base series options
 		var series = this,
 			points = series.points,
 			chart = series.chart,
-			plotX,
 			plotY,
 			i,
 			point,
-			radius,
 			symbol,
-			isImage,
 			graphic,
 			options = series.options,
 			seriesMarkerOptions = options.marker,
@@ -1103,6 +1099,7 @@ H.Series = H.seriesType('line', null, { // base series options
 			isInside,
 			markerGroup = series.markerGroup,
 			xAxis = series.xAxis,
+			markerAttribs,
 			globallyEnabled = pick(
 				seriesMarkerOptions.enabled,
 				xAxis.isRadial ? true : null,
@@ -1114,7 +1111,6 @@ H.Series = H.seriesType('line', null, { // base series options
 			i = points.length;
 			while (i--) {
 				point = points[i];
-				plotX = Math.floor(point.plotX); // #1843
 				plotY = point.plotY;
 				graphic = point.graphic;
 				pointMarkerOptions = point.marker || {};
@@ -1126,30 +1122,26 @@ H.Series = H.seriesType('line', null, { // base series options
 				if (enabled && isNumber(plotY) && point.y !== null) {
 
 					// Shortcuts
-					radius = seriesMarkerOptions.radius;
 					symbol = pick(pointMarkerOptions.symbol, series.symbol);
-					isImage = symbol.indexOf('url') === 0;
+					point.hasImage = symbol.indexOf('url') === 0;
+
+					markerAttribs = series.markerAttribs(
+						point,
+						point.selected && 'select'
+					);
 
 					if (graphic) { // update
 						graphic[isInside ? 'show' : 'hide'](true) // Since the marker group isn't clipped, each individual marker must be toggled
-							//.attr(pointAttr) // #4759
-							.animate(extend({
-								x: plotX - radius,
-								y: plotY - radius
-							}, graphic.symbolName ? { // don't apply to image symbols #507
-								width: 2 * radius,
-								height: 2 * radius
-							} : {}));
-					} else if (isInside && (radius > 0 || isImage)) {
+							.animate(markerAttribs);
+					} else if (isInside && (markerAttribs.width > 0 || point.hasImage)) {
 						point.graphic = graphic = chart.renderer.symbol(
 							symbol,
-							plotX - radius,
-							plotY - radius,
-							2 * radius,
-							2 * radius,
+							markerAttribs.x,
+							markerAttribs.y,
+							markerAttribs.width,
+							markerAttribs.height,
 							hasPointMarker ? pointMarkerOptions : seriesMarkerOptions
 						)
-						.attr({ r: radius })
 						.add(markerGroup);
 					}
 
@@ -1170,6 +1162,51 @@ H.Series = H.seriesType('line', null, { // base series options
 			}
 		}
 
+	},
+
+	/**
+	 * Get non-presentational attributes for the point.
+	 */
+	markerAttribs: function (point, state) {
+		var seriesMarkerOptions = this.options.marker,
+			seriesStateOptions,
+			pointOptions = point && point.options,
+			pointMarkerOptions = (pointOptions && pointOptions.marker) || {},
+			pointStateOptions,
+			radius = pick(
+				pointMarkerOptions.radius,
+				seriesMarkerOptions.radius
+			),
+			attribs;
+
+		// Handle hover and select states
+		if (state) {
+			seriesStateOptions = seriesMarkerOptions.states[state];
+			pointStateOptions = pointMarkerOptions.states &&
+				pointMarkerOptions.states[state];
+
+			radius = pick(
+				pointStateOptions && pointStateOptions.radius,
+				seriesStateOptions && seriesStateOptions.radius,
+				radius + (seriesStateOptions && seriesStateOptions.radiusPlus || 0)
+			);
+		}
+
+		if (point.hasImage) {
+			radius = 0; // and subsequently width and height is not set
+		}
+
+		attribs = {
+			x: Math.floor(point.plotX) - radius, // Math.floor for #1843
+			y: point.plotY - radius
+		};
+
+		if (radius) {
+			attribs.width = attribs.height = 2 * radius;
+		}
+
+		return attribs;
+		
 	},
 
 	/*= if (build.classic) { =*/

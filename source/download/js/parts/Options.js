@@ -7,14 +7,14 @@
 import H from './Globals.js';
 import './Color.js';
 import './Utilities.js';
-	var color = H.color,
-		each = H.each,
-		getTZOffset = H.getTZOffset,
-		isTouchDevice = H.isTouchDevice,
-		merge = H.merge,
-		pick = H.pick,
-		svg = H.svg,
-		win = H.win;
+var color = H.color,
+	each = H.each,
+	getTZOffset = H.getTZOffset,
+	isTouchDevice = H.isTouchDevice,
+	merge = H.merge,
+	pick = H.pick,
+	svg = H.svg,
+	win = H.win;
 		
 /* ****************************************************************************
  * Handle the options                                                         *
@@ -41,7 +41,7 @@ H.defaultOptions = {
 		useUTC: true,
 		//timezoneOffset: 0,
 		/*= if (build.classic) { =*/
-		VMLRadialGradientURL: 'http://code.highcharts.com@product.cdnpath@/@product.version@/gfx/vml-radial-gradient.png'
+		VMLRadialGradientURL: 'http://code.highcharts.com/@product.version@/gfx/vml-radial-gradient.png'
 		/*= } =*/
 	},
 	chart: {

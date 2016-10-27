@@ -10,19 +10,19 @@ import './Color.js';
 import './Legend.js';
 import './Series.js';
 import './Options.js';
-	var animObject = H.animObject,
-		color = H.color,
-		each = H.each,
-		extend = H.extend,
-		isNumber = H.isNumber,
-		LegendSymbolMixin = H.LegendSymbolMixin,
-		merge = H.merge,
-		noop = H.noop,
-		pick = H.pick,
-		Series = H.Series,
-		seriesType = H.seriesType,
-		stop = H.stop,
-		svg = H.svg;
+var animObject = H.animObject,
+	color = H.color,
+	each = H.each,
+	extend = H.extend,
+	isNumber = H.isNumber,
+	LegendSymbolMixin = H.LegendSymbolMixin,
+	merge = H.merge,
+	noop = H.noop,
+	pick = H.pick,
+	Series = H.Series,
+	seriesType = H.seriesType,
+	stop = H.stop,
+	svg = H.svg;
 /**
  * The column series type
  */
@@ -311,7 +311,8 @@ seriesType('column', 'line', {
 			strokeOption = p2o.stroke || 'borderColor',
 			strokeWidthOption = p2o['stroke-width'] || 'borderWidth',
 			fill = (point && point.color) || this.color,
-			stroke = options[strokeOption] || this.color || fill, // set to fill when borderColor = null on pies
+			stroke = point[strokeOption] || options[strokeOption] ||
+				this.color || fill, // set to fill when borderColor null
 			dashstyle = options.dashStyle,
 			zone,
 			brightness;

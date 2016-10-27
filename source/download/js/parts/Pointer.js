@@ -25,9 +25,6 @@ var addEvent = H.addEvent,
 	Tooltip = H.Tooltip,
 	win = H.win;
 
-// Global flag for touch support
-H.hasTouch = doc && doc.documentElement.ontouchstart !== undefined;
-
 /**
  * The mouse tracker object. All methods starting with "on" are primary DOM event handlers.
  * Subsequent methods should be named differently from what they are doing.
@@ -204,7 +201,7 @@ H.Pointer.prototype = {
 					isCloser = p1.dist - p2.dist,
 					isAbove = p1.series.group.zIndex > p2.series.group.zIndex ? -1 : 1;
 				// We have two points which are not in the same place on xAxis and shared tooltip:
-				if (isCloserX !== 0) {
+				if (isCloserX !== 0 && shared) { // #5721
 					return isCloserX;
 				}
 				// Points are not exactly in the same place on x/yAxis:
@@ -220,24 +217,21 @@ H.Pointer.prototype = {
 		if (shared) {
 			i = kdpoints.length;
 			while (i--) {
-				if (kdpoints[i].clientX !== kdpoints[0].clientX || kdpoints[i].series.noSharedTooltip) {
+				if (kdpoints[i].x !== kdpoints[0].x || kdpoints[i].series.noSharedTooltip) {
 					kdpoints.splice(i, 1);
 				}
 			}
 		}
 
 		// Refresh tooltip for kdpoint if new hover point or tooltip was hidden // #3926, #4200
-		if (kdpoints[0] && (kdpoints[0] !== pointer.hoverPoint || (tooltip && tooltip.isHidden))) {
+		if (kdpoints[0] && (kdpoints[0] !== this.prevKDPoint || (tooltip && tooltip.isHidden))) {
 			// Draw tooltip if necessary
 			if (shared && !kdpoints[0].series.noSharedTooltip) {
-				// Do mouseover on all points (#3919, #3985, #4410)
-				for (i = 0; i >= 0; i--) {
+				// Do mouseover on all points (#3919, #3985, #4410, #5622)
+				for (i = 0; i < kdpoints.length; i++) {
 					kdpoints[i].onMouseOver(e, kdpoints[i] !== ((hoverSeries && hoverSeries.directTouch && hoverPoint) || kdpoints[0]));
 				}
-				// Make sure that the hoverPoint and hoverSeries are stored for events (e.g. click), #5622
-				if (hoverSeries && hoverSeries.directTouch && hoverPoint && hoverPoint !== kdpoints[0]) {
-					hoverPoint.onMouseOver(e, false);
-				}
+
 				if (kdpoints.length && tooltip) {
 					// Keep the order of series in tooltip:
 					tooltip.refresh(kdpoints.sort(function (p1, p2) {
@@ -252,7 +246,7 @@ H.Pointer.prototype = {
 					kdpoints[0].onMouseOver(e);
 				}
 			}
-			pointer.prevKDPoint = kdpoints[0];
+			this.prevKDPoint = kdpoints[0];
 			updatePosition = false;
 		}
 		// Update positions (regardless of kdpoint or hoverPoint)
@@ -369,7 +363,7 @@ H.Pointer.prototype = {
 		// Scale each series
 		each(chart.series, function (series) {
 			seriesAttribs = attribs || series.getPlotBox(); // #1701
-			if (series.xAxis && series.xAxis.zoomEnabled) {
+			if (series.xAxis && series.xAxis.zoomEnabled && series.group) {
 				series.group.attr(seriesAttribs);
 				if (series.markerGroup) {
 					series.markerGroup.attr(seriesAttribs);
@@ -658,7 +652,11 @@ H.Pointer.prototype = {
 		
 		if (series && relatedTarget && !series.options.stickyTracking && 
 				!this.inClass(relatedTarget, 'highcharts-tooltip') &&
-				!this.inClass(relatedTarget, 'highcharts-series-' + series.index)) { // #2499, #4465
+					(
+						!this.inClass(relatedTarget, 'highcharts-series-' + series.index) || // #2499, #4465
+						!this.inClass(relatedTarget, 'highcharts-tracker') // #5553
+					)
+				) {
 			series.onMouseOut();
 		}
 	},
