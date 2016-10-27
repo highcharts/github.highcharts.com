@@ -11,3 +11,5 @@
 - Configured [forever](https://www.npmjs.com/package/forever) log files. 
 - Keep already built Highcharts files for improved performance.
 - Added functionality to validate a Webhook from Github.
+- Added /update which listens to push events from repository, and removes the stored source files.
+- On startup the server outputs which port it listens to.

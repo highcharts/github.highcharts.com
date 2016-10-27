@@ -18,6 +18,7 @@ const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
  * @param  {Error|string} err Can either be an Error object
  * @param  {object} res Express response object.
  * @return {undefined}
+ * @todo Stop logging the error in seperate files, output them to the same log file in stead.
  */
 const handleError = (err, res) => {
 	const date = new Date();
@@ -79,6 +80,8 @@ const serveStaticFile = (repositoryURL, requestURL) => {
 
 /**
  * Used to handle requests for non-static files.
+ * Downloads the source files for the given branch/tag/commit if they are not already in the filesystem.
+ * Builds the requested file, if the file already exists it skips the build and serves the existing one. 
  * @param  {string} repositoryURL Url to download the file.
  * @param  {string} requestURL The url which the request was sent to.
  * @return {Promise} Returns a promise which resolves after file is built.
@@ -95,8 +98,13 @@ const serveBuildFile = (repositoryURL, requestURL) => {
 				file: U.cleanPath(__dirname + '/../' + outputFolder + (type === 'css' ? 'js/' : '') + file),
 				status: 200
 			};
-			if (!U.exists(outputFolder + (type === 'css' ? 'js/' : '') + file) &&
-				U.exists(folder + 'js/masters/' + file)) {
+			const fileExists = U.exists(outputFolder + (type === 'css' ? 'js/' : '') + file);
+			const mastersExists = U.exists(folder + 'js/masters/' + file);
+			if (!mastersExists) {
+				obj = {
+					status: 404
+				};
+			} else if (!fileExists) {
 				const fileOptions = I.getFileOptions(folder + 'js/masters/');
 				build({
 					base: folder + 'js/masters/',
@@ -107,10 +115,6 @@ const serveBuildFile = (repositoryURL, requestURL) => {
 					version: branch,
 					fileOptions: fileOptions
 				});
-			} else {
-				obj = {
-					status: 404
-				};
 			}
 			return obj;
 		})
@@ -176,8 +180,44 @@ router.get('/health', (req, res) => {
 });
 
 /**
+ * Listens to push events from a Github Webhook.
+ * Validates if the payload is secure, then removes the cached source files which needs an update.
+ * The removed source files will get a fresh download next time they are requested.
+ */
+router.post('/update', (req, res) => {
+	const W = require('./webhook.js');
+	const body = req.body;
+	let hook = W.validateWebHook(req);
+	let status = 500;
+	let	message = hook.message;
+	let exists = false;
+	let path = '';
+	if (hook.valid) {
+		const ref = body.ref;
+		const branch = ref.split('/').pop();
+		if (branch) {
+			path = tmpFolder + branch;
+			exists = U.exists(path);
+			message = exists ? 'OK' : `Folder of branch "${branch}" did not exists`;
+			status = exists ? 200 : status;
+		} else {
+			message = 'Referenced branch was not valid';
+		}
+	}
+
+	(exists ? U.removeDirectory(path) : Promise.resolve(false))
+	.then(() => ({
+		status: status,
+		message: message
+	}))
+	.then(result => handleResult(result, res))
+	.catch(err => handleError(err, res));
+});
+
+/**
  * Requests to /favicon.ico
  * Always returns the icon file.
+ * @todo Use express.static in stead if send file.
  */
 router.get('/favicon.ico', (req, res) => {
 	const pathIndex = U.cleanPath(__dirname + '/../assets/favicon.ico');

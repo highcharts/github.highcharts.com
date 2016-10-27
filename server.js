@@ -8,9 +8,13 @@
 'use strict';
 const express = require('express');
 const router = require('./app/router.js');
-const config = require("./config.json");
+const bodyParser = require('body-parser');
+const config = require('./config.json');
 const app = express();
 const port = process.env.PORT || config.port || 80;
 
+console.log('Listening to port: ' + port);
+
+app.use(bodyParser.json());
 app.use('/', router); // Register router
 app.listen(port); // Start server
