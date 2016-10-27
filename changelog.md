@@ -7,7 +7,7 @@
 - Renamed `app.js` to `server.js`.
 - Updated `getFileOptions` to dynamically know what fileOptions should be.
 
-## 1.2.0 [WIP]
+## 1.2.0
 - Configured [forever](https://www.npmjs.com/package/forever) log files. 
 - Keep already built Highcharts files for improved performance.
 - Added functionality to validate a Webhook from Github.
@@ -15,3 +15,5 @@
 - On startup the server outputs which port it listens to.
 - Updated assembler files.
 - Updated source files used in download builder to v5.0.2.
+
+## 1.3.0 [WIP]
