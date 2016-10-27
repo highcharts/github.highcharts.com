@@ -18,7 +18,7 @@ app.use((req, res, next) => {
 		req.rawBody += chunk;
 	});
 	req.on('end', () => {
-		req.body = JSON.parse(req.rawBody);
+		req.body = req.rawBody !== '' ? JSON.parse(req.rawBody) : {};
 		next();
 	});
 })

@@ -18,3 +18,4 @@
 
 ## 1.3.0 [WIP]
 - Fixed issue with validation of Github Webhook.
+- Fixed issue with custom body parser.
