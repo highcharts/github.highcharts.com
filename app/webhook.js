@@ -1,9 +1,8 @@
 'use strict';
 const sha1 = (secret, data) => {
 	const crypto = require('crypto');
-	return crypto
-		.createHmac('sha1', secret)
-		.update(data)
+	return crypto.createHmac('sha1', secret)
+		.update(data, 'utf8')
 		.digest('hex');
 };
 
@@ -15,13 +14,13 @@ const validSignature = (signature, body) => {
 
 const validateWebHook = request => {
 	const body = request.body;
+	const payload = request.rawBody;
 	const signature = request.headers['x-hub-signature'];
 	let valid = false;
 	let message = '';
-	console.log('@validateWebHook', (!(body && Object.keys(body).length > 0)))
 	if (!(body && Object.keys(body).length > 0)) {
 		message = 'Missing payload';
-	} else if (!validSignature(signature, JSON.stringify(body))) {
+	} else if (!validSignature(signature, payload)) {
 		message = 'Invalid signature';
 	} else if (!body.ref) {
 		message = 'Missing Git ref';

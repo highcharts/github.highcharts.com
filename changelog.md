@@ -17,3 +17,4 @@
 - Updated source files used in download builder to v5.0.2.
 
 ## 1.3.0 [WIP]
+- Fixed issue with validation of Github Webhook.

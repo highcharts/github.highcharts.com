@@ -1,10 +1,9 @@
 {
   "name": "github.highcharts.com",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
   "dependencies": {
-    "body-parser": "^1.15.2",
     "express": "^4.14.0",
     "forever": "^0.15.2",
     "google-closure-compiler-js": "^20160916.0.0",
