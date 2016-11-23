@@ -45,10 +45,13 @@ var addEvent = H.addEvent,
 	win = H.win,
 	Renderer = H.Renderer;
 /**
- * The Chart class
- * @param {String|Object} renderTo The DOM element to render to, or its id
- * @param {Object} options
- * @param {Function} callback Function to run when the chart has loaded
+ * The Chart class.
+ * @class Highcharts.Chart
+ * @memberOf Highcharts
+ * @param {String|HTMLDOMElement} renderTo - The DOM element to render to, or its
+ * id.
+ * @param {ChartOptions} options - The chart options structure.
+ * @param {Function} callback - Function to run when the chart has loaded.
  */
 var Chart = H.Chart = function () {
 	this.getArgs.apply(this, arguments);
@@ -636,7 +639,7 @@ Chart.prototype = {
 			indexAttrName = 'data-highcharts-chart',
 			oldChartIndex,
 			Ren,
-			containerId = 'highcharts-' + H.idCounter++,
+			containerId = H.uniqueKey(),
 			containerStyle,
 			key;
 
@@ -668,11 +671,11 @@ Chart.prototype = {
 		// remove previous chart
 		renderTo.innerHTML = '';
 
-		// If the container doesn't have an offsetWidth, it has or is a child of a node
-		// that has display:none. We need to temporarily move it out to a visible
-		// state to determine the size, else the legend and tooltips won't render
-		// properly. The allowClone option is used in sparklines as a micro optimization,
-		// saving about 1-2 ms each chart.
+		// If the container doesn't have an offsetWidth, it has or is a child of
+		// a node that has display:none. We need to temporarily move it out to a
+		// visible state to determine the size, else the legend and tooltips
+		// won't render properly. The skipClone option is used in sparklines as
+		// a micro optimization, saving about 1-2 ms each chart.
 		if (!optionsChart.skipClone && !renderTo.offsetWidth) {
 			chart.cloneRenderTo();
 		}
@@ -829,15 +832,12 @@ Chart.prototype = {
 	 */
 	initReflow: function () {
 		var chart = this,
-			reflow = function (e) {
-				chart.reflow(e);
-			};
-			
+			unbind;
 		
-		addEvent(win, 'resize', reflow);
-		addEvent(chart, 'destroy', function () {
-			removeEvent(win, 'resize', reflow);
+		unbind = addEvent(win, 'resize', function (e) {
+			chart.reflow(e);
 		});
+		addEvent(chart, 'destroy', unbind);
 
 		// The following will add listeners to re-fit the chart before and after
 		// printing (#2284). However it only works in WebKit. Should have worked

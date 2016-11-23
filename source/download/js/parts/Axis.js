@@ -43,7 +43,8 @@ var addEvent = H.addEvent,
 	Tick = H.Tick;
 	
 /**
- * Create a new axis object
+ * Create a new axis object.
+ * @constructor Axis
  * @param {Object} chart
  * @param {Object} options
  */
@@ -188,7 +189,7 @@ H.Axis.prototype = {
 				fontSize: '11px',
 				fontWeight: 'bold',
 				color: '${palette.neutralColor100}',
-				textShadow: '1px 1px contrast, -1px -1px contrast, -1px 1px contrast, 1px -1px contrast'
+				textOutline: '1px contrast'
 			}
 			/*= } =*/
 		},
@@ -437,7 +438,9 @@ H.Axis.prototype = {
 			value = this.value,
 			categories = axis.categories,
 			dateTimeLabelFormat = this.dateTimeLabelFormat,
-			numericSymbols = defaultOptions.lang.numericSymbols,
+			lang = defaultOptions.lang,
+			numericSymbols = lang.numericSymbols,
+			numSymMagnitude = lang.numericSymbolMagnitude || 1000,
 			i = numericSymbols && numericSymbols.length,
 			multi,
 			ret,
@@ -460,7 +463,7 @@ H.Axis.prototype = {
 			// If we are to enable this in tooltip or other places as well, we can move this
 			// logic to the numberFormatter and enable it by a parameter.
 			while (i-- && ret === undefined) {
-				multi = Math.pow(1000, i + 1);
+				multi = Math.pow(numSymMagnitude, i + 1);
 				if (numericSymbolDetector >= multi && (value * 10) % multi === 0 && numericSymbols[i] !== null && value !== 0) { // #5480
 					ret = H.numberFormat(value / multi, -1) + numericSymbols[i];
 				}
@@ -607,11 +610,9 @@ H.Axis.prototype = {
 			if (doPostTranslate) { // log and ordinal axes
 				val = axis.val2lin(val);
 			}
-			if (pointPlacement === 'between') {
-				pointPlacement = 0.5;
-			}
-			returnValue = sign * (val - localMin) * localA + cvsOffset + (sign * minPixelPadding) +
-				(isNumber(pointPlacement) ? localA * pointPlacement * axis.pointRange : 0);
+			returnValue = sign * (val - localMin) * localA + cvsOffset +
+				(sign * minPixelPadding) +
+				(isNumber(pointPlacement) ? localA * pointPlacement : 0);
 		}
 
 		return returnValue;
@@ -767,7 +768,15 @@ H.Axis.prototype = {
 					)
 				);
 			} else {
-				for (pos = min + (tickPositions[0] - min) % minorTickInterval; pos <= max; pos += minorTickInterval) {
+				for (
+					pos = min + (tickPositions[0] - min) % minorTickInterval;
+					pos <= max;
+					pos += minorTickInterval
+				) {
+					// Very, very, tight grid lines (#5771)
+					if (pos === minorTickPositions[0]) {
+						break;
+					}
 					minorTickPositions.push(pos);
 				}
 			}
@@ -867,8 +876,15 @@ H.Axis.prototype = {
 			ret = 1;
 		} else {
 			each(this.series, function (series) {
-				var seriesClosest = series.closestPointRange;
-				if (!series.noSharedTooltip && defined(seriesClosest)) {
+				var seriesClosest = series.closestPointRange,
+					visible = series.visible ||
+						!series.chart.options.chart.ignoreHiddenSeries;
+				
+				if (
+					!series.noSharedTooltip &&
+					defined(seriesClosest) &&
+					visible
+				) {
 					ret = defined(ret) ?
 						Math.min(ret, seriesClosest) :
 						seriesClosest;
@@ -920,6 +936,9 @@ H.Axis.prototype = {
 			this.minRange = undefined;
 			each(this.series || [], function (series) {
 			
+				// Reset incrementer (#5928)
+				series.xIncrement = null;
+
 				// When adding a series, points are not yet generated
 				if (!series.points || series.isDirtyData) {
 					series.processData();
@@ -2115,7 +2134,6 @@ H.Axis.prototype = {
 
 	/**
 	 * Render the axis line
-	 * @returns {[type]} [description]
 	 */
 	renderLine: function () {
 		if (!this.axisLine) {
@@ -2381,6 +2399,10 @@ H.Axis.prototype = {
 
 	},
 
+	// Properties to survive after destroy, needed for Axis.update (#4317,
+	// #5773, #5881).
+	keepProps: ['extKey', 'hcEvents', 'names', 'series', 'userMax', 'userMin'],
+	
 	/**
 	 * Destroys an Axis instance.
 	 */
@@ -2390,8 +2412,7 @@ H.Axis.prototype = {
 			stackKey,
 			plotLinesAndBands = axis.plotLinesAndBands,
 			i,
-			n,
-			keepProps;
+			n;
 
 		// Remove the events
 		if (!keepEvents) {
@@ -2423,12 +2444,9 @@ H.Axis.prototype = {
 			}
 		});
 
-
 		// Delete all properties and fall back to the prototype.
-		// Preserve some properties, needed for Axis.update (#4317, #5773).
-		keepProps = ['extKey', 'hcEvents', 'names', 'series', 'userMax', 'userMin'];
 		for (n in axis) {
-			if (axis.hasOwnProperty(n) && inArray(n, keepProps) === -1) {
+			if (axis.hasOwnProperty(n) && inArray(n, axis.keepProps) === -1) {
 				delete axis[n];
 			}
 		}

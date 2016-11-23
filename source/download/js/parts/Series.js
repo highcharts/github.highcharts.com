@@ -40,7 +40,7 @@ var addEvent = H.addEvent,
 	win = H.win;
 
 /**
- * @classDescription The base function which all other series types inherit from. The data in the series is stored
+ * The base function which all other series types inherit from. The data in the series is stored
  * in various arrays.
  *
  * - First, series.options.data contains all the original config options for
@@ -53,10 +53,11 @@ var addEvent = H.addEvent,
  * compared to series.data and series.options.data. If however the series data is grouped, these can't
  * be correlated one to one.
  * - series.xData and series.processedXData contain clean x values, equivalent to series.data and series.points.
- * - series.yData and series.processedYData contain clean x values, equivalent to series.data and series.points.
+ * - series.yData and series.processedYData contain clean y values, equivalent to series.data and series.points.
  *
- * @param {Object} chart
- * @param {Object} options
+ * @constructor Series
+ * @param {Object} chart - The chart instance.
+ * @param {Object} options - The series options.
  */
 H.Series = H.seriesType('line', null, { // base series options
 	/*= if (build.classic) { =*/
@@ -116,17 +117,12 @@ H.Series = H.seriesType('line', null, { // base series options
 		formatter: function () {
 			return this.y === null ? '' : H.numberFormat(this.y, -1);
 		},
-		/*= if (!build.classic) { =*/
-		/*style: {
-			color: 'contrast',
-			textShadow: '0 0 6px contrast, 0 0 3px contrast'
-		},*/
-		/*= } else { =*/
+		/*= if (build.classic) { =*/
 		style: {
 			fontSize: '11px',
 			fontWeight: 'bold',
 			color: 'contrast',
-			textShadow: '1px 1px contrast, -1px -1px contrast, -1px 1px contrast, 1px -1px contrast'
+			textOutline: '1px contrast'
 		},
 		// backgroundColor: undefined,
 		// borderColor: undefined,
@@ -176,8 +172,7 @@ H.Series = H.seriesType('line', null, { // base series options
 	// zIndex: null
 
 
-// Prototype properties
-}, {
+}, /** @lends Series.prototype */ {
 	isCartesian: true,
 	pointClass: Point,
 	sorted: true, // requires the data to be sorted
@@ -192,6 +187,7 @@ H.Series = H.seriesType('line', null, { // base series options
 			eventType,
 			events,
 			chartSeries = chart.series,
+			lastSeries,
 			sortByIndex = function (a, b) {
 				return pick(a.options.index, a._i) - pick(b.options.index, b._i);
 			};
@@ -238,9 +234,13 @@ H.Series = H.seriesType('line', null, { // base series options
 			chart.hasCartesianSeries = true;
 		}
 
-		// Register it in the chart
+		// Get the index and register the series in the chart. The index is one
+		// more than the current latest series index (#5960).
+		if (chartSeries.length) {
+			lastSeries = chartSeries[chartSeries.length - 1];
+		}
+		series._i = pick(lastSeries && lastSeries._i, -1) + 1;
 		chartSeries.push(series);
-		series._i = chartSeries.length - 1;
 
 		// Sort series according to index option (#248, #1123, #2456)
 		stableSort(chartSeries, sortByIndex);
@@ -256,8 +256,12 @@ H.Series = H.seriesType('line', null, { // base series options
 	},
 
 	/**
-	 * Set the xAxis and yAxis properties of cartesian series, and register the series
-	 * in the axis.series array
+	 * Set the xAxis and yAxis properties of cartesian series, and register the
+	 * series in the `axis.series` array.
+	 *
+	 * @function #bindAxes
+	 * @memberOf Series
+	 * @returns {void}
 	 */
 	bindAxes: function () {
 		var series = this,
@@ -760,18 +764,17 @@ H.Series = H.seriesType('line', null, { // base series options
 		for (i = 0; i < processedDataLength; i++) {
 			cursor = cropStart + i;
 			if (!hasGroupedData) {
-				if (data[cursor]) {
-					point = data[cursor];
-				} else if (dataOptions[cursor] !== undefined) { // #970
+				point = data[cursor];
+				if (!point && dataOptions[cursor] !== undefined) { // #970
 					data[cursor] = point = (new PointClass()).init(series, dataOptions[cursor], processedXData[i]);
 				}
-				points[i] = point;
 			} else {
 				// splat the y data in case of ohlc data array
-				points[i] = (new PointClass()).init(series, [processedXData[i]].concat(splat(processedYData[i])));
-				points[i].dataGroup = series.groupMap[i];
+				point = (new PointClass()).init(series, [processedXData[i]].concat(splat(processedYData[i])));
+				point.dataGroup = series.groupMap[i];
 			}
-			points[i].index = cursor; // For faster access in Point.update
+			point.index = cursor; // For faster access in Point.update
+			points[i] = point;
 		}
 
 		// Hide cropped-away points - this only runs when the number of points is above cropThreshold, or when
@@ -845,8 +848,12 @@ H.Series = H.seriesType('line', null, { // base series options
 	},
 
 	/**
-	 * Translate data points from raw data values to chart specific positioning data
-	 * needed later in drawPoints, drawGraph and drawTracker.
+	 * Translate data points from raw data values to chart specific positioning
+	 * data needed later in drawPoints, drawGraph and drawTracker.
+	 *
+	 * @function #translate
+	 * @memberOf Series
+	 * @returns {void}
 	 */
 	translate: function () {
 		if (!this.processedXData) { // hidden series
@@ -873,6 +880,14 @@ H.Series = H.seriesType('line', null, { // base series options
 			stackIndicator,
 			closestPointRangePx = Number.MAX_VALUE;
 
+		// Point placement is relative to each series pointRange (#5889)
+		if (pointPlacement === 'between') {
+			pointPlacement = 0.5;
+		}
+		if (isNumber(pointPlacement)) {
+			pointPlacement *= pick(options.pointRange || xAxis.pointRange);
+		}
+
 		// Translate each point
 		for (i = 0; i < dataLength; i++) {
 			var point = points[i],
@@ -890,9 +905,17 @@ H.Series = H.seriesType('line', null, { // base series options
 
 			// Get the plotX translation
 			point.plotX = plotX = correctFloat( // #5236
-				Math.min(Math.max(-1e5, xAxis.translate(xValue, 0, 0, 0, 1, pointPlacement, this.type === 'flags')), 1e5) // #3923
+				Math.min(Math.max(-1e5, xAxis.translate(
+					xValue,
+					0,
+					0,
+					0,
+					1,
+					pointPlacement,
+					this.type === 'flags'
+				)), 1e5) // #3923
 			);
-
+			
 			// Calculate the bottom y value for stacked series
 			if (stacking && series.visible && !point.isNull && stack && stack[xValue]) {
 				stackIndicator = series.getStackIndicator(stackIndicator, xValue, series.index);
@@ -1080,7 +1103,11 @@ H.Series = H.seriesType('line', null, { // base series options
 	},
 
 	/**
-	 * Draw the markers
+	 * Draw the markers.
+	 *
+	 * @function #drawPoints
+	 * @memberOf Series
+	 * @returns {void}
 	 */
 	drawPoints: function () {
 		var series = this,
@@ -1219,10 +1246,13 @@ H.Series = H.seriesType('line', null, { // base series options
 			pointOptions = point && point.options,
 			pointMarkerOptions = (pointOptions && pointOptions.marker) || {},
 			pointStateOptions,
-			strokeWidth = seriesMarkerOptions.lineWidth,
 			color = this.color,
 			pointColorOption = pointOptions && pointOptions.color,
 			pointColor = point && point.color,
+			strokeWidth = pick(
+				pointMarkerOptions.lineWidth,
+				seriesMarkerOptions.lineWidth
+			),
 			zoneColor,
 			fill,
 			stroke,
@@ -1243,7 +1273,15 @@ H.Series = H.seriesType('line', null, { // base series options
 		if (state) {
 			seriesStateOptions = seriesMarkerOptions.states[state];
 			pointStateOptions = (pointMarkerOptions.states && pointMarkerOptions.states[state]) || {};
-			strokeWidth = seriesStateOptions.lineWidth || strokeWidth + seriesStateOptions.lineWidthPlus;
+			strokeWidth = pick(
+				pointStateOptions.lineWidth, 
+				seriesStateOptions.lineWidth, 
+				strokeWidth + pick(
+					pointStateOptions.lineWidthPlus, 
+					seriesStateOptions.lineWidthPlus,
+					0
+				)
+			);
 			fill = pointStateOptions.fillColor || seriesStateOptions.fillColor || fill;
 			stroke = pointStateOptions.lineColor || seriesStateOptions.lineColor || stroke;
 		}
@@ -1637,14 +1675,9 @@ H.Series = H.seriesType('line', null, { // base series options
 	 */
 	invertGroups: function (inverted) {
 		var series = this,
-			chart = series.chart;
+			chart = series.chart,
+			remover;
 
-		// Pie, go away (#1736)
-		if (!series.xAxis) {
-			return;
-		}
-
-		// A fixed size is needed for inversion to work
 		function setInvert() {
 			var size = {
 				width: series.yAxis.len,
@@ -1658,10 +1691,14 @@ H.Series = H.seriesType('line', null, { // base series options
 			});
 		}
 
-		addEvent(chart, 'resize', setInvert); // do it on resize
-		addEvent(series, 'destroy', function () {
-			removeEvent(chart, 'resize', setInvert);
-		});
+		// Pie, go away (#1736)
+		if (!series.xAxis) {
+			return;
+		}
+
+		// A fixed size is needed for inversion to work
+		remover = addEvent(chart, 'resize', setInvert);
+		addEvent(series, 'destroy', remover);
 
 		// Do it now
 		setInvert(inverted); // do it now

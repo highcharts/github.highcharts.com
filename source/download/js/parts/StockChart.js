@@ -28,11 +28,9 @@ var arrayMax = H.arrayMax,
 	merge = H.merge,
 	pick = H.pick,
 	Point = H.Point,
-	Pointer = H.Pointer,
 	Renderer = H.Renderer,
 	Series = H.Series,
 	splat = H.splat,
-	stop = H.stop,
 	SVGRenderer = H.SVGRenderer,
 	VMLRenderer = H.VMLRenderer,
 	wrap = H.wrap,
@@ -49,6 +47,7 @@ H.StockChart = H.stockChart = function (a, b, c) {
 	var hasRenderToArg = isString(a) || a.nodeName,
 		options = arguments[hasRenderToArg ? 1 : 0],
 		seriesOptions = options.series, // to increase performance, don't merge the data
+		defaultOptions = H.getOptions(),
 		opposite,
 
 		// Always disable startOnTick:true on the main axis when the navigator is enabled (#1090)
@@ -85,7 +84,9 @@ H.StockChart = H.stockChart = function (a, b, c) {
 					overflow: 'justify'
 				},
 				showLastLabel: true
-			}, xAxisOptions, // user options
+			}, 
+			defaultOptions.xAxis, // #3802
+			xAxisOptions, // user options
 			{ // forced options
 				type: 'datetime',
 				categories: null
@@ -106,7 +107,9 @@ H.StockChart = H.stockChart = function (a, b, c) {
 			title: {
 				text: null
 			}
-		}, yAxisOptions // user options
+		}, 
+		defaultOptions.yAxis, // #3802
+		yAxisOptions // user options
 		);
 	});
 
@@ -171,19 +174,6 @@ H.StockChart = H.stockChart = function (a, b, c) {
 		new Chart(a, options, c) :
 		new Chart(options, b);
 };
-
-// Implement the pinchType option
-wrap(Pointer.prototype, 'init', function (proceed, chart, options) {
-
-	var pinchType = options.chart.pinchType || '';
-
-	proceed.call(this, chart, options);
-
-	// Pinch status
-	this.pinchX = this.pinchHor = pinchType.indexOf('x') !== -1;
-	this.pinchY = this.pinchVert = pinchType.indexOf('y') !== -1;
-	this.hasZoom = this.hasZoom || this.pinchHor || this.pinchVert;
-});
 
 // Override the automatic label alignment so that the first Y axis' labels
 // are drawn on top of the grid line, and subsequent axes are drawn outside
@@ -339,8 +329,13 @@ Axis.prototype.getPlotBandPath = function (from, to) {
 	if (path && toPath && path.toString() !== toPath.toString()) {
 		// Go over each subpath
 		for (i = 0; i < path.length; i += 6) {
-			result.push('M', path[i + 1], path[i + 2], 'L', path[i + 4],
-				path[i + 5], toPath[i + 4], toPath[i + 5], toPath[i + 1], toPath[i + 2]);
+			result.push(
+				'M', path[i + 1], path[i + 2],
+				'L', path[i + 4], path[i + 5],
+				toPath[i + 4], toPath[i + 5],
+				toPath[i + 1], toPath[i + 2],
+				'z'
+			);
 		}
 	} else { // outside the axis area
 		result = null;
@@ -684,7 +679,6 @@ wrap(Series.prototype, 'render', function (proceed) {
 
 		// On redrawing, resizing etc, update the clip rectangle
 		} else if (this.chart[this.sharedClipKey]) {
-			stop(this.chart[this.sharedClipKey]); // #2998
 			this.chart[this.sharedClipKey].attr({
 				width: this.xAxis.len,
 				height: this.yAxis.len

@@ -20,8 +20,7 @@ var addEvent = H.addEvent,
 	relativeLength = H.relativeLength,
 	Series = H.Series,
 	seriesTypes = H.seriesTypes,
-	stableSort = H.stableSort,
-	stop = H.stop;
+	stableSort = H.stableSort;
 
 
 /**
@@ -400,7 +399,6 @@ Series.prototype.alignDataLabel = function (point, dataLabel, options, alignTo, 
 
 	// Show or hide based on the final aligned position
 	if (!visible) {
-		stop(dataLabel);
 		dataLabel.attr({ y: -9999 });
 		dataLabel.placed = false; // don't animate back in
 	}
@@ -678,7 +676,7 @@ if (seriesTypes.pie) {
 	seriesTypes.pie.prototype.connectorPath = function (labelPos) {
 		var x = labelPos.x,
 			y = labelPos.y;
-		return pick(this.options.softConnector, true) ? [
+		return pick(this.options.dataLabels.softConnector, true) ? [
 			'M',
 			x + (labelPos[6] === 'left' ? 5 : -5), y, // end of the string at the label
 			'C',

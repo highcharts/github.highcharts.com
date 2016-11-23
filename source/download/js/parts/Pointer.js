@@ -26,8 +26,11 @@ var addEvent = H.addEvent,
 	win = H.win;
 
 /**
- * The mouse tracker object. All methods starting with "on" are primary DOM event handlers.
- * Subsequent methods should be named differently from what they are doing.
+ * The mouse tracker object. All methods starting with "on" are primary DOM
+ * event handlers. Subsequent methods should be named differently from what they
+ * are doing.
+ *
+ * @constructor Pointer
  * @param {Object} chart The Chart instance
  * @param {Object} options The root options object
  */
@@ -60,17 +63,24 @@ H.Pointer.prototype = {
 	},
 
 	/**
-	 * Resolve the zoomType option
+	 * Resolve the zoomType option, this is reset on all touch start and mouse
+	 * down events.
 	 */
-	zoomOption: function () {
+	zoomOption: function (e) {
 		var chart = this.chart,
-			zoomType = chart.options.chart.zoomType,
-			zoomX = /x/.test(zoomType),
-			zoomY = /y/.test(zoomType),
-			inverted = chart.inverted;
+			options = chart.options.chart,
+			zoomType = options.zoomType || '',
+			inverted = chart.inverted,
+			zoomX,
+			zoomY;
 
-		this.zoomX = zoomX;
-		this.zoomY = zoomY;
+		// Look for the pinchType option
+		if (/touch/.test(e.type)) {
+			zoomType = pick(options.pinchType, zoomType);
+		}
+
+		this.zoomX = zoomX = /x/.test(zoomType);
+		this.zoomY = zoomY = /y/.test(zoomType);
 		this.zoomHor = (zoomX && !inverted) || (zoomY && inverted);
 		this.zoomVert = (zoomY && !inverted) || (zoomX && inverted);
 		this.hasZoom = zoomX || zoomY;
@@ -199,7 +209,8 @@ H.Pointer.prototype = {
 			kdpoints.sort(function (p1, p2) {
 				var isCloserX = p1.distX - p2.distX,
 					isCloser = p1.dist - p2.dist,
-					isAbove = p1.series.group.zIndex > p2.series.group.zIndex ? -1 : 1;
+					isAbove = p2.series.group.zIndex - p1.series.group.zIndex;
+
 				// We have two points which are not in the same place on xAxis and shared tooltip:
 				if (isCloserX !== 0 && shared) { // #5721
 					return isCloserX;
@@ -209,7 +220,12 @@ H.Pointer.prototype = {
 					return isCloser;
 				}
 				// The same xAxis and yAxis position, sort by z-index:
-				return isAbove;
+				if (isAbove !== 0) {
+					return isAbove;
+				}
+
+				// The same zIndex, sort by array index:
+				return p1.series.index > p2.series.index ? -1 : 1;
 			});
 		}
 
@@ -259,13 +275,12 @@ H.Pointer.prototype = {
 		}
 
 		// Start the event listener to pick up the tooltip and crosshairs
-		if (!pointer._onDocumentMouseMove) {
-			pointer._onDocumentMouseMove = function (e) {
+		if (!pointer.unDocMouseMove) {
+			pointer.unDocMouseMove = addEvent(doc, 'mousemove', function (e) {
 				if (charts[H.hoverChartIndex]) {
 					charts[H.hoverChartIndex].pointer.onDocumentMouseMove(e);
 				}
-			};
-			addEvent(doc, 'mousemove', pointer._onDocumentMouseMove);
+			});
 		}
 
 		// Crosshair. For each hover point, loop over axes and draw cross if that point
@@ -338,9 +353,8 @@ H.Pointer.prototype = {
 				tooltip.hide(delay);
 			}
 
-			if (pointer._onDocumentMouseMove) {
-				removeEvent(doc, 'mousemove', pointer._onDocumentMouseMove);
-				pointer._onDocumentMouseMove = null;
+			if (pointer.unDocMouseMove) {
+				pointer.unDocMouseMove = pointer.unDocMouseMove();
 			}
 
 			// Remove crosshairs
@@ -556,7 +570,7 @@ H.Pointer.prototype = {
 
 		e = this.normalize(e);
 
-		this.zoomOption();
+		this.zoomOption(e);
 
 		// issue #295, dragging not always working in Firefox
 		if (e.preventDefault) {

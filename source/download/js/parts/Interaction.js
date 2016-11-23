@@ -31,11 +31,17 @@ var addEvent = H.addEvent,
 	seriesTypes = H.seriesTypes,
 	svg = H.svg,
 	TrackerMixin;
+
 /**
- * TrackerMixin for points and graphs
+ * TrackerMixin for points and graphs.
+ *
+ * @mixin
  */
 TrackerMixin = H.TrackerMixin = {
 
+	/**
+	 * Draw the tracker for a point.
+	 */
 	drawTrackerPoint: function () {
 		var series = this,
 			chart = series.chart,
@@ -297,7 +303,7 @@ defaultOptions.legend.itemStyle.cursor = 'pointer';
  * Extend the Chart object with interaction
  */
 
-extend(Chart.prototype, {
+extend(Chart.prototype, /** @lends Chart.prototype */ {
 	/**
 	 * Display the zoom button
 	 */
@@ -356,7 +362,7 @@ extend(Chart.prototype, {
 					isXAxis = axis.isXAxis;
 
 				// don't zoom more than minRange
-				if (pointer[isXAxis ? 'zoomX' : 'zoomY'] || pointer[isXAxis ? 'pinchX' : 'pinchY']) {
+				if (pointer[isXAxis ? 'zoomX' : 'zoomY']) {
 					hasZoomed = axis.zoom(axisData.min, axisData.max);
 					if (axis.displayBtn) {
 						displayButton = true;
@@ -432,7 +438,7 @@ extend(Chart.prototype, {
 /*
  * Extend the Point object with interaction
  */
-extend(Point.prototype, {
+extend(Point.prototype, /** @lends Point.prototype */ {
 	/**
 	 * Toggle the selection status of a point
 	 * @param {Boolean} selected Whether to select or unselect the point.
@@ -566,6 +572,7 @@ extend(Point.prototype, {
 			halo = series.halo,
 			haloOptions,
 			markerAttribs,
+			hasMarkers = markerOptions && series.markerAttribs,
 			newSymbol;
 
 		state = state || ''; // empty string
@@ -586,7 +593,7 @@ extend(Point.prototype, {
 			return;
 		}
 
-		if (markerOptions && series.markerAttribs) {
+		if (hasMarkers) {
 			markerAttribs = series.markerAttribs(point, state);
 		}
 
@@ -678,9 +685,9 @@ extend(Point.prototype, {
 		if (haloOptions && haloOptions.size) {
 			if (!halo) {
 				series.halo = halo = chart.renderer.path()
-					.add(series.markerGroup || series.group);
+					// #5818, #5903
+					.add(hasMarkers ? series.markerGroup : series.group);
 			}
-			H.stop(halo);
 			halo[move ? 'animate' : 'attr']({
 				d: point.haloPath(haloOptions.size)
 			});
@@ -704,7 +711,7 @@ extend(Point.prototype, {
 
 	/**
 	 * Get the circular path definition for the halo
-	 * @param  {Number} size The radius of the circular halo
+	 * @param  {Number} size The radius of the circular halo.
 	 * @returns {Array} The path definition
 	 */
 	haloPath: function (size) {
@@ -724,7 +731,7 @@ extend(Point.prototype, {
  * Extend the Series object with interaction
  */
 
-extend(Series.prototype, {
+extend(Series.prototype, /** @lends Series.prototype */ {
 	/**
 	 * Series mouse over handler
 	 */
