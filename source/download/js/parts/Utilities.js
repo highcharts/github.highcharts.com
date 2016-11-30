@@ -91,9 +91,7 @@ H.Fx.prototype = {
 		} else {
 			ret = end;
 		}
-		this.elem.animProp = 'd';
-		this.elem.attr('d', ret);
-		this.elem.animProp = null;
+		this.elem.attr('d', ret, null, true);
 	},
 
 	/**
@@ -115,9 +113,7 @@ H.Fx.prototype = {
 		// Other animations on SVGElement
 		} else if (elem.attr) {
 			if (elem.element) {
-				elem.animProp = prop;
-				elem.attr(prop, now);
-				elem.animProp = null;
+				elem.attr(prop, now, null, true);
 			}
 
 		// HTML styles, raw HTML content like container size
@@ -266,7 +262,7 @@ H.Fx.prototype = {
 				// three places behind (#5788)
 				isOperator = arr[i] === 'M' || arr[i] === 'L';
 				nextIsOperator = /[a-zA-Z]/.test(arr[i + 3]);
-				if (isOperator && !nextIsOperator) {
+				if (isOperator && nextIsOperator) {
 					arr.splice(
 						i + 1, 0,
 						arr[i + 1], arr[i + 2],
@@ -374,11 +370,11 @@ H.Fx.prototype = {
 			}
 		}
 
-		if (start.length && H.isNumber(shift)) {
+		if (start.length) {
 
 			// The common target length for the start and end array, where both 
 			// arrays are padded in opposite ends
-			fullLength = end.length + shift * positionFactor * numParams;
+			fullLength = end.length + (shift || 0) * positionFactor * numParams;
 			
 			if (!reverse) {
 				prepend(end, start);
