@@ -61,7 +61,7 @@ const folder = path => {
  */
 const createDirectory = path => {
     const fs = require('fs');
-    const folders = path.split('/');
+    const folders = path.split('/').filter(item => Boolean(item));
     folders.reduce((base, name) => {
         const path = base + name;
         try {
