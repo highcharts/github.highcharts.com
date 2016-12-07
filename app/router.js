@@ -133,7 +133,7 @@ const serveDownloadFile = (jsonParts, compile) => {
 		const parts = JSON.parse(jsonParts);
 		const importFolder = '../../source/download/js/';
 		const sourceFolder = './source/download/js/';
-		const version = '5.0.5 custom build'; // @todo Improve logic for versioning.
+		const version = '5.0.6 custom build'; // @todo Improve logic for versioning.
 		const folder = tmpFolder + 'download/';
 		const outputFolder = folder + 'output/'; 
 		let outputFile = 'custom.src.js';
