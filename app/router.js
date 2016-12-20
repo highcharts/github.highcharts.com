@@ -140,8 +140,7 @@ const serveDownloadFile = (jsonParts, compile) => {
 		let imports = ['/**', ' * @license @product.name@ JS v@product.version@ (@product.date@)', ' *', ' * (c) 2009-2016 Torstein Honsi', ' *', ' * License: www.highcharts.com/license', ' */'];
 		imports.push('\'use strict\';');
 		imports.push('import Highcharts from \'' + importFolder + 'parts/Globals.js\';');
-		imports = imports.concat(parts.reduce((arr, obj) => {
-			let path = obj.baseUrl + '/' + obj.name + '.js'
+		imports = imports.concat(parts.reduce((arr, path) => {
 			if (U.exists(sourceFolder + path)) {
 				arr.push('import \'' + importFolder + path + '\';');
 			}
