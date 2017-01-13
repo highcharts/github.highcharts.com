@@ -1,6 +1,6 @@
 {
   "name": "github.highcharts.com",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
   "dependencies": {
@@ -10,6 +10,7 @@
     "js-beautify": "^1.6.4"
   },
   "devDependencies": {
+    "easy-zip": "0.0.4",
     "eslint": "^3.4.0"
   },
   "scripts": {
@@ -18,8 +19,9 @@
     "restart": "node node_modules/forever/bin/forever restart server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "./node_modules/.bin/eslint \"**/*.js\"",
-    "update-assembler": "node ./app/update-assembler.js",
-    "update-download-source": "node ./app/update-download-source.js"
+    "deploy": "node ./scripts/deploy.js",
+    "update-assembler": "node ./scripts/update-assembler.js",
+    "update-download-source": "node ./scripts/update-download-source.js"
   },
   "repository": {
     "type": "git",

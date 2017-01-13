@@ -21,3 +21,4 @@
 - Fixed issue with custom body parser.
 - Updated source files used in download builder to v5.0.5.
 - Modified download builder router to receive more compact requests.
+- Created deploy script to package application files into a zip archive.
