@@ -53,17 +53,31 @@ seriesType('ohlc', 'column', {
 	pointValKey: 'high',
 
 	/*= if (build.classic) { =*/
+	pointAttrToOptions: {
+		'stroke': 'color',
+		'stroke-width': 'lineWidth'
+	},
+
 	/**
 	 * Postprocess mapping between options and SVG attributes
 	 */
 	pointAttribs: function (point, state) {
-		var attribs = seriesTypes.column.prototype.pointAttribs.call(this, point, state),
+		var attribs = seriesTypes.column.prototype.pointAttribs.call(
+				this,
+				point,
+				state
+			),
 			options = this.options;
 
 		delete attribs.fill;
-		attribs['stroke-width'] = options.lineWidth;
 
-		attribs.stroke = point.options.color || (point.open < point.close ? (options.upColor || this.color) : this.color);
+		if (
+			!point.options.color &&
+			options.upColor &&
+			point.open < point.close
+		) {
+			attribs.stroke = options.upColor;
+		}
 
 		return attribs;
 	},

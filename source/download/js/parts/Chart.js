@@ -189,6 +189,26 @@ Chart.prototype = {
 	},
 
 	/**
+	 * Order all series above a given index. When series are added and ordered
+	 * by configuration, only the last series is handled (#248, #1123, #2456,
+	 * #6112). This function is called on series initialization and destroy.
+	 *
+	 * @param {number} fromIndex - If this is given, only the series above this
+	 *    index are handled.
+	 */
+	orderSeries: function (fromIndex) {
+		var series = this.series,
+			i = fromIndex || 0;
+		for (; i < series.length; i++) {
+			if (series[i]) {
+				series[i].index = i;
+				series[i].name = series[i].name || 
+					'Series ' + (series[i].index + 1);
+			}
+		}
+	},
+
+	/**
 	 * Check whether a given point is within the plot area
 	 *
 	 * @param {Number} plotX Pixel x relative to the plot area
@@ -228,6 +248,11 @@ Chart.prototype = {
 			renderer = chart.renderer,
 			isHiddenChart = renderer.isHidden(),
 			afterRedraw = [];
+
+		// Handle responsive rules, not only on resize (#6130)
+		if (chart.setResponsive) {
+			chart.setResponsive(false);
+		}
 			
 		H.setAnimation(animation, chart);
 		
@@ -331,12 +356,18 @@ Chart.prototype = {
 			chart.drawChartBox();
 		}
 
+		// Fire an event before redrawing series, used by the boost module to
+		// clear previous series renderings.
+		fireEvent(chart, 'predraw');
 
 		// redraw affected series
 		each(series, function (serie) {
 			if ((isDirtyBox || serie.isDirty) && serie.visible) {
 				serie.redraw();
 			}
+			// Set it here, otherwise we will have unlimited 'updatedData' calls
+			// for a hidden series after setData(). Fixes #6012
+			serie.isDirtyData = false;
 		});
 
 		// move tooltip or reset
@@ -347,8 +378,9 @@ Chart.prototype = {
 		// redraw if canvas
 		renderer.draw();
 
-		// fire the event
+		// Fire the events
 		fireEvent(chart, 'redraw');
+		fireEvent(chart, 'render');
 
 		if (isHiddenChart) {
 			chart.cloneRenderTo(true);
@@ -371,7 +403,7 @@ Chart.prototype = {
 			i;
 
 		function itemById(item) {
-			return item.id === id || item.options.id === id;
+			return item.id === id || (item.options && item.options.id === id);
 		}
 
 		ret = 
@@ -585,10 +617,14 @@ Chart.prototype = {
 			chart.containerHeight = getStyle(renderTo, 'height');
 		}
 		
-		chart.chartWidth = Math.max(0, widthOption || chart.containerWidth || 600); // #1393, 1460
-		chart.chartHeight = Math.max(0, pick(heightOption,
-			// the offsetHeight of an empty container is 0 in standard browsers, but 19 in IE7:
-			chart.containerHeight > 19 ? chart.containerHeight : 400));
+		chart.chartWidth = Math.max( // #1393
+			0,
+			widthOption || chart.containerWidth || 600 // #1460
+		);
+		chart.chartHeight = Math.max(
+			0,
+			heightOption || chart.containerHeight || 400
+		);
 	},
 
 	/**
@@ -774,8 +810,8 @@ Chart.prototype = {
 		}
 
 		// adjust for scroller
-		if (chart.extraBottomMargin) {
-			chart.marginBottom += chart.extraBottomMargin;
+		if (chart.extraMargin) {
+			chart[chart.extraMargin.type] = (chart[chart.extraMargin.type] || 0) + chart.extraMargin.value;
 		}
 		if (chart.extraTopMargin) {
 			chart.plotTop += chart.extraTopMargin;
@@ -915,9 +951,6 @@ Chart.prototype = {
 		chart.layOutTitles(); // #2857
 		chart.getMargins();
 
-		if (chart.setResponsive) {
-			chart.setResponsive(false);
-		}
 		chart.redraw(animation);
 
 
@@ -1435,9 +1468,12 @@ Chart.prototype = {
 		}
 
 		// ==== Destroy chart properties:
-		each(['title', 'subtitle', 'chartBackground', 'plotBackground', 'plotBGImage',
-				'plotBorder', 'seriesGroup', 'clipRect', 'credits', 'pointer',
-				'rangeSelector', 'legend', 'resetZoomButton', 'tooltip', 'renderer'], function (name) {
+		each([
+			'title', 'subtitle', 'chartBackground', 'plotBackground',
+			'plotBGImage', 'plotBorder', 'seriesGroup', 'clipRect', 'credits',
+			'pointer', 'rangeSelector', 'legend', 'resetZoomButton', 'tooltip',
+			'renderer'
+		], function (name) {
 			var prop = chart[name];
 
 			if (prop && prop.destroy) {
@@ -1530,9 +1566,6 @@ Chart.prototype = {
 
 		chart.render();
 
-		// add canvas
-		chart.renderer.draw();
-		
 		// Fire the load event if there are no external images
 		if (!chart.renderer.imgCount && chart.onload) {
 			chart.onload();
@@ -1556,6 +1589,8 @@ Chart.prototype = {
 		}, this);
 
 		fireEvent(this, 'load');
+		fireEvent(this, 'render');
+		
 
 		// Set up auto resize, check for not destroyed (#6068)
 		if (defined(this.index) && this.options.chart.reflow !== false) {
