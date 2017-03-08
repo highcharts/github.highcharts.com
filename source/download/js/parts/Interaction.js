@@ -47,15 +47,10 @@ TrackerMixin = H.TrackerMixin = {
 			chart = series.chart,
 			pointer = chart.pointer,
 			onMouseOver = function (e) {
-				var target = e.target,
-					point;
+				var point = pointer.getPointFromEvent(e);
 
-				while (target && !point) {
-					point = target.point;
-					target = target.parentNode;
-				}
-
-				if (point !== undefined && point !== chart.hoverPoint) { // undefined on graph in scatterchart
+				// undefined on graph in scatterchart
+				if (point !== undefined) { 
 					point.onMouseOver(e);
 				}
 			};
@@ -224,7 +219,7 @@ extend(Legend.prototype, {
 
 	setItemEvents: function (item, legendItem, useHTML) {
 		var legend = this,
-			chart = legend.chart,
+			boxWrapper = legend.chart.renderer.boxWrapper,
 			activeClass = 'highcharts-legend-' + (item.series ? 'point' : 'series') + '-active';
 
 		// Set the events on the item group, or in case of useHTML, the item itself (#1249)
@@ -232,7 +227,7 @@ extend(Legend.prototype, {
 			item.setState('hover');
 			
 			// A CSS class to dim or hide other than the hovered series
-			chart.seriesGroup.addClass(activeClass);
+			boxWrapper.addClass(activeClass);
 			
 			/*= if (build.classic) { =*/
 			legendItem.css(legend.options.itemHoverStyle);
@@ -244,7 +239,7 @@ extend(Legend.prototype, {
 			/*= } =*/
 
 			// A CSS class to dim or hide other than the hovered series
-			chart.seriesGroup.removeClass(activeClass);
+			boxWrapper.removeClass(activeClass);
 			
 			item.setState();
 		})
@@ -425,8 +420,14 @@ extend(Chart.prototype, /** @lends Chart.prototype */ {
 				flipped = panMax < panMin,
 				newMin = flipped ? panMax : panMin,
 				newMax = flipped ? panMin : panMax,
-				distMin = Math.min(extremes.dataMin, extremes.min) - newMin,
-				distMax = newMax - Math.max(extremes.dataMax, extremes.max);
+				paddedMin = axis.toValue(
+					axis.toPixels(extremes.min) - axis.minPixelPadding
+				),
+				paddedMax = axis.toValue(
+					axis.toPixels(extremes.max) + axis.minPixelPadding
+				),
+				distMin = Math.min(extremes.dataMin, paddedMin) - newMin,
+				distMax = newMax - Math.max(extremes.dataMax, paddedMax);
 
 			// Negative distMin and distMax means that we're still inside the
 			// data range.
@@ -491,58 +492,29 @@ extend(Point.prototype, /** @lends Point.prototype */ {
 
 	/**
 	 * Runs on mouse over the point
-	 *
+	 * 
 	 * @param {Object} e The event arguments
-	 * @param {Boolean} byProximity Falsy for kd points that are closest to the mouse, or to
-	 *        actually hovered points. True for other points in shared tooltip.
 	 */
-	onMouseOver: function (e, byProximity) {
+	onMouseOver: function (e) {
 		var point = this,
 			series = point.series,
 			chart = series.chart,
-			tooltip = chart.tooltip,
-			hoverPoint = chart.hoverPoint;
-
-		if (point.series) { // It may have been destroyed, #4130
-			// In shared tooltip, call mouse over when point/series is actually hovered: (#5766)
-			if (!byProximity) {
-				// set normal state to previous series
-				if (hoverPoint && hoverPoint !== point) {
-					hoverPoint.onMouseOut();
-				}
-				if (chart.hoverSeries !== series) {
-					series.onMouseOver();
-				}
-				chart.hoverPoint = point;
-			}
-
-			// update the tooltip
-			if (tooltip && (!tooltip.shared || series.noSharedTooltip)) {
-				// hover point only for non shared points: (#5766)
-				point.setState('hover');
-				tooltip.refresh(point, e);
-			} else if (!tooltip) {
-				point.setState('hover');
-			}
-
-			// trigger the event
-			point.firePointEvent('mouseOver');
-		}
+			pointer = chart.pointer;
+		point.firePointEvent('mouseOver');
+		pointer.runPointActions(e, point);
 	},
 
 	/**
 	 * Runs on mouse out from the point
 	 */
 	onMouseOut: function () {
-		var chart = this.series.chart,
-			hoverPoints = chart.hoverPoints;
-
-		this.firePointEvent('mouseOut');
-
-		if (!hoverPoints || inArray(this, hoverPoints) === -1) { // #887, #2240
-			this.setState();
-			chart.hoverPoint = null;
-		}
+		var point = this,
+			chart = point.series.chart;
+		point.firePointEvent('mouseOut');
+		each(chart.hoverPoints || [], function (p) {
+			p.setState();
+		});
+		chart.hoverPoints = chart.hoverPoint = null;
 	},
 
 	/**
@@ -826,7 +798,11 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 		if (series.state !== state) {
 
 			// Toggle class names
-			each([series.group, series.markerGroup], function (group) {
+			each([
+				series.group,
+				series.markerGroup,
+				series.dataLabelsGroup
+			], function (group) {
 				if (group) {
 					// Old state
 					if (series.state) {
@@ -855,8 +831,16 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 				attribs = {
 					'stroke-width': lineWidth
 				};
-				// use attr because animate will cause any other animation on the graph to stop
-				graph.attr(attribs);
+				
+				// Animate the graph stroke-width. By default a quick animation
+				// to hover, slower to un-hover.
+				graph.animate(
+					attribs,
+					pick(
+						series.chart.options.chart.animation,
+						stateOptions[state] && stateOptions[state].animation
+					)
+				);
 				while (series['zone-graph-' + i]) {
 					series['zone-graph-' + i].attr(attribs);
 					i = i + 1;

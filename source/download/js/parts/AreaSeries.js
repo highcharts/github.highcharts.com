@@ -134,11 +134,11 @@ seriesType('area', 'line', {
 						// When reversedStacks is true, loop up, else loop down
 						i += upOrDown;
 					}
-
-					y = yAxis.toPixels(y, true);
+					y = yAxis.translate(y, 0, 1, 0, 1); // #6272
 					segment.push({ 
 						isNull: true,
-						plotX: xAxis.toPixels(x, true),
+						plotX: xAxis.translate(x, 0, 0, 0, 1), // #6272
+						x: x,
 						plotY: y,
 						yBottom: y
 					});
@@ -199,7 +199,8 @@ seriesType('area', 'line', {
 					graphPoints.push({
 						plotX: plotX,
 						plotY: top === null ? translatedThreshold : yAxis.getThreshold(top),
-						isNull: isNull
+						isNull: isNull,
+						isCliff: true
 					});
 					bottomPoints.push({
 						plotX: plotX,
@@ -211,7 +212,7 @@ seriesType('area', 'line', {
 
 		// Find what points to use
 		points = points || this.points;
-		
+
 		// Fill in missing points
 		if (stacking) {
 			points = this.getStackPoints();
@@ -256,6 +257,7 @@ seriesType('area', 'line', {
 
 		areaPath.xMap = topPath.xMap;
 		this.areaPath = areaPath;
+
 		return graphPath;
 	},
 

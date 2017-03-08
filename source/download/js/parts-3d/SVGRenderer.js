@@ -196,7 +196,15 @@ SVGRenderer.prototype.cuboid = function (shapeArgs) {
 		return this;
 	};
 
-	result.attr = function (args) {
+	result.attr = function (args, val) {
+
+		// Resolve setting attributes by string name
+		if (typeof args === 'string' && typeof val !== 'undefined') {
+			var key = args;
+			args = {};
+			args[key] = val;
+		}
+
 		if (args.shapeArgs || defined(args.x)) {
 			var shapeArgs = args.shapeArgs || args;
 			var paths = this.renderer.cuboidPath(shapeArgs);
