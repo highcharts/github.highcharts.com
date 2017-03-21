@@ -22,3 +22,4 @@
 - Updated source files used in download builder to v5.0.9.
 - Modified download builder router to receive more compact requests.
 - Created deploy script to package application files into a zip archive.
+- Updated assembler files.
