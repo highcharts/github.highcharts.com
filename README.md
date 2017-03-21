@@ -38,6 +38,17 @@ Do deployment of new version.
 
 `@todo` Publish the assembler on NPM and then require it. This way it will always be up to date.
 
+## Deployment
+Before deploying a new application, please ensure the following requirements are met.
+### Requirements
+1. Any updates must be committed to ensure the running application is tracked.
+2. `config.json` is configured according to guide.
+
+### Packaging
+Open a CLI and run the following command:
+`npm run deploy`
+The application will be packed into an archive named `github.highcharts.com.zip`. The zip is ready to be uploaded and unpacked on your server.
+
 ## File Structure
 ### Folders
 ```
@@ -81,14 +92,4 @@ Important: Shall not be committed to Github, nor deployed.
 
 #### views
 Where the HTML files are located.
-## Deployment
-Before deploying a new application, please ensure the following requirements are met.
-### Requirements
-1. Any updates must be committed to ensure the running application is tracked.
-2. `config.json` is configured according to guide.
-
-### Packaging
-Open a CLI and run the following command:
-`npm run deploy`
-The application will be packed into an archive named `github.highcharts.com.zip`. The zip is ready to be uploaded and unpacked on your server.
 

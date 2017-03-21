@@ -10,7 +10,7 @@
     "js-beautify": "^1.6.4"
   },
   "devDependencies": {
-    "easy-zip": "0.0.4",
+    "archiver": "^1.3.0",
     "eslint": "^3.4.0"
   },
   "scripts": {
