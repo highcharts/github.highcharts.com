@@ -1,5 +1,5 @@
 /**
- * (c) 2010-2016 Torstein Honsi
+ * (c) 2010-2017 Torstein Honsi
  *
  * License: www.highcharts.com/license
  */
@@ -50,8 +50,8 @@ H.Color.prototype = {
 		}
 	}],
 
-	// Collection of named colors. Can be extended from the outside by adding colors
-	// to Highcharts.Color.prototype.names.
+	// Collection of named colors. Can be extended from the outside by adding
+	// colors to Highcharts.Color.prototype.names.
 	names: {
 		white: '#ffffff',
 		black: '#000000'
@@ -68,7 +68,11 @@ H.Color.prototype = {
 			parser,
 			len;
 
-		this.input = input = this.names[input] || input;
+		this.input = input = this.names[
+								input && input.toLowerCase ?
+									input.toLowerCase() :
+									''
+							] || input;
 
 		// Gradients
 		if (input && input.stops) {

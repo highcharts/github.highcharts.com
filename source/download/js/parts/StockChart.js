@@ -1,5 +1,5 @@
 /**
- * (c) 2010-2016 Torstein Honsi
+ * (c) 2010-2017 Torstein Honsi
  *
  * License: www.highcharts.com/license
  */
@@ -534,7 +534,7 @@ wrap(Axis.prototype, 'drawCrosshair', function (proceed, e, point) {
 });
 
 /* ****************************************************************************
- * Start value compare logic                                                  *
+ * Start value compare logic												  *
  *****************************************************************************/
 	
 /**
@@ -683,7 +683,7 @@ Point.prototype.tooltipFormatter = function (pointFormat) {
 };
 
 /* ****************************************************************************
- * End value compare logic                                                    *
+ * End value compare logic													*
  *****************************************************************************/
 
 

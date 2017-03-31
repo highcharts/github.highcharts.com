@@ -1,5 +1,5 @@
 /**
- * (c) 2010-2016 Torstein Honsi
+ * (c) 2010-2017 Torstein Honsi
  *
  * License: www.highcharts.com/license
  */
@@ -79,6 +79,7 @@ seriesType('bubble', 'scatter', {
 	trackerGroups: ['markerGroup', 'dataLabelsGroup'],
 	bubblePadding: true,
 	zoneAxis: 'z',
+	directTouch: true,
 
 	/*= if (build.classic) { =*/
 	pointAttribs: function (point, state) {

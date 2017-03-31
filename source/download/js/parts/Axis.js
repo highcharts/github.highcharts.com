@@ -1,5 +1,5 @@
 /**
- * (c) 2010-2016 Torstein Honsi
+ * (c) 2010-2017 Torstein Honsi
  *
  * License: www.highcharts.com/license
  */
@@ -305,6 +305,9 @@ H.Axis.prototype = {
 		//axis.gridGroup = undefined;
 		//axis.axisTitle = undefined;
 		//axis.axisLine = undefined;
+
+		// Placeholder for plotlines and plotbands groups
+		axis.plotLinesAndBandsGroups = {};
 
 		// Shorthand types
 		axis.isLog = type === 'logarithmic';
@@ -930,7 +933,9 @@ H.Axis.prototype = {
 		}
 
 		// Write the last point's name to the names array
-		this.names[x] = point.name;
+		if (x !== undefined) {
+			this.names[x] = point.name;
+		}
 
 		return x;
 	},
@@ -959,7 +964,7 @@ H.Axis.prototype = {
 					var x;
 					if (point.options) {
 						x = axis.nameToX(point);
-						if (x !== point.x) {
+						if (x !== undefined && x !== point.x) {
 							point.x = x;
 							series.xData[i] = x;
 						}
@@ -1168,17 +1173,20 @@ H.Axis.prototype = {
 			}
 		}
 
-		// Handle options for floor, ceiling, softMin and softMax
+		// Handle options for floor, ceiling, softMin and softMax (#6359)
+		if (isNumber(options.softMin)) {
+			axis.min = Math.min(axis.min, options.softMin);
+		}
+		if (isNumber(options.softMax)) {
+			axis.max = Math.max(axis.max, options.softMax);
+		}
 		if (isNumber(options.floor)) {
 			axis.min = Math.max(axis.min, options.floor);
-		} else if (isNumber(options.softMin)) {
-			axis.min = Math.min(axis.min, options.softMin);
 		}
 		if (isNumber(options.ceiling)) {
 			axis.max = Math.min(axis.max, options.ceiling);
-		} else if (isNumber(options.softMax)) {
-			axis.max = Math.max(axis.max, options.softMax);
 		}
+		
 
 		// When the threshold is soft, adjust the extreme value only if
 		// the data extreme and the padded extreme land on either side of the threshold. For example,
@@ -1355,7 +1363,7 @@ H.Axis.prototype = {
 			minPointOffset = this.minPointOffset || 0;
 
 		if (!this.isLinked) {
-			if (startOnTick) {
+			if (startOnTick && roundedMin !== -Infinity) { // #6502
 				this.min = roundedMin;
 			} else {
 				while (this.min - minPointOffset > tickPositions[0]) {
@@ -2504,6 +2512,7 @@ H.Axis.prototype = {
 			stacks = axis.stacks,
 			stackKey,
 			plotLinesAndBands = axis.plotLinesAndBands,
+			plotGroup,
 			i,
 			n;
 
@@ -2536,6 +2545,11 @@ H.Axis.prototype = {
 				axis[prop] = axis[prop].destroy();
 			}
 		});
+
+		// Destroy each generated group for plotlines and plotbands
+		for (plotGroup in axis.plotLinesAndBandsGroups) {
+			axis.plotLinesAndBandsGroups[plotGroup] = axis.plotLinesAndBandsGroups[plotGroup].destroy();
+		}
 
 		// Delete all properties and fall back to the prototype.
 		for (n in axis) {
