@@ -1,7 +1,8 @@
 'use strict';
 const fs = require('fs');
 const archiver = require('archiver');
-const archiveName = 'github.highcharts.com.zip';
+const versionNumber = require('../package.json').version;
+const archiveName = 'github.highcharts-' + versionNumber + '.zip';
 const folders = ['app', 'assembler', 'assets', 'source', 'views', 'tmp'];
 const files = ['config.json', 'package.json', 'server.js'];
 const output = fs.createWriteStream(archiveName);
