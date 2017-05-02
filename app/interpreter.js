@@ -21,7 +21,7 @@ const getFileOptions = (base) => {
 	const fileOptions = U.getFilesInFolder('../' + base, '', true)
 		.map(s => s.substring(1)) // Trim forward slash
 		.reduce((obj, file) => {
-			if (file.indexOf('modules') > -1) {
+			if (file.indexOf('modules') > -1 || file.indexOf('themes') > -1) {
 				obj[file] = {
 					exclude: new RegExp(folders.parts),
 					umd: false

@@ -23,3 +23,4 @@
 - Modified download builder router to receive more compact requests.
 - Created deploy script to package application files into a zip archive.
 - Updated assembler files.
+- Fixed issue with themes UMD wrap.
