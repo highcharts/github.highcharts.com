@@ -8,14 +8,12 @@ import H from './Globals.js';
 import './Utilities.js';
 import './Color.js';
 import './Options.js';
-import './PlotLineOrBand.js';
 import './Tick.js';
 
 var addEvent = H.addEvent,
 	animObject = H.animObject,
 	arrayMax = H.arrayMax,
 	arrayMin = H.arrayMin,
-	AxisPlotLineOrBandExtension = H.AxisPlotLineOrBandExtension,
 	color = H.color,
 	correctFloat = H.correctFloat,
 	defaultOptions = H.defaultOptions,
@@ -34,24 +32,46 @@ var addEvent = H.addEvent,
 	isString = H.isString,
 	merge = H.merge,
 	normalizeTickInterval = H.normalizeTickInterval,
+	objectEach = H.objectEach,
 	pick = H.pick,
-	PlotLineOrBand = H.PlotLineOrBand,
 	removeEvent = H.removeEvent,
 	splat = H.splat,
 	syncTimeout = H.syncTimeout,
 	Tick = H.Tick;
 	
 /**
- * Create a new axis object.
- * @constructor Axis
- * @param {Object} chart
- * @param {Object} options
+ * Create a new axis object. Called internally when instanciating a new chart or
+ * adding axes by {@link Chart#addAxis}.
+ *
+ * A chart can have from 0 axes (pie chart) to multiples. In a normal, single
+ * series cartesian chart, there is one X axis and one Y axis.
+ * 
+ * The X axis or axes are referenced by {@link Highcharts.Chart.xAxis}, which is
+ * an array of Axis objects. If there is only one axis, it can be referenced
+ * through `chart.xAxis[0]`, and multiple axes have increasing indices. The same
+ * pattern goes for Y axes.
+ * 
+ * If you need to get the axes from a series object, use the `series.xAxis` and
+ * `series.yAxis` properties. These are not arrays, as one series can only be
+ * associated to one X and one Y axis.
+ * 
+ * A third way to reference the axis programmatically is by `id`. Add an `id` in
+ * the axis configuration options, and get the axis by
+ * {@link Highcharts.Chart#get}.
+ * 
+ * Configuration options for the axes are given in options.xAxis and
+ * options.yAxis.
+ * 
+ * @class Highcharts.Axis
+ * @memberOf Highcharts
+ * @param {Highcharts.Chart} chart - The Chart instance to apply the axis on.
+ * @param {Object} options - Axis options
  */
-H.Axis = function () {
+var Axis = function () {
 	this.init.apply(this, arguments);
 };
 
-H.Axis.prototype = {
+H.extend(Axis.prototype, /** @lends Highcharts.Axis.prototype */{
 
 	/**
 	 * Default options for the X axis - the Y axis has extended defaults
@@ -127,6 +147,7 @@ H.Axis.prototype = {
 			//text: null,
 			align: 'middle', // low, middle or high
 			//margin: 0 for horizontal, 10 for vertical axes,
+			// reserveSpace: true,
 			//rotation: 0,
 			//side: 'outside',
 			/*= if (build.classic) { =*/
@@ -282,7 +303,8 @@ H.Axis.prototype = {
 			type = options.type,
 			isDatetimeAxis = type === 'datetime';
 
-		axis.labelFormatter = options.labels.formatter || axis.defaultLabelFormatter; // can be overwritten by dynamic format
+		axis.labelFormatter = options.labels.formatter ||
+			axis.defaultLabelFormatter; // can be overwritten by dynamic format
 
 
 		// Flag, stagger lines or not
@@ -318,13 +340,6 @@ H.Axis.prototype = {
 		axis.isLinked = defined(options.linkedTo);
 		// Linked axis.
 		//axis.linkedParent = undefined;
-
-		// Tick positions
-		//axis.tickPositions = undefined; // array containing predefined positions
-		// Tick intervals
-		//axis.tickInterval = undefined;
-		//axis.minorTickInterval = undefined;
-
 
 		// Major ticks
 		axis.ticks = {};
@@ -377,14 +392,16 @@ H.Axis.prototype = {
 		//axis.userMax = undefined,
 
 		// Crosshair options
-		axis.crosshair = pick(options.crosshair, splat(chart.options.tooltip.crosshairs)[isXAxis ? 0 : 1], false);
-		// Run Axis
+		axis.crosshair = pick(
+			options.crosshair,
+			splat(chart.options.tooltip.crosshairs)[isXAxis ? 0 : 1],
+			false
+		);
+		
+		var events = axis.options.events;
 
-		var eventType,
-			events = axis.options.events;
-
-		// Register
-		if (inArray(axis, chart.axes) === -1) { // don't add it again on Axis.update()
+		// Register. Don't add it again on Axis.update().
+		if (inArray(axis, chart.axes) === -1) { // 
 			if (isXAxis) { // #2713
 				chart.axes.splice(chart.xAxis.length, 0, axis);
 			} else {
@@ -401,14 +418,10 @@ H.Axis.prototype = {
 			axis.reversed = true;
 		}
 
-		axis.removePlotBand = axis.removePlotBandOrLine;
-		axis.removePlotLine = axis.removePlotBandOrLine;
-
-
 		// register event listeners
-		for (eventType in events) {
-			addEvent(axis, eventType, events[eventType]);
-		}
+		objectEach(events, function (event, eventType) {
+			addEvent(axis, eventType, event);
+		});
 
 		// extend logarithmic axis
 		axis.lin2log = options.linearToLogConverter || axis.lin2log;
@@ -425,8 +438,12 @@ H.Axis.prototype = {
 		this.options = merge(
 			this.defaultOptions,
 			this.coll === 'yAxis' && this.defaultYAxisOptions,
-			[this.defaultTopAxisOptions, this.defaultRightAxisOptions,
-				this.defaultBottomAxisOptions, this.defaultLeftAxisOptions][this.side],
+			[
+				this.defaultTopAxisOptions,
+				this.defaultRightAxisOptions,
+				this.defaultBottomAxisOptions,
+				this.defaultLeftAxisOptions
+			][this.side],
 			merge(
 				defaultOptions[this.coll], // if set in setOptions (#1053)
 				userOptions
@@ -435,7 +452,8 @@ H.Axis.prototype = {
 	},
 
 	/**
-	 * The default label formatter. The context is a special config object for the label.
+	 * The default label formatter. The context is a special config object for
+	 * the label.
 	 */
 	defaultLabelFormatter: function () {
 		var axis = this.axis,
@@ -450,8 +468,11 @@ H.Axis.prototype = {
 			ret,
 			formatOption = axis.options.labels.format,
 
-			// make sure the same symbol is added for all labels on a linear axis
-			numericSymbolDetector = axis.isLog ? Math.abs(value) : axis.tickInterval;
+			// make sure the same symbol is added for all labels on a linear
+			// axis
+			numericSymbolDetector = axis.isLog ?
+				Math.abs(value) :
+				axis.tickInterval;
 
 		if (formatOption) {
 			ret = format(formatOption, this);
@@ -463,12 +484,18 @@ H.Axis.prototype = {
 			ret = H.dateFormat(dateTimeLabelFormat, value);
 
 		} else if (i && numericSymbolDetector >= 1000) {
-			// Decide whether we should add a numeric symbol like k (thousands) or M (millions).
-			// If we are to enable this in tooltip or other places as well, we can move this
-			// logic to the numberFormatter and enable it by a parameter.
+			// Decide whether we should add a numeric symbol like k (thousands)
+			// or M (millions). If we are to enable this in tooltip or other
+			// places as well, we can move this logic to the numberFormatter and
+			// enable it by a parameter.
 			while (i-- && ret === undefined) {
 				multi = Math.pow(numSymMagnitude, i + 1);
-				if (numericSymbolDetector >= multi && (value * 10) % multi === 0 && numericSymbols[i] !== null && value !== 0) { // #5480
+				if (
+					numericSymbolDetector >= multi &&
+					(value * 10) % multi === 0 &&
+					numericSymbols[i] !== null &&
+					value !== 0
+				) { // #5480
 					ret = H.numberFormat(value / multi, -1) + numericSymbols[i];
 				}
 			}
@@ -523,23 +550,34 @@ H.Axis.prototype = {
 				if (axis.isXAxis) {
 					xData = series.xData;
 					if (xData.length) {
-						// If xData contains values which is not numbers, then filter them out.
-						// To prevent performance hit, we only do this after we have already
-						// found seriesDataMin because in most cases all data is valid. #5234.
+						// If xData contains values which is not numbers, then
+						// filter them out. To prevent performance hit, we only
+						// do this after we have already found seriesDataMin
+						// because in most cases all data is valid. #5234.
 						seriesDataMin = arrayMin(xData);
-						if (!isNumber(seriesDataMin) && !(seriesDataMin instanceof Date)) { // Date for #5010
+						if (
+							!isNumber(seriesDataMin) &&
+							!(seriesDataMin instanceof Date) // #5010
+						) {
 							xData = grep(xData, function (x) {
 								return isNumber(x);
 							});
 							seriesDataMin = arrayMin(xData); // Do it again with valid data
 						}
 
-						axis.dataMin = Math.min(pick(axis.dataMin, xData[0]), seriesDataMin);
-						axis.dataMax = Math.max(pick(axis.dataMax, xData[0]), arrayMax(xData));
+						axis.dataMin = Math.min(
+							pick(axis.dataMin, xData[0]),
+							seriesDataMin
+						);
+						axis.dataMax = Math.max(
+							pick(axis.dataMax, xData[0]),
+							arrayMax(xData)
+						);
 						
 					}
 
-				// Get dataMin and dataMax for Y axes, as well as handle stacking and processed data
+				// Get dataMin and dataMax for Y axes, as well as handle
+				// stacking and processed data
 				} else {
 
 					// Get this particular series extremes
@@ -547,12 +585,19 @@ H.Axis.prototype = {
 					seriesDataMax = series.dataMax;
 					seriesDataMin = series.dataMin;
 
-					// Get the dataMin and dataMax so far. If percentage is used, the min and max are
-					// always 0 and 100. If seriesDataMin and seriesDataMax is null, then series
+					// Get the dataMin and dataMax so far. If percentage is
+					// used, the min and max are always 0 and 100. If
+					// seriesDataMin and seriesDataMax is null, then series
 					// doesn't have active y data, we continue with nulls
 					if (defined(seriesDataMin) && defined(seriesDataMax)) {
-						axis.dataMin = Math.min(pick(axis.dataMin, seriesDataMin), seriesDataMin);
-						axis.dataMax = Math.max(pick(axis.dataMax, seriesDataMax), seriesDataMax);
+						axis.dataMin = Math.min(
+							pick(axis.dataMin, seriesDataMin),
+							seriesDataMin
+						);
+						axis.dataMax = Math.max(
+							pick(axis.dataMax, seriesDataMax),
+							seriesDataMax
+						);
 					}
 
 					// Adjust to threshold
@@ -560,7 +605,10 @@ H.Axis.prototype = {
 						axis.threshold = threshold;
 					}
 					// If any series has a hard threshold, it takes precedence
-					if (!seriesOptions.softThreshold || axis.positiveValuesOnly) {
+					if (
+						!seriesOptions.softThreshold ||
+						axis.positiveValuesOnly
+					) {
 						axis.softThreshold = false;
 					}
 				}
@@ -623,23 +671,38 @@ H.Axis.prototype = {
 	},
 
 	/**
-	 * Utility method to translate an axis value to pixel position.
-	 * @param {Number} value A value in terms of axis units
-	 * @param {Boolean} paneCoordinates Whether to return the pixel coordinate relative to the chart
-	 *        or just the axis/pane itself.
+	 * Translate a value in terms of axis units into pixels within the chart.
+	 * 
+	 * @param  {Number} value
+	 *         A value in terms of axis units.
+	 * @param  {Boolean} paneCoordinates
+	 *         Whether to return the pixel coordinate relative to the chart or
+	 *         just the axis/pane itself.
+	 * @return {Number} Pixel position of the value on the chart or axis.
 	 */
 	toPixels: function (value, paneCoordinates) {
-		return this.translate(value, false, !this.horiz, null, true) + (paneCoordinates ? 0 : this.pos);
+		return this.translate(value, false, !this.horiz, null, true) +
+			(paneCoordinates ? 0 : this.pos);
 	},
 
 	/**
-	 * Utility method to translate a pixel position in to an axis value.
-	 * @param {Number} pixel The pixel value coordinate
-	 * @param {Boolean} paneCoordiantes Whether the input pixel is relative to the chart or just the
-	 *        axis/pane itself.
+	 * Translate a pixel position along the axis to a value in terms of axis
+	 * units.
+	 * @param  {Number} pixel
+	 *         The pixel value coordinate.
+	 * @param  {Boolean} paneCoordiantes
+	 *         Whether the input pixel is relative to the chart or just the
+	 *         axis/pane itself.
+	 * @return {Number} The axis value.
 	 */
 	toValue: function (pixel, paneCoordinates) {
-		return this.translate(pixel - (paneCoordinates ? 0 : this.pos), true, !this.horiz, null, true);
+		return this.translate(
+			pixel - (paneCoordinates ? 0 : this.pos),
+			true,
+			!this.horiz,
+			null,
+			true
+		);
 	},
 
 	/**
@@ -1298,8 +1361,17 @@ H.Axis.prototype = {
 		// this axis, then min and max are equal and tickPositions.length is 0
 		// or 1. In this case, add some padding in order to center the point,
 		// but leave it with one tick. #1337.
-		this.single = this.min === this.max && defined(this.min) &&
-			!this.tickAmount && options.allowDecimals !== false;
+		this.single =
+			this.min === this.max &&
+			defined(this.min) &&
+			!this.tickAmount &&
+			(
+				// Data is on integer (#6563)
+				parseInt(this.min, 10) === this.min ||
+
+				// Between integers and decimals are not allowed (#6274)
+				options.allowDecimals !== false
+			);
 
 		// Find the tick positions
 		this.tickPositions = tickPositions = tickPositionsOption && tickPositionsOption.slice(); // Work on a copy (#1565)
@@ -1307,7 +1379,10 @@ H.Axis.prototype = {
 
 			if (this.isDatetimeAxis) {
 				tickPositions = this.getTimeTicks(
-					this.normalizeTimeTickInterval(this.tickInterval, options.units),
+					this.normalizeTimeTickInterval(
+						this.tickInterval,
+						options.units
+					),
 					this.min,
 					this.max,
 					options.startOfWeek,
@@ -1316,9 +1391,17 @@ H.Axis.prototype = {
 					true
 				);
 			} else if (this.isLog) {
-				tickPositions = this.getLogTickPositions(this.tickInterval, this.min, this.max);
+				tickPositions = this.getLogTickPositions(
+					this.tickInterval,
+					this.min,
+					this.max
+				);
 			} else {
-				tickPositions = this.getLinearTickPositions(this.tickInterval, this.min, this.max);
+				tickPositions = this.getLinearTickPositions(
+					this.tickInterval,
+					this.min,
+					this.max
+				);
 			}
 
 			// Too dense ticks, keep only the first and last (#4477)
@@ -1554,14 +1637,31 @@ H.Axis.prototype = {
 	},
 
 	/**
-	 * Set the extremes and optionally redraw
-	 * @param {Number} newMin
-	 * @param {Number} newMax
-	 * @param {Boolean} redraw
-	 * @param {Boolean|Object} animation Whether to apply animation, and optionally animation
-	 *    configuration
-	 * @param {Object} eventArguments
+	 * Set the minimum and maximum of the axes after render time. If the
+	 * `startOnTick` and `endOnTick` options are true, the minimum and maximum
+	 * values are rounded off to the nearest tick. To prevent this, these
+	 * options can be set to false before calling setExtremes. Also, setExtremes
+	 * will not allow a range lower than the `minRange` option, which by default
+	 * is the range of five points.
+	 * 
+	 * @param {Number} [newMin]
+	 *        The new minimum value.
+	 * @param {Number} [newMax]
+	 *        The new maximum value.
+	 * @param {Boolean} [redraw=true]
+	 *        Whether to redraw the chart or wait for an explicit call to 
+	 *        {@link Highcharts.Chart#redraw}
+	 * @param {AnimationOptions} [animation=true]
+	 *        Enable or modify animations.
+	 * @param {Object} [eventArguments]
+	 *        Arguments to be accessed in event handler.
 	 *
+	 * @sample highcharts/members/axis-setextremes/
+	 *        Set extremes from a button
+	 * @sample highcharts/members/axis-setextremes-datetime/
+	 *        Set extremes on a datetime axis
+	 * @sample highcharts/members/axis-setextremes-off-ticks/
+	 *        Set extremes off ticks
 	 */
 	setExtremes: function (newMin, newMax, redraw, animation, eventArguments) {
 		var axis = this,
@@ -1679,7 +1779,28 @@ H.Axis.prototype = {
 	},
 
 	/**
-	 * Get the actual axis extremes
+	 * The returned object literal from the {@link Highcharts.Axis#getExtremes}
+	 * function. 
+	 * @typedef {Object} Extremes
+	 * @property {Number} dataMax
+	 *         The maximum value of the axis' associated series.
+	 * @property {Number} dataMin
+	 *         The minimum value of the axis' associated series.
+	 * @property {Number} max
+	 *         The maximum axis value, either automatic or set manually. If the
+	 *         `max` option is not set, `maxPadding` is 0 and `endOnTick` is
+	 *         false, this value will be the same as `dataMax`.
+	 * @property {Number} min
+	 *         The minimum axis value, either automatic or set manually. If the
+	 *         `min` option is not set, `minPadding` is 0 and `startOnTick` is
+	 *         false, this value will be the same as `dataMin`.
+	 */
+	/**
+	 * Get the current extremes for the axis.
+	 *
+	 * @returns {Extremes}
+	 * An object containing extremes information.
+	 * @sample members/axis-getextremes/ Report extremes by click on a button
 	 */
 	getExtremes: function () {
 		var axis = this,
@@ -2064,7 +2185,6 @@ H.Axis.prototype = {
 			clipOffset = chart.clipOffset,
 			clip,
 			directionFactor = [-1, 1, 1, -1][side],
-			n,
 			className = options.className,
 			axisParent = axis.axisParent, // Used in color axis
 			lineHeightCorrection,
@@ -2124,17 +2244,18 @@ H.Axis.prototype = {
 
 
 		} else { // doesn't have data
-			for (n in ticks) {
-				ticks[n].destroy();
+			objectEach(ticks, function (tick, n) {
+				tick.destroy();
 				delete ticks[n];
-			}
+			});
 		}
 
 		if (axisTitleOptions && axisTitleOptions.text && axisTitleOptions.enabled !== false) {
 			axis.addTitle(showAxis);
 
-			if (showAxis) {
-				titleOffset = axis.axisTitle.getBBox()[horiz ? 'height' : 'width'];
+			if (showAxis && axisTitleOptions.reserveSpace !== false) {
+				axis.titleOffset = titleOffset =
+					axis.axisTitle.getBBox()[horiz ? 'height' : 'width'];
 				titleOffsetOption = axisTitleOptions.offset;
 				titleMargin = defined(titleOffsetOption) ? 0 : pick(axisTitleOptions.margin, horiz ? 5 : 10);
 			}
@@ -2351,10 +2472,9 @@ H.Axis.prototype = {
 
 		// Mark all elements inActive before we go over and mark the active ones
 		each([ticks, minorTicks, alternateBands], function (coll) {
-			var pos;
-			for (pos in coll) {
-				coll[pos].isActive = false;
-			}
+			objectEach(coll, function (tick) {
+				tick.isActive = false;
+			});
 		});
 
 		// If the series has data draw the ticks. Else only the line and title
@@ -2390,7 +2510,7 @@ H.Axis.prototype = {
 					to = tickPositions[i + 1] !== undefined ? tickPositions[i + 1] + tickmarkOffset : axis.max - tickmarkOffset; 
 					if (i % 2 === 0 && pos < axis.max && to <= axis.max + (chart.polar ? -tickmarkOffset : tickmarkOffset)) { // #2248, #4660
 						if (!alternateBands[pos]) {
-							alternateBands[pos] = new PlotLineOrBand(axis);
+							alternateBands[pos] = new H.PlotLineOrBand(axis);
 						}
 						from = pos + tickmarkOffset; // #949
 						alternateBands[pos].options = {
@@ -2416,8 +2536,7 @@ H.Axis.prototype = {
 
 		// Remove inactive ticks
 		each([ticks, minorTicks, alternateBands], function (coll) {
-			var pos,
-				i,
+			var i,
 				forDestruction = [],
 				delay = animation.duration,
 				destroyInactiveItems = function () {
@@ -2433,15 +2552,14 @@ H.Axis.prototype = {
 
 				};
 
-			for (pos in coll) {
-
-				if (!coll[pos].isActive) {
+			objectEach(coll, function (tick, pos) {
+				if (!tick.isActive) {
 					// Render to zero opacity
-					coll[pos].render(pos, false, 0);
-					coll[pos].isActive = false;
+					tick.render(pos, false, 0);
+					tick.isActive = false;
 					forDestruction.push(pos);
 				}
-			}
+			});
 
 			// When the objects are finished fading out, destroy them
 			syncTimeout(
@@ -2510,11 +2628,9 @@ H.Axis.prototype = {
 	destroy: function (keepEvents) {
 		var axis = this,
 			stacks = axis.stacks,
-			stackKey,
 			plotLinesAndBands = axis.plotLinesAndBands,
 			plotGroup,
-			i,
-			n;
+			i;
 
 		// Remove the events
 		if (!keepEvents) {
@@ -2522,11 +2638,11 @@ H.Axis.prototype = {
 		}
 
 		// Destroy each stack total
-		for (stackKey in stacks) {
-			destroyObjectProperties(stacks[stackKey]);
-
+		objectEach(stacks, function (stack, stackKey) {
+			destroyObjectProperties(stack);
+			
 			stacks[stackKey] = null;
-		}
+		});
 
 		// Destroy collections
 		each([axis.ticks, axis.minorTicks, axis.alternateBands], function (coll) {
@@ -2552,11 +2668,11 @@ H.Axis.prototype = {
 		}
 
 		// Delete all properties and fall back to the prototype.
-		for (n in axis) {
-			if (axis.hasOwnProperty(n) && inArray(n, axis.keepProps) === -1) {
-				delete axis[n];
+		objectEach(axis, function (val, key) {
+			if (inArray(key, axis.keepProps) === -1) {
+				delete axis[key];
 			}
-		}
+		});
 	},
 
 	/**
@@ -2661,6 +2777,7 @@ H.Axis.prototype = {
 			this.cross.hide();
 		}
 	}
-}; // end Axis
+}); // end Axis
 
-extend(H.Axis.prototype, AxisPlotLineOrBandExtension);
+H.Axis = Axis;
+export default Axis;

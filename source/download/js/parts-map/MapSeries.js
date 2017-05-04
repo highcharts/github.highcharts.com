@@ -248,7 +248,6 @@ seriesType('map', 'scatter', {
 			dataUsed = [],
 			mapMap = {},
 			mapPoint,
-			transform,
 			mapTransforms = this.chart.mapTransforms,
 			props,
 			i;
@@ -302,12 +301,12 @@ seriesType('map', 'scatter', {
 
 		// Cache cos/sin of transform rotation angle
 		if (mapTransforms) {
-			for (transform in mapTransforms) {
-				if (mapTransforms.hasOwnProperty(transform) && transform.rotation) {
+			H.objectEach(mapTransforms, function (transform) {
+				if (transform.rotation) {
 					transform.cosAngle = Math.cos(transform.rotation);
 					transform.sinAngle = Math.sin(transform.rotation);
 				}
-			}
+			});
 		}
 
 		if (mapData) {
@@ -790,7 +789,7 @@ seriesType('map', 'scatter', {
 	 */
 	onMouseOver: function (e) {
 		clearTimeout(this.colorInterval);
-		if (this.value !== null) {
+		if (this.value !== null || this.series.options.nullInteraction) {
 			Point.prototype.onMouseOver.call(this, e);
 		} else { //#3401 Tooltip doesn't hide when hovering over null points
 			this.series.onMouseOut(e);

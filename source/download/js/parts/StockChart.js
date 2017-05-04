@@ -21,6 +21,7 @@ var arrayMax = H.arrayMax,
 	each = H.each,
 	extend = H.extend,
 	format = H.format,
+	grep = H.grep,
 	inArray = H.inArray,
 	isNumber = H.isNumber,
 	isString = H.isString,
@@ -281,7 +282,13 @@ wrap(Axis.prototype, 'getPlotLinePath', function (proceed, value, lineWidth, old
 	// lines (#2796).
 	uniqueAxes = axes.length ? [] : [axis.isXAxis ? chart.yAxis[0] : chart.xAxis[0]]; //#3742
 	each(axes, function (axis2) {
-		if (inArray(axis2, uniqueAxes) === -1) {
+		if (
+			inArray(axis2, uniqueAxes) === -1 &&
+			// Do not draw on axis which overlap completely. #5424
+			!H.find(uniqueAxes, function (unique) {
+				return unique.pos === axis2.pos && unique.len && axis2.len;
+			})
+		) {
 			uniqueAxes.push(axis2);
 		}
 	});
@@ -626,7 +633,7 @@ seriesProto.processData = function () {
 
 		// find the first value for comparison
 		for (i = 0; i < length - 1; i++) {
-			compareValue = keyIndex > -1 ? 
+			compareValue = processedYData[i] && keyIndex > -1 ? 
 				processedYData[i][keyIndex] :
 				processedYData[i];
 			if (isNumber(compareValue) && processedXData[i + 1] >= series.xAxis.min && compareValue !== 0) {
@@ -721,4 +728,31 @@ wrap(Series.prototype, 'render', function (proceed) {
 		}
 	}
 	proceed.call(this);
+});
+
+wrap(Chart.prototype, 'getSelectedPoints', function (proceed) {
+	var points = proceed.call(this);
+
+	each(this.series, function (serie) {
+		// series.points - for grouped points (#6445)
+		if (serie.hasGroupedData) {
+			points = points.concat(grep(serie.points || [], function (point) {
+				return point.selected;
+			}));
+		}
+	});
+	return points;
+});
+
+wrap(Chart.prototype, 'update', function (proceed, options) {
+	// Use case: enabling scrollbar from a disabled state.
+	// Scrollbar needs to be initialized from a controller, Navigator in this
+	// case (#6615)
+	if ('scrollbar' in options && this.navigator) {
+		merge(true, this.options.scrollbar, options.scrollbar);
+		this.navigator.update({}, false);
+		delete options.scrollbar;
+	}
+
+	return proceed.apply(this, Array.prototype.slice.call(arguments, 1));
 });

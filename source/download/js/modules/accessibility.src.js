@@ -399,9 +399,12 @@ H.Chart.prototype.highlightAdjacentPoint = function (next) {
 		return false;
 	}
 
-	// Recursively skip null points
-	if (newPoint.isNull && this.options.accessibility.keyboardNavigation &&
-			this.options.accessibility.keyboardNavigation.skipNullPoints) {
+	// Recursively skip null points or points in series that should be skipped
+	if (
+		newPoint.isNull && 
+		this.options.accessibility.keyboardNavigation.skipNullPoints ||
+		newPoint.series.options.skipKeyboardNavigation // docs
+	) {
 		this.highlightedPoint = newPoint;
 		return this.highlightAdjacentPoint(next);
 	}
@@ -817,8 +820,10 @@ H.Chart.prototype.addKeyboardNavEvents = function () {
 			}]
 		], {
 			// Only run this module if we have at least one legend - wait for it - item.
+			// Don't run if the legend is populated by a colorAxis.
 			validate: function () {
-				return chart.legend && chart.legend.allItems && !chart.colorAxis;
+				return chart.legend && chart.legend.allItems &&
+					!(chart.colorAxis && chart.colorAxis.length);
 			},
 
 			// Make elements focusable and accessible
@@ -892,7 +897,7 @@ H.Chart.prototype.addScreenReaderRegion = function (id, tableId) {
 		(axesDesc.xAxis ? ('<div>' + axesDesc.xAxis + '</div>') : '') +
 		(axesDesc.yAxis ? ('<div>' + axesDesc.yAxis + '</div>') : '');
 
-	// Add shortcut to data table if export-csv is loaded
+	// Add shortcut to data table if export-data is loaded
 	if (chart.getCSV) {
 		tableShortcutAnchor.innerHTML = 'View as data table.';
 		tableShortcutAnchor.href = '#' + tableId;
@@ -984,31 +989,38 @@ H.Chart.prototype.callbacks.push(function (chart) {
 	chart.addScreenReaderRegion(hiddenSectionId, tableId);
 
 	// Enable keyboard navigation
-	if (a11yOptions.keyboardNavigation) {
+	if (a11yOptions.keyboardNavigation.enabled) {
 		chart.addKeyboardNavEvents();
 	}
 
-	/* Wrap table functionality from export-csv */
+	/* Wrap table functionality from export-data */
 
 	// Keep track of columns
 	merge(true, options.exporting, {
 		csv: {
-			columnHeaderFormatter: function (series, key, keyLength) {
+			columnHeaderFormatter: function (item, key, keyLength) {
+				if (!item) {
+					return 'Category';
+				}
+				if (item instanceof H.Axis) {
+					return (item.options.title && item.options.title.text) ||
+						(item.isDatetimeAxis ? 'DateTime' : 'Category');
+				}
 				var prevCol = topLevelColumns[topLevelColumns.length - 1];
 				if (keyLength > 1) {
 					// We need multiple levels of column headers
-					// Populate a list of column headers to add in addition to the ones added by export-csv
-					if ((prevCol && prevCol.text) !== series.name) {
+					// Populate a list of column headers to add in addition to the ones added by export-data
+					if ((prevCol && prevCol.text) !== item.name) {
 						topLevelColumns.push({
-							text: series.name,
+							text: item.name,
 							span: keyLength
 						});
 					}
 				}
 				if (oldColumnHeaderFormatter) {
-					return oldColumnHeaderFormatter.call(this, series, key, keyLength);
+					return oldColumnHeaderFormatter.call(this, item, key, keyLength);
 				}
-				return keyLength > 1 ? key : series.name;
+				return keyLength > 1 ? key : item.name;
 			}
 		}
 	});
@@ -1025,8 +1037,9 @@ H.Chart.prototype.callbacks.push(function (chart) {
 			proceed.apply(this, Array.prototype.slice.call(arguments, 1));
 
 			var table = doc.getElementById(tableId),
+				head = table.getElementsByTagName('thead')[0],
 				body = table.getElementsByTagName('tbody')[0],
-				firstRow = body.firstChild.children,
+				firstRow = head.firstChild.children,
 				columnHeaderRow = '<tr><td></td>',
 				cell,
 				newCell;
@@ -1055,7 +1068,7 @@ H.Chart.prototype.callbacks.push(function (chart) {
 				each(topLevelColumns, function (col) {
 					columnHeaderRow += '<th scope="col" colspan="' + col.span + '">' + col.text + '</th>';
 				});
-				body.insertAdjacentHTML('afterbegin', columnHeaderRow);
+				head.insertAdjacentHTML('afterbegin', columnHeaderRow);
 			}
 		}
 	});

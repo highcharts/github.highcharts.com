@@ -235,7 +235,7 @@ extend(Legend.prototype, {
 		})
 		.on('mouseout', function () {
 			/*= if (build.classic) { =*/
-			legendItem.css(item.visible ? legend.itemStyle : legend.itemHiddenStyle);
+			legendItem.css(merge(item.visible ? legend.itemStyle : legend.itemHiddenStyle));
 			/*= } =*/
 
 			// A CSS class to dim or hide other than the hovered series
@@ -420,18 +420,35 @@ extend(Chart.prototype, /** @lends Chart.prototype */ {
 				flipped = panMax < panMin,
 				newMin = flipped ? panMax : panMin,
 				newMax = flipped ? panMin : panMax,
-				paddedMin = axis.toValue(
-					axis.toPixels(extremes.min) - axis.minPixelPadding
+				paddedMin = Math.min(
+					extremes.dataMin, 
+					axis.toValue(
+						axis.toPixels(extremes.min) - axis.minPixelPadding
+					)
 				),
-				paddedMax = axis.toValue(
-					axis.toPixels(extremes.max) + axis.minPixelPadding
+				paddedMax = Math.max(
+					extremes.dataMax,
+					axis.toValue(
+						axis.toPixels(extremes.max) + axis.minPixelPadding
+					)
 				),
-				distMin = Math.min(extremes.dataMin, paddedMin) - newMin,
-				distMax = newMax - Math.max(extremes.dataMax, paddedMax);
+				spill;
 
-			// Negative distMin and distMax means that we're still inside the
-			// data range.
-			if (axis.series.length && distMin < 0 && distMax < 0) {
+			// If the new range spills over, either to the min or max, adjust
+			// the new range.
+			spill = paddedMin - newMin;
+			if (spill > 0) {
+				newMax += spill;
+				newMin = paddedMin;
+			}
+			spill = newMax - paddedMax;
+			if (spill > 0) {
+				newMax = paddedMax;
+				newMin -= spill;
+			}
+
+			// Set new extremes if they are actually new
+			if (axis.series.length && newMin !== extremes.min && newMax !== extremes.max) {
 				axis.setExtremes(
 					newMin,
 					newMax,
@@ -525,14 +542,13 @@ extend(Point.prototype, /** @lends Point.prototype */ {
 		if (!this.hasImportedEvents) {
 			var point = this,
 				options = merge(point.series.options.point, point.options),
-				events = options.events,
-				eventType;
+				events = options.events;
 
 			point.events = events;
 
-			for (eventType in events) {
-				addEvent(point, eventType, events[eventType]);
-			}
+			H.objectEach(events, function (event, eventType) {
+				addEvent(point, eventType, event);
+			});
 			this.hasImportedEvents = true;
 
 		}

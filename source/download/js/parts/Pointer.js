@@ -305,7 +305,7 @@ H.Pointer.prototype = {
 			hoverPoint = p || chart.hoverPoint,
 			hoverSeries = hoverPoint && hoverPoint.series || chart.hoverSeries,
 			// onMouseOver or already hovering a series with directTouch
-			isDirectTouch = !!p || (!shared && hoverSeries && hoverSeries.directTouch),
+			isDirectTouch = !!p || (hoverSeries && hoverSeries.directTouch),
 			hoverData = this.getHoverData(hoverPoint, hoverSeries, series, isDirectTouch, shared, e),
 			useSharedTooltip,
 			followPointer,
@@ -371,20 +371,20 @@ H.Pointer.prototype = {
 				}
 			});
 		}
-		
-		// Draw crosshairs (#4927, #5269 #5066, #5658)
+
+		// Issues related to crosshair #4927, #5269 #5066, #5658
 		each(chart.axes, function drawAxisCrosshair(axis) {
-			// Snap is true. For each hover point, loop over the axes and draw a
-			// crosshair if that point belongs to the axis.
-			// @todo Consider only one crosshair per axis.
-			if (pick(axis.crosshair.snap, true)) {
-				each(points, function (p) {
-					if (p.series[axis.coll] === axis) {
-						axis.drawCrosshair(e, p);
-					}
-				});
-			} else {
+			var snap = pick(axis.crosshair.snap, true);
+			if (!snap) {
 				axis.drawCrosshair(e);
+			// axis has snapping crosshairs, and one of the hover points is belongs to axis
+			} else if (H.find(points, function (p) {
+				return p.series[axis.coll] === axis;
+			})) {
+				axis.drawCrosshair(e, hoverPoint);
+			// axis has snapping crosshairs, but no hover point is not belonging to axis
+			} else {
+				axis.hideCrosshair();
 			}
 		});
 	},
@@ -847,27 +847,27 @@ H.Pointer.prototype = {
 	 * Destroys the Pointer object and disconnects DOM events.
 	 */
 	destroy: function () {
-		var prop;
-		
-		if (this.unDocMouseMove) {
-			this.unDocMouseMove();
+		var pointer = this;
+
+		if (pointer.unDocMouseMove) {
+			pointer.unDocMouseMove();
 		}
 
 		removeEvent(
-			this.chart.container,
+			pointer.chart.container,
 			'mouseleave',
-			this.onContainerMouseLeave
+			pointer.onContainerMouseLeave
 		);
 		if (!H.chartCount) {
-			removeEvent(doc, 'mouseup', this.onDocumentMouseUp);
-			removeEvent(doc, 'touchend', this.onDocumentTouchEnd);
+			removeEvent(doc, 'mouseup', pointer.onDocumentMouseUp);
+			removeEvent(doc, 'touchend', pointer.onDocumentTouchEnd);
 		}
 
 		// memory and CPU leak
-		clearInterval(this.tooltipTimeout);
+		clearInterval(pointer.tooltipTimeout);
 
-		for (prop in this) {
-			this[prop] = null;
-		}
+		H.objectEach(pointer, function (val, prop) {
+			pointer[prop] = null;
+		});
 	}
 };
