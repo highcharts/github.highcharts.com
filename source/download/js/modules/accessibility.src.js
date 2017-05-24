@@ -147,14 +147,21 @@ H.Series.prototype.setA11yDescription = function () {
 				if (point.graphic) {
 					point.graphic.element.setAttribute('role', 'img');
 					point.graphic.element.setAttribute('tabindex', '-1');
-					point.graphic.element.setAttribute('aria-label', a11yOptions.pointDescriptionFormatter && a11yOptions.pointDescriptionFormatter(point) ||
+					point.graphic.element.setAttribute('aria-label', 
+						point.series.options.pointDescriptionFormatter && 
+						point.series.options.pointDescriptionFormatter(point) ||
+						a11yOptions.pointDescriptionFormatter && 
+						a11yOptions.pointDescriptionFormatter(point) ||
 						point.buildPointInfoString());
 				}
 			});
 		}
 		// Make series element accessible
 		if (this.chart.series.length > 1 || a11yOptions.describeSingleSeries) {
-			seriesEl.setAttribute('role', 'region');
+			seriesEl.setAttribute(
+				'role', 
+				this.options.exposeElementToA11y ? 'img' : 'region'
+			);
 			seriesEl.setAttribute('tabindex', '-1');
 			seriesEl.setAttribute('aria-label', a11yOptions.seriesDescriptionFormatter && a11yOptions.seriesDescriptionFormatter(this) ||
 				this.buildSeriesInfoString());
@@ -403,7 +410,7 @@ H.Chart.prototype.highlightAdjacentPoint = function (next) {
 	if (
 		newPoint.isNull && 
 		this.options.accessibility.keyboardNavigation.skipNullPoints ||
-		newPoint.series.options.skipKeyboardNavigation // docs
+		newPoint.series.options.skipKeyboardNavigation
 	) {
 		this.highlightedPoint = newPoint;
 		return this.highlightAdjacentPoint(next);
@@ -947,7 +954,7 @@ H.Chart.prototype.callbacks.push(function (chart) {
 	titleElement.id = titleId;
 	descElement.parentNode.insertBefore(titleElement, descElement);
 	chart.renderTo.setAttribute('role', 'region');
-	chart.container.setAttribute('aria-details', hiddenSectionId);
+	//chart.container.setAttribute('aria-details', hiddenSectionId); // JAWS currently doesn't handle this too well
 	chart.renderTo.setAttribute('aria-label', 'Interactive chart. ' + chartTitle +
 		'. Use up and down arrows to navigate with most screen readers.');
 
@@ -1033,7 +1040,7 @@ H.Chart.prototype.callbacks.push(function (chart) {
 
 	// Add accessibility attributes and top level columns
 	H.wrap(chart, 'viewData', function (proceed) {
-		if (!this.insertedTable) {
+		if (!this.dataTableDiv) {
 			proceed.apply(this, Array.prototype.slice.call(arguments, 1));
 
 			var table = doc.getElementById(tableId),

@@ -12,9 +12,7 @@ import '../parts/Legend.js';
 import '../parts/Point.js';
 import '../parts/Series.js';
 import '../parts/ScatterSeries.js';
-import './ColorAxis.js';
 var color = H.color,
-	ColorAxis = H.ColorAxis,
 	colorPointMixin = H.colorPointMixin,
 	colorSeriesMixin = H.colorSeriesMixin,
 	doc = H.doc,
@@ -820,7 +818,10 @@ seriesType('map', 'scatter', {
 					pos = 1;
 				}
 				if (graphic) {
-					graphic.attr('fill', ColorAxis.prototype.tweenColors.call(0, hoverColor, normalColor, pos));
+					graphic.attr(
+						'fill',
+						hoverColor.tweenTo(normalColor, pos)
+					);
 				}
 				if (pos >= 1) {
 					clearTimeout(point.colorInterval);
@@ -834,7 +835,12 @@ seriesType('map', 'scatter', {
 	/*= } =*/
 
 	/**
-	 * Zoom the chart to view a specific area point
+	 * Highmaps only. Zoom in on the point using the global animation.
+	 *
+	 * @function #zoomTo
+	 * @memberOf Point
+	 * @sample maps/members/point-zoomto/
+	 *         Zoom to points from butons
 	 */
 	zoomTo: function () {
 		var point = this,

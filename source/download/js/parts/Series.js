@@ -39,28 +39,51 @@ var addEvent = H.addEvent,
 	win = H.win;
 
 /**
- * The base function which all other series types inherit from. The data in the
- * series is stored in various arrays.
+ * This is the base series prototype that all other series types inherit from.
+ * A new series is initiated either through the {@link https://api.highcharts.com/highcharts/series|
+ * series} option structure, or after the chart is initiated, through {@link
+ * Highcharts.Chart#addSeries}.
  *
- * - First, series.options.data contains all the original config options for
- * each point whether added by options or methods like series.addPoint.
- * - Next, series.data contains those values converted to points, but in case
- * the series data length exceeds the cropThreshold, or if the data is grouped,
- * series.data doesn't contain all the points. It only contains the points that
+ * The object can be accessed in a number of ways. All series and point event
+ * handlers give a reference to the `series` object. The chart object has a
+ * {@link Highcharts.Chart.series|series} property that is a collection of all
+ * the chart's series. The point objects and axis objects also have the same
+ * reference.
+ * 
+ * Another way to reference the series programmatically is by `id`. Add an id
+ * in the series configuration options, and get the series object by {@link
+ * Highcharts.Chart#get}.
+ *
+ * Configuration options for the series are given in three levels. Options for
+ * all series in a chart are given in the {@link https://api.highcharts.com/highcharts/plotOptions.series|
+ * plotOptions.series} object. Then options for all series of a specific type
+ * are given in the plotOptions of that type, for example `plotOptions.line`.
+ * Next, options for one single series are given in the series array, or as
+ * arguements to `chart.addSeries`. 
+ * 
+ * The data in the series is stored in various arrays.
+ *
+ * - First, `series.options.data` contains all the original config options for
+ * each point whether added by options or methods like `series.addPoint`.
+ * - Next, `series.data` contains those values converted to points, but in case
+ * the series data length exceeds the `cropThreshold`, or if the data is grouped,
+ * `series.data` doesn't contain all the points. It only contains the points that
  * have been created on demand.
- * - Then there's series.points that contains all currently visible point
+ * - Then there's `series.points` that contains all currently visible point
  * objects. In case of cropping, the cropped-away points are not part of this
- * array. The series.points array starts at series.cropStart compared to
- * series.data and series.options.data. If however the series data is grouped,
+ * array. The `series.points` array starts at `series.cropStart` compared to
+ * `series.data` and `series.options.data`. If however the series data is grouped,
  * these can't be correlated one to one.
- * - series.xData and series.processedXData contain clean x values, equivalent
- * to series.data and series.points.
- * - series.yData and series.processedYData contain clean y values, equivalent
- * to series.data and series.points.
+ * - `series.xData` and `series.processedXData` contain clean x values, equivalent
+ * to `series.data` and `series.points`.
+ * - `series.yData` and `series.processedYData` contain clean y values, equivalent
+ * to `series.data` and `series.points`.
  *
- * @constructor Series
- * @param {Object} chart - The chart instance.
- * @param {Object} options - The series options.
+ * @class Highcharts.Series
+ * @param  {Highcharts.Chart} chart
+ *         The chart instance.
+ * @param  {Object} options
+ *         The series options.
  */
 H.Series = H.seriesType('line', null, { // base series options
 	/*= if (build.classic) { =*/
@@ -181,7 +204,7 @@ H.Series = H.seriesType('line', null, { // base series options
 	// zIndex: null
 	findNearestPointBy: 'x'
 
-}, /** @lends Series.prototype */ {
+}, /** @lends Highcharts.Series.prototype */ {
 	isCartesian: true,
 	pointClass: Point,
 	sorted: true, // requires the data to be sorted
@@ -198,7 +221,33 @@ H.Series = H.seriesType('line', null, { // base series options
 			chartSeries = chart.series,
 			lastSeries;
 
+		/**
+		 * Read only. The chart that the series belongs to.
+		 *
+		 * @name chart
+		 * @memberOf Series
+		 * @type {Chart}
+		 */
 		series.chart = chart;
+
+		/**
+		 * Read only. The series' type, like "line", "area", "column" etc. The
+		 * type in the series options anc can be altered using {@link
+		 * Series#update}.
+		 *
+		 * @name type
+		 * @memberOf Series
+		 * @type String
+		 */
+
+		/**
+		 * Read only. The series' current options. To update, use {@link
+		 * Series#update}.
+		 *
+		 * @name options
+		 * @memberOf Series
+		 * @type SeriesOptions
+		 */
 		series.options = options = series.setOptions(options);
 		series.linkedSeries = [];
 
@@ -207,9 +256,34 @@ H.Series = H.seriesType('line', null, { // base series options
 
 		// set some variables
 		extend(series, {
+			/**
+			 * The series name as given in the options. Defaults to
+			 * "Series {n}".
+			 *
+			 * @name name
+			 * @memberOf Series
+			 * @type {String}
+			 */
 			name: options.name,
 			state: '',
+			/**
+			 * Read only. The series' visibility state as set by {@link
+			 * Series#show}, {@link Series#hide}, or in the initial
+			 * configuration.
+			 *
+			 * @name visible
+			 * @memberOf Series
+			 * @type {Boolean}
+			 */
 			visible: options.visible !== false, // true by default
+			/**
+			 * Read only. The series' selected state as set by {@link
+			 * Highcharts.Series#select}.
+			 * 
+			 * @name selected
+			 * @memberOf Series
+			 * @type {Boolean}
+			 */
 			selected: options.selected === true // false by default
 		});
 
@@ -329,6 +403,22 @@ H.Series = H.seriesType('line', null, { // base series options
 					series.insert(axis.series);
 
 					// set this series.xAxis or series.yAxis reference
+					/**
+					 * Read only. The unique xAxis object associated with the
+					 * series.
+					 *
+					 * @name xAxis
+					 * @memberOf Series
+					 * @type Axis
+					 */
+					/**
+					 * Read only. The unique yAxis object associated with the
+					 * series.
+					 *
+					 * @name yAxis
+					 * @memberOf Series
+					 * @type Axis
+					 */
 					series[AXIS] = axis;
 
 					// mark dirty for redraw
@@ -593,9 +683,40 @@ H.Series = H.seriesType('line', null, { // base series options
 	drawLegendSymbol: LegendSymbolMixin.drawLineMarker,
 
 	/**
-	 * Replace the series data with a new set of data
-	 * @param {Object} data
-	 * @param {Object} redraw
+	 * Apply a new set of data to the series and optionally redraw it. The new
+	 * data array is passed by reference (except in case of `updatePoints`), and
+	 * may later be mutated when updating the chart data.
+	 * 
+	 * Note the difference in behaviour when setting the same amount of points,
+	 * or a different amount of points, as handled by the `updatePoints`
+	 * parameter. 
+	 * 
+	 * @param  {SeriesDataOptions} data
+	 *         Takes an array of data in the same format as described under
+	 *         `series<type>data` for the given series type.
+	 * @param  {Boolean} [redraw=true]
+	 *         Whether to redraw the chart after the series is altered. If doing
+	 *         more operations on the chart, it is a good idea to set redraw to
+	 *         false and call {@link Chart#redraw} after.
+	 * @param  {AnimationOptions} [animation]
+	 *         When the updated data is the same length as the existing data,
+	 *         points will be updated by default, and animation visualizes how
+	 *         the points are changed. Set false to disable animation, or a
+	 *         configuration object to set duration or easing.
+	 * @param  {Boolean} [updatePoints=true]
+	 *         When the updated data is the same length as the existing data,
+	 *         points will be updated instead of replaced. This allows updating
+	 *         with animation and performs better. In this case, the original
+	 *         array is not passed by reference. Set false to prevent.
+	 *
+	 * @sample highcharts/members/series-setdata/
+	 *         Set new data from a button
+	 * @sample highcharts/members/series-setdata-pie/
+	 *         Set data in a pie
+	 * @sample stock/members/series-setdata/
+	 *         Set new data in Highstock
+	 * @sample maps/members/series-setdata/
+	 *         Set new data in Highmaps
 	 */
 	setData: function (data, redraw, animation, updatePoints) {
 		var series = this,
@@ -707,6 +828,15 @@ H.Series = H.seriesType('line', null, { // base series options
 				H.error(14, true);
 			}
 
+			/**
+			 * Read only. An array containing the series' data point objects. To
+			 * modify the data, use {@link Highcharts.Series#setData} or {@link
+			 * Highcharts.Point#update}.
+			 *
+			 * @name data
+			 * @memberOf Highcharts.Series
+			 * @type {Array.<Highcharts.Point>}
+			 */
 			series.data = [];
 			series.options.data = series.userOptions.data = data;
 
@@ -947,6 +1077,22 @@ H.Series = H.seriesType('line', null, { // base series options
 					series,
 					[processedXData[i]].concat(splat(processedYData[i]))
 				);
+
+				/**
+				 * Highstock only. If a point object is created by data
+				 * grouping, it doesn't reflect actual points in the raw data.
+				 * In this case, the `dataGroup` property holds information
+				 * that points back to the raw data.
+				 *
+				 * - `dataGroup.start` is the index of the first raw data point
+				 * in the group.
+				 * - `dataGroup.length` is the amount of points in the group.
+				 *
+				 * @name dataGroup
+				 * @memberOf Point
+				 * @type {Object}
+				 * 
+				 */
 				point.dataGroup = series.groupMap[i];
 			}
 			if (point) { // #6279

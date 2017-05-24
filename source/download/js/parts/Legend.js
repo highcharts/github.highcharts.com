@@ -4,10 +4,10 @@
  * License: www.highcharts.com/license
  */
 'use strict';
-import H from './Globals.js';
+import Highcharts from './Globals.js';
 import './Utilities.js';
-var Legend,
-		
+var H = Highcharts,
+
 	addEvent = H.addEvent,
 	css = H.css,
 	discardElement = H.discardElement,
@@ -21,15 +21,19 @@ var Legend,
 	stableSort = H.stableSort,
 	win = H.win,
 	wrap = H.wrap;
+
 /**
- * The overview of the chart's series.
+ * The overview of the chart's series. The legend object is instanciated
+ * internally in the chart constructor, and available from `chart.legend`. Each
+ * chart has only one legend.
+ * 
  * @class
  */
-Legend = H.Legend = function (chart, options) {
+Highcharts.Legend = function (chart, options) {
 	this.init(chart, options);
 };
 
-Legend.prototype = {
+Highcharts.Legend.prototype = {
 
 	/**
 	 * Initialize the legend
@@ -73,10 +77,15 @@ Legend.prototype = {
 	},
 
 	/**
-	 * Update the legend with new options. Equivalent to running chart.update
+	 * Update the legend with new options. Equivalent to running `chart.update`
 	 * with a legend configuration option.
-	 * @param {Object} options Legend options
-	 * @param {Boolean} redraw Whether to redraw the chart, defaults to true.
+	 * @param  {LegendOptions} options
+	 *         Legend options.
+	 * @param  {Boolean} [redraw=true]
+	 *         Whether to redraw the chart.
+	 *
+	 * @sample highcharts/legend/legend-update/
+	 *         Legend update
 	 */
 	update: function (options, redraw) {
 		var chart = this.chart;
@@ -333,6 +342,9 @@ Legend.prototype = {
 			showCheckbox = legend.createCheckboxForItem &&
 				seriesOptions &&
 				seriesOptions.showCheckbox,
+			// full width minus text width
+			itemExtraWidth = symbolWidth + symbolPadding + itemDistance +
+				(showCheckbox ? 20 : 0),
 			useHTML = options.useHTML,
 			fontSize = 12,
 			itemClassName = item.options.className;
@@ -399,6 +411,18 @@ Legend.prototype = {
 		// Colorize the items
 		legend.colorizeItem(item, item.visible);
 
+		// Take care of max width and text overflow (#6659)
+		/*= if (build.classic) { =*/
+		if (!itemStyle.width) {
+		/*= } =*/
+			li.css({
+				width: (options.itemWidth || chart.spacingBox.width) -
+					itemExtraWidth
+			});
+		/*= if (build.classic) { =*/
+		}
+		/*= } =*/
+
 		// Always update the text
 		legend.setText(item);
 
@@ -408,8 +432,7 @@ Legend.prototype = {
 		itemWidth = item.checkboxOffset =
 			options.itemWidth ||
 			item.legendItemWidth ||
-			symbolWidth + symbolPadding + bBox.width + itemDistance +
-				(showCheckbox ? 20 : 0);
+			bBox.width + itemExtraWidth;
 		legend.itemHeight = itemHeight = Math.round(
 			item.legendItemHeight || bBox.height || legend.symbolHeight
 		);
@@ -1034,7 +1057,7 @@ H.LegendSymbolMixin = {
 // to nested group elements, as the legend item texts are within 4 group
 // elements.
 if (/Trident\/7\.0/.test(win.navigator.userAgent) || isFirefox) {
-	wrap(Legend.prototype, 'positionItem', function (proceed, item) {
+	wrap(Highcharts.Legend.prototype, 'positionItem', function (proceed, item) {
 		var legend = this,
 			// If chart destroyed in sync, this is undefined (#2030)
 			runPositionItem = function () {

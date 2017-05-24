@@ -167,7 +167,8 @@ H.defaultOptions = {
 		itemStyle: {			
 			color: '${palette.neutralColor80}',
 			fontSize: '12px',
-			fontWeight: 'bold'
+			fontWeight: 'bold',
+			textOverflow: 'ellipsis'
 		},
 		itemHoverStyle: {
 			//cursor: 'pointer', removed as of #601

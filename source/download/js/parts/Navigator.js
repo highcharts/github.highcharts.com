@@ -383,7 +383,7 @@ Navigator.prototype = {
 					(index === 1 ? '-inside' : '-outside'))
 				/*= if (build.classic) { =*/
 				.attr({
-					fill: hasMask ? navigatorOptions.maskFill : 'transparent'
+					fill: hasMask ? navigatorOptions.maskFill : 'rgba(0,0,0,0)'
 				})
 				.css(index === 1 && mouseCursor)
 				/*= } =*/
@@ -554,7 +554,10 @@ Navigator.prototype = {
 			if (inverted) {
 				scrollbarTop = navigator.top - scrollbarHeight;
 				scrollbarLeft = navigator.left - scrollbarHeight +
-					(navigatorEnabled ? 0 : (scrollbarXAxis.titleOffset || 0) +
+					(navigatorEnabled || !scrollbarXAxis.opposite ? 0 :
+						// Multiple axes has offsets:
+						(scrollbarXAxis.titleOffset || 0) +
+						// Self margin from the axis.title
 						scrollbarXAxis.axisTitleMargin
 					);
 				scrollbarHeight = navigatorSize + 2 * scrollbarHeight;

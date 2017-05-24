@@ -51,23 +51,25 @@ var SVGElement,
  */
 /**
  * The SVGElement prototype is a JavaScript wrapper for SVG elements used in the
- * rendering layer of Highcharts. Combined with the {@link SVGRenderer} object,
- * these prototypes allow freeform annotation in the charts or even in HTML
- * pages without instanciating a chart. The SVGElement can also wrap HTML
- * labels, when `text` or `label` elements are created with the `useHTML`
- * parameter.
+ * rendering layer of Highcharts. Combined with the {@link
+ * Highcharts.SVGRenderer} object, these prototypes allow freeform annotation
+ * in the charts or even in HTML pages without instanciating a chart. The
+ * SVGElement can also wrap HTML labels, when `text` or `label` elements are
+ * created with the `useHTML` parameter.
  *
  * The SVGElement instances are created through factory functions on the 
- * {@link SVGRenderer} object, like [rect]{@link SVGRenderer#rect},
- * [path]{@link SVGRenderer#path}, [text]{@link SVGRenderer#text}, [label]{@link
- * SVGRenderer#label}, [g]{@link SVGRenderer#g} and more.
+ * {@link Highcharts.SVGRenderer} object, like
+ * [rect]{@link Highcharts.SVGRenderer#rect}, [path]{@link
+ * Highcharts.SVGRenderer#path}, [text]{@link Highcharts.SVGRenderer#text},
+ * [label]{@link Highcharts.SVGRenderer#label}, [g]{@link
+ * Highcharts.SVGRenderer#g} and more.
  *
- * @class
+ * @class Highcharts.SVGElement
  */
 SVGElement = H.SVGElement = function () {
 	return this;
 };
-SVGElement.prototype = {
+extend(SVGElement.prototype, /** @lends Highcharts.SVGElement.prototype */ {
 
 	// Default base for animation
 	opacity: 1,
@@ -85,8 +87,10 @@ SVGElement.prototype = {
 	 * Initialize the SVG renderer. This function only exists to make the
 	 * initiation process overridable. It should not be called directly.
 	 *
-	 * @param {SVGRenderer} renderer The SVGRenderer instance to initialize to.
-	 * @param {String} nodeName The SVG node name.
+	 * @param  {HighchartsSVGRenderer} renderer
+	 *         The SVGRenderer instance to initialize to.
+	 * @param  {String} nodeName
+	 *         The SVG node name.
 	 * @returns {void}
 	 */
 	init: function (renderer, nodeName) {
@@ -102,7 +106,7 @@ SVGElement.prototype = {
 
 		/**
 		 * The renderer that the SVGElement belongs to.
-		 * @type {SVGRenderer}
+		 * @type {Highcharts.SVGRenderer}
 		 */
 		this.renderer = renderer;
 	},
@@ -113,7 +117,11 @@ SVGElement.prototype = {
 	 * @param {SVGAttributes} params SVG attributes or CSS to animate.
 	 * @param {AnimationOptions} [options] Animation options.
 	 * @param {Function} [complete] Function to perform at the end of animation.
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 *
+	 * @sample highcharts/members/element-on/
+	 *         Setting some attributes by animation
+	 * 
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
 	 */
 	animate: function (params, options, complete) {
 		var animOptions = H.animObject(
@@ -432,16 +440,19 @@ SVGElement.prototype = {
 	 *    setter. If the first argument is a string and the second is undefined,
 	 *    the function serves as a getter and the current value of the property
 	 *    is returned.
-	 * @param {Function} complete - A callback function to execute after setting
+	 * @param {Function} [complete] - A callback function to execute after setting
 	 *    the attributes. This makes the function compliant and interchangeable
 	 *    with the {@link SVGElement#animate} function.
-	 * @param {boolean} continueAnimation - Used internally when `.attr` is
+	 * @param {boolean} [continueAnimation=true] Used internally when `.attr` is
 	 *    called as part of an animation step. Otherwise, calling `.attr` for an
 	 *    attribute will stop animation for that attribute.
 	 *    
 	 * @returns {SVGElement|string|number} If used as a setter, it returns the 
 	 *    current {@link SVGElement} so the calls can be chained. If used as a 
 	 *    getter, the current value of the attribute is returned.
+	 *
+	 * @sample highcharts/members/renderer-rect/
+	 *         Setting some attributes
 	 * 
 	 * @example
 	 * // Set multiple attributes
@@ -520,13 +531,7 @@ SVGElement.prototype = {
 				}
 			}, this);
 
-			// Update transform. Do this outside the loop to prevent redundant updating for batch setting
-			// of attributes.
-			if (this.doTransform) {
-				this.updateTransform();
-				this.doTransform = false;
-			}
-
+			this.afterSetters();
 		}
 
 		// In accordance with animate, run a complete callback
@@ -535,6 +540,20 @@ SVGElement.prototype = {
 		}
 
 		return ret;
+	},
+
+	/**
+	 * This method is executed in the end of {attr}, after setting all attributes in the hash.
+	 * In can be used to efficiently consolidate multiple attributes in one SVG property -- e.g.,
+	 * translate, rotate and scale are merged in one "transform" attribute in the SVG node.
+	 */
+	afterSetters: function () {
+		// Update transform. Do this outside the loop to prevent redundant updating for batch setting
+		// of attributes.
+		if (this.doTransform) {
+			this.updateTransform();
+			this.doTransform = false;
+		}
 	},
 
 	/*= if (build.classic) { =*/
@@ -572,7 +591,7 @@ SVGElement.prototype = {
 	 * @param {boolean} [replace=false] - When true, the existing class name(s)
 	 *    will be overwritten with the new one. When false, the new one is
 	 *    added.
-	 * @returns {SVGElement} Return the SVG element for chainability.
+	 * @returns {Highcharts.SVGElement} Return the SVG element for chainability.
 	 */
 	addClass: function (className, replace) {
 		var currentClassName = this.attr('class') || '';
@@ -600,7 +619,7 @@ SVGElement.prototype = {
 	/**
 	 * Remove a class name from the element.
 	 * @param  {string} className The class name to remove.
-	 * @return {SVGElement} Returns the SVG element for chainability.
+	 * @return {Highcharts.SVGElement} Returns the SVG element for chainability.
 	 */
 	removeClass: function (className) {
 		attr(this.element, 'class', (attr(this.element, 'class') || '').replace(className, ''));
@@ -637,7 +656,7 @@ SVGElement.prototype = {
 	 * 
 	 * @param {ClipRect} [clipRect] - The clipping rectangle. If skipped, the
 	 *    current clip is removed.
-	 * @returns {SVGElement} Returns the SVG element to allow chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVG element to allow chaining.
 	 */
 	clip: function (clipRect) {
 		return this.attr(
@@ -697,7 +716,10 @@ SVGElement.prototype = {
 	 * Highcharts, like `width`, `ellipsis` and `textOverflow` for SVG text
 	 * elements.
 	 * @param {CSSObject} styles The new CSS styles.
-	 * @returns {SVGElement} Return the SVG element for chaining.
+	 * @returns {Highcharts.SVGElement} Return the SVG element for chaining.
+	 *
+	 * @sample highcharts/members/renderer-text-on-chart/
+	 *         Styled text
 	 */
 	css: function (styles) {
 		var oldStyles = this.styles,
@@ -864,7 +886,10 @@ SVGElement.prototype = {
 	 *    touch devices, to prevent the browser from waiting for a click event
 	 *    from firing.
 	 * @param {Function} handler - The handler callback.
-	 * @returns {SVGElement} The SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} The SVGElement for chaining.
+	 *
+	 * @sample highcharts/members/element-on/
+	 *         A clickable rectangle
 	 */
 	on: function (eventType, handler) {
 		var svgElement = this,
@@ -897,7 +922,7 @@ SVGElement.prototype = {
 	 *
 	 * @param {Array} coordinates The center reference. The format is
 	 *    `[centerX, centerY, diameter]` in pixels.
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
 	 */
 	setRadialReference: function (coordinates) {
 		var existingGradient = this.renderer.gradients[this.element.gradient];
@@ -938,7 +963,7 @@ SVGElement.prototype = {
 	 *
 	 * @param {boolean} inverted - Whether to invert or not. An inverted shape
 	 *    can be un-inverted by setting it to false.
-	 * @returns {SVGElement} Return the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Return the SVGElement for chaining.
 	 */
 	invert: function (inverted) {
 		var wrapper = this;
@@ -996,9 +1021,12 @@ SVGElement.prototype = {
 	},
 
 	/**
-	 * Bring the element to the front.
+	 * Bring the element to the front. Alternatively, a new zIndex can be set.
 	 *
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
+	 *
+	 * @sample highcharts/members/element-tofront/
+	 *         Click an element to bring it to front
 	 */
 	toFront: function () {
 		var element = this.element;
@@ -1009,7 +1037,7 @@ SVGElement.prototype = {
 
 	/**
 	 * Align the element relative to the chart or another box.
-	 * ß
+	 * 
 	 * @param {Object} [alignOptions] The alignment options. The function can be
 	 *   called without this parameter in order to re-align an element after the
 	 *   box has been updated.
@@ -1027,7 +1055,7 @@ SVGElement.prototype = {
 	 *   When the box is a string, it refers to an object in the Renderer. For
 	 *   example, when box is `spacingBox`, it refers to `Renderer.spacingBox`
 	 *   which holds `width`, `height`, `x` and `y` properties.
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
 	 */
 	align: function (alignOptions, alignByTranslate, box) {
 		var align,
@@ -1113,6 +1141,9 @@ SVGElement.prototype = {
 	 *   would be have been if it were not rotated.
 	 * @returns {Object} The bounding box with `x`, `y`, `width` and `height`
 	 * properties.
+	 *
+	 * @sample highcharts/members/renderer-on-chart/
+	 *         Draw a rectangle based on a text's bounding box
 	 */
 	getBBox: function (reload, rot) {
 		var wrapper = this,
@@ -1272,7 +1303,7 @@ SVGElement.prototype = {
 	 * `inherit` rather than `visible`. The difference is that an element with
 	 * `visibility="visible"` will be visible even if the parent is hidden.
 	 *
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
 	 */
 	show: function (inherit) {
 		return this.attr({ visibility: inherit ? 'inherit' : 'visible' });
@@ -1282,7 +1313,7 @@ SVGElement.prototype = {
 	 * Hide the element, equivalent to setting the `visibility` attribute to
 	 * `hidden`.
 	 *
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
 	 */
 	hide: function () {
 		return this.attr({ visibility: 'hidden' });
@@ -1309,10 +1340,11 @@ SVGElement.prototype = {
 	/**
 	 * Add the element to the DOM. All elements must be added this way.
 	 * 
-	 * @param {SVGElement|SVGDOMElement} [parent] The parent item to add it to.
-	 *   If undefined, the element is added to the {@link SVGRenderer.box}.
+	 * @param {Highcharts.SVGElement|SVGDOMElement} [parent] The parent item to add it to.
+	 *   If undefined, the element is added to the {@link
+	 *   Highcharts.SVGRenderer.box}.
 	 *
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
 	 *
 	 * @sample highcharts/members/renderer-g - Elements added to a group
 	 */
@@ -1461,13 +1493,13 @@ SVGElement.prototype = {
 	 * @param {boolean|ShadowOptions} shadowOptions The shadow options. If
 	 *    `true`, the default options are applied. If `false`, the current
 	 *    shadow will be removed.
-	 * @param {SVGElement} [group] The SVG group element where the shadows will 
+	 * @param {Highcharts.SVGElement} [group] The SVG group element where the shadows will 
 	 *    be applied. The default is to add it to the same parent as the current
 	 *    element. Internally, this is ised for pie slices, where all the
 	 *    shadows are added to an element behind all the slices.
 	 * @param {boolean} [cutOff] Used internally for column shadows.
 	 *
-	 * @returns {SVGElement} Returns the SVGElement for chaining.
+	 * @returns {Highcharts.SVGElement} Returns the SVGElement for chaining.
 	 *
 	 * @example
 	 * renderer.rect(10, 100, 100, 100)
@@ -1552,7 +1584,8 @@ SVGElement.prototype = {
 
 	/**
 	 * Get the current value of an attribute or pseudo attribute, used mainly
-	 * for animation. Called internally from the {@link SVGRenderer#attr}
+	 * for animation. Called internally from the {@link
+	 * Highcharts.SVGRenderer#attr}
 	 * function.
 	 *
 	 * @private
@@ -1723,7 +1756,7 @@ SVGElement.prototype = {
 	_defaultSetter: function (value, key, element) {
 		element.setAttribute(key, value);
 	}
-};
+});
 
 // Some shared setters and getters
 SVGElement.prototype.yGetter = SVGElement.prototype.xGetter;
@@ -1775,16 +1808,16 @@ SVGElement.prototype['stroke-widthSetter'] = SVGElement.prototype.strokeSetter =
  * @sample highcharts/members/renderer-on-chart - Annotating a chart programmatically.
  * @sample highcharts/members/renderer-basic - Independedt SVG drawing.
  *
- * @class
+ * @class Highcharts.SVGRenderer
  */
 SVGRenderer = H.SVGRenderer = function () {
 	this.init.apply(this, arguments);
 };
-SVGRenderer.prototype = {
+extend(SVGRenderer.prototype, /** @lends Highcharts.SVGRenderer.prototype */ {
 	/**
 	 * A pointer to the renderer's associated Element class. The VMLRenderer
 	 * will have a pointer to VMLElement here.
-	 * @type {SVGElement}
+	 * @type {Highcharts.SVGElement}
 	 */
 	Element: SVGElement,
 	SVG_NS: SVG_NS,
@@ -1824,7 +1857,7 @@ SVGRenderer.prototype = {
 		this.box = element;
 		/** 
 		 * The wrapper for the root `svg` node of the renderer.
-		 * @type {SVGElement}
+		 * @type {Highcharts.SVGElement}
 		 */
 		this.boxWrapper = boxWrapper;
 		renderer.alignedObjects = [];
@@ -1890,11 +1923,13 @@ SVGRenderer.prototype = {
 	 *   general definitions to the SVG's defs tag. Definitions can be
 	 *   referenced from the CSS by its `id`. Read more in
 	 *   [gradients, shadows and patterns]{@link http://www.highcharts.com/docs/chart-design-and-style/gradients-shadows-and-patterns}.
+	 *   {@link http://www.highcharts.com/docs/chart-design-and-style/style-by-css|
+	 *   Styled mode} only.
 	 *
 	 * @param {Object} def - A serialized form of an SVG definition, including
 	 *   children
 	 *
-	 * @return {SVGElement} The inserted node. 
+	 * @return {Highcharts.SVGElement} The inserted node. 
 	 */
 	definition: function (def) {
 		var ren = this;
@@ -2007,7 +2042,7 @@ SVGRenderer.prototype = {
 	 * SVGRenderer#rect} or {@link SVGRenderer#text}.
 	 * 
 	 * @param {string} nodeName - The node name, for example `rect`, `g` etc.
-	 * @returns {SVGElement} The generated SVGElement.
+	 * @returns {Highcharts.SVGElement} The generated SVGElement.
 	 */
 	createElement: function (nodeName) {
 		var wrapper = new this.Element();
@@ -2095,7 +2130,7 @@ SVGRenderer.prototype = {
 	 *   CSS text features like `width`, `text-overflow`, `white-space`, and
 	 *   also attributes like `href` and `style`.
 	 * @private
-	 * @param {SVGElement} wrapper The parent SVGElement.
+	 * @param {Highcharts.SVGElement} wrapper The parent SVGElement.
 	 */
 	buildText: function (wrapper) {
 		var textNode = wrapper.element,
@@ -2172,7 +2207,7 @@ SVGRenderer.prototype = {
 
 			clsRegex = /<.*class="([^"]+)".*>/;
 			styleRegex = /<.*style="([^"]+)".*>/;
-			hrefRegex = /<.*href="(http[^"]+)".*>/;
+			hrefRegex = /<.*href="([^"]+)".*>/;
 
 			if (tempParent) {
 				tempParent.appendChild(textNode); // attach it to the DOM to read offset width
@@ -2556,12 +2591,18 @@ SVGRenderer.prototype = {
 	 * var path = renderer.path(['M', 10, 10, 'L', 30, 30, 'z'])
 	 *     .attr({ stroke: '#ff00ff' })
 	 *     .add();
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
+	 *
+	 * @sample highcharts/members/renderer-path-on-chart/
+	 *         Draw a path in a chart
+	 * @sample highcharts/members/renderer-path/
+	 *         Draw a path independent from a chart
+	 *
 	 *//**
 	 * Draw a path, wraps the SVG `path` element.
 	 * 
 	 * @param {SVGAttributes} [attribs] The initial attributes.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
 	 */
 	path: function (path) {
 		var attribs = {
@@ -2583,12 +2624,14 @@ SVGRenderer.prototype = {
 	 * @param {number} [x] The center x position.
 	 * @param {number} [y] The center y position.
 	 * @param {number} [r] The radius.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
+	 *
+	 * @sample highcharts/members/renderer-circle/ Drawing a circle
 	 *//**
 	 * Draw a circle, wraps the SVG `circle` element.
 	 * 
 	 * @param {SVGAttributes} [attribs] The initial attributes.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
 	 */
 	circle: function (x, y, r) {
 		var attribs = isObject(x) ? x : { x: x, y: y, r: r },
@@ -2612,11 +2655,14 @@ SVGRenderer.prototype = {
 	 *    0 is to the right and `-Math.PI/2` is up.
 	 * @param {number} [end=0] The ending angle of the arc in radians, where 0
 	 *    is to the right and `-Math.PI/2` is up.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
+	 *
+	 * @sample highcharts/members/renderer-arc/
+	 *         Drawing an arc
 	 *//**
 	 * Draw and return an arc. Overloaded function that takes arguments object.
 	 * @param {SVGAttributes} attribs Initial SVG attributes.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
 	 */
 	arc: function (x, y, r, innerR, start, end) {
 		var arc,
@@ -2654,12 +2700,18 @@ SVGRenderer.prototype = {
 	 * @param {number} [r] Border corner radius.
 	 * @param {number} [strokeWidth] A stroke width can be supplied to allow
 	 *    crisp drawing.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
 	 *//**
 	 * Draw and return a rectangle.
-	 * @param {SVGAttributes} [attributes] General SVG attributes for the 
-	 *    rectangle.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @param  {SVGAttributes} [attributes]
+	 *         General SVG attributes for the rectangle.
+	 * @return {Highcharts.SVGElement}
+	 *         The generated wrapper element.
+	 *
+	 * @sample highcharts/members/renderer-rect-on-chart/
+	 *         Draw a rectangle in a chart
+	 * @sample highcharts/members/renderer-rect/
+	 *         Draw a rectangle independent from a chart
 	 */
 	rect: function (x, y, width, height, r, strokeWidth) {
 
@@ -2728,11 +2780,16 @@ SVGRenderer.prototype = {
 	},
 
 	/**
-	 * Create and return an svg group element.
+	 * Create and return an svg group element. Child {@link Highcharts.SVGElement}
+	 * objects are added to the group by using the group as the first parameter
+	 * in {@link Highcharts.SVGElement#add|add()}.
 	 * 
 	 * @param {string} [name] The group will be given a class name of
 	 * `highcharts-{name}`. This can be used for styling and scripting.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
+	 *
+	 * @sample highcharts/members/renderer-g/
+	 *         Show and hide grouped objects
 	 */
 	g: function (name) {
 		var elem = this.createElement('g');
@@ -2748,7 +2805,12 @@ SVGRenderer.prototype = {
 	 *    image file width.
 	 * @param {number} [height] The image height. If omitted it defaults to the
 	 *    image file height.
-	 * @returns {SVGElement} The generated wrapper element.
+	 * @returns {Highcharts.SVGElement} The generated wrapper element.
+	 *
+	 * @sample highcharts/members/renderer-image-on-chart/
+	 *         Add an image in a chart
+	 * @sample highcharts/members/renderer-image/
+	 *         Add an image independent of a chart
 	 */
 	image: function (src, x, y, width, height) {
 		var attribs = {
@@ -3158,7 +3220,7 @@ SVGRenderer.prototype = {
 	},
 
 	/**
-	 * @typedef {SVGElement} ClipRect - A clipping rectangle that can be applied
+	 * @typedef {Highcharts.SVGElement} ClipRect - A clipping rectangle that can be applied
 	 * to one or more {@link SVGElement} instances. It is instanciated with the
 	 * {@link SVGRenderer#clipRect} function and applied with the {@link 
 	 * SVGElement#clip} function.
@@ -3202,11 +3264,27 @@ SVGRenderer.prototype = {
 
 
 	/**
-	 * Add text to the SVG object
-	 * @param {String} str
-	 * @param {number} x Left position
-	 * @param {number} y Top position
-	 * @param {Boolean} useHTML Use HTML to render the text
+	 * Draw text. The text can contain a subset of HTML, like spans and anchors
+	 * and some basic text styling of these. For more advanced features like
+	 * border and background, use {@link Highcharts.SVGRenderer#label} instead.
+	 * To update the text after render, run `text.attr({ text: 'New text' })`.
+	 * @param  {String} str
+	 *         The text of (subset) HTML to draw.
+	 * @param  {number} x
+	 *         The x position of the text's lower left corner.
+	 * @param  {number} y
+	 *         The y position of the text's lower left corner.
+	 * @param  {Boolean} [useHTML=false]
+	 *         Use HTML to render the text.
+	 *
+	 * @return {Highcharts.SVGElement} The text object.
+	 *
+	 * @sample highcharts/members/renderer-text-on-chart/
+	 *         Annotate the chart freely
+	 * @sample highcharts/members/renderer-on-chart/
+	 *         Annotate with a border and in response to the data
+	 * @sample highcharts/members/renderer-text/
+	 *         Formatted text
 	 */
 	text: function (str, x, y, useHTML) {
 
@@ -3326,20 +3404,42 @@ SVGRenderer.prototype = {
 	},
 
 	/**
-	 * Add a label, a text item that can hold a colored or gradient background
-	 * as well as a border and shadow. Supported custom attributes include
-	 * `padding`. 
+	 * Draw a label, which is an extended text element with support for border
+	 * and background. Highcharts creates a `g` element with a text and a `path`
+	 * or `rect` inside, to make it behave somewhat like a HTML div. Border and
+	 * background are set through `stroke`, `stroke-width` and `fill` attributes
+	 * using the {@link Highcharts.SVGElement#attr|attr} method. To update the
+	 * text after render, run `label.attr({ text: 'New text' })`.
 	 * 
-	 * @param {string} str
-	 * @param {number} x
-	 * @param {number} y
-	 * @param {String} shape
-	 * @param {number} anchorX In case the shape has a pointer, like a flag, this is the
-	 *	coordinates it should be pinned to
-	 * @param {number} anchorY
-	 * @param {Boolean} baseline Whether to position the label relative to the text baseline,
-	 *	like renderer.text, or to the upper border of the rectangle.
-	 * @param {String} className Class name for the group
+	 * @param  {string} str
+	 *         The initial text string or (subset) HTML to render.
+	 * @param  {number} x
+	 *         The x position of the label's left side.
+	 * @param  {number} y
+	 *         The y position of the label's top side or baseline, depending on
+	 *         the `baseline` parameter.
+	 * @param  {String} shape
+	 *         The shape of the label's border/background, if any. Defaults to
+	 *         `rect`. Other possible values are `callout` or other shapes
+	 *         defined in {@link Highcharts.SVGRenderer#symbols}.
+	 * @param  {number} anchorX
+	 *         In case the `shape` has a pointer, like a flag, this is the
+	 *         coordinates it should be pinned to.
+	 * @param  {number} anchorY
+	 *         In case the `shape` has a pointer, like a flag, this is the
+	 *         coordinates it should be pinned to.
+	 * @param  {Boolean} baseline
+	 *         Whether to position the label relative to the text baseline,
+	 *	       like {@link Highcharts.SVGRenderer#text|renderer.text}, or to the
+	 *	       upper border of the rectangle.
+	 * @param  {String} className
+	 *         Class name for the group.
+	 *
+	 * @return {Highcharts.SVGElement}
+	 *         The generated label.
+	 *
+	 * @sample highcharts/members/renderer-label-on-chart/
+	 *         A label on the chart
 	 */
 	label: function (str, x, y, shape, anchorX, anchorY, useHTML, baseline, className) {
 
@@ -3659,7 +3759,7 @@ SVGRenderer.prototype = {
 			}
 		});
 	}
-}; // end SVGRenderer
+}); // end SVGRenderer
 
 
 // general renderer

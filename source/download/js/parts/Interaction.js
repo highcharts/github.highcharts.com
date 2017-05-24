@@ -48,9 +48,9 @@ TrackerMixin = H.TrackerMixin = {
 			pointer = chart.pointer,
 			onMouseOver = function (e) {
 				var point = pointer.getPointFromEvent(e);
-
 				// undefined on graph in scatterchart
 				if (point !== undefined) { 
+					pointer.isDirectTouch = true;
 					point.onMouseOver(e);
 				}
 			};
@@ -472,12 +472,28 @@ extend(Chart.prototype, /** @lends Chart.prototype */ {
 /*
  * Extend the Point object with interaction
  */
-extend(Point.prototype, /** @lends Point.prototype */ {
+extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 	/**
-	 * Toggle the selection status of a point
-	 * @param {Boolean} selected Whether to select or unselect the point.
-	 * @param {Boolean} accumulate Whether to add to the previous selection. By default,
-	 *		 this happens if the control key (Cmd on Mac) was pressed during clicking.
+	 * Toggle the selection status of a point.
+	 * @param  {Boolean} [selected]
+	 *         When `true`, the point is selected. When `false`, the point is
+	 *         unselected. When `null` or `undefined`, the selection state is
+	 *         toggled.
+	 * @param  {Boolean} [accumulate=false]
+	 *         When `true`, the selection is added to other selected points.
+	 *         When `false`, other selected points are deselected. Internally in
+	 *         Highcharts, when {@link http://api.highcharts.com/highcharts/plotOptions.series.allowPointSelect|allowPointSelect}
+	 *         is `true`, selected points are accumulated on Control, Shift or
+	 *         Cmd clicking the point.
+	 *
+	 * @see    Highcharts.Chart#getSelectedPoints
+	 *
+	 * @sample highcharts/members/point-select/
+	 *         Select a point from a button
+	 * @sample highcharts/chart/events-selection-points/
+	 *         Select a range of points through a drag selection
+	 * @sample maps/series/data-id/
+	 *         Select a point in Highmaps
 	 */
 	select: function (selected, accumulate) {
 		var point = this,
@@ -488,6 +504,14 @@ extend(Point.prototype, /** @lends Point.prototype */ {
 
 		// fire the event with the default handler
 		point.firePointEvent(selected ? 'select' : 'unselect', { accumulate: accumulate }, function () {
+			
+			/**
+			 * Whether the point is selected or not. 
+			 * @see Highcharts.Point#select
+			 * @memberof Highcharts.Point
+			 * @name selected
+			 * @type {Boolean}
+			 */
 			point.selected = point.options.selected = selected;
 			series.options.data[inArray(point, series.data)] = point.options;
 
@@ -517,7 +541,10 @@ extend(Point.prototype, /** @lends Point.prototype */ {
 			series = point.series,
 			chart = series.chart,
 			pointer = chart.pointer;
-		point.firePointEvent('mouseOver');
+		e = e ?
+			pointer.normalize(e) :
+			// In cases where onMouseOver is called directly without an event
+			pointer.getChartCoordinatesFromPoint(point, chart.inverted);
 		pointer.runPointActions(e, point);
 	},
 
@@ -689,8 +716,8 @@ extend(Point.prototype, /** @lends Point.prototype */ {
 		if (haloOptions && haloOptions.size) {
 			if (!halo) {
 				series.halo = halo = chart.renderer.path()
-					// #5818, #5903
-					.add(hasMarkers ? series.markerGroup : series.group);
+					// #5818, #5903, #6705
+					.add((point.graphic || stateMarkerGraphic).parentGroup);
 			}
 			halo[move ? 'animate' : 'attr']({
 				d: point.haloPath(haloOptions.size)
@@ -739,7 +766,7 @@ extend(Point.prototype, /** @lends Point.prototype */ {
  * Extend the Series object with interaction
  */
 
-extend(Series.prototype, /** @lends Series.prototype */ {
+extend(Series.prototype, /** @lends Highcharts.Series.prototype */ {
 	/**
 	 * Series mouse over handler
 	 */
@@ -867,10 +894,15 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 	},
 
 	/**
-	 * Set the visibility of the graph
+	 * Show or hide the series.
 	 *
-	 * @param vis {Boolean} True to show the series, false to hide. If undefined,
-	 *				the visibility is toggled.
+	 * @param  {Boolean} [visible]
+	 *         True to show the series, false to hide. If undefined, the
+	 *         visibility is toggled.
+	 * @param  {Boolean} [redraw=true]
+	 *         Whether to redraw the chart after the series is altered. If doing
+	 *         more operations on the chart, it is a good idea to set redraw to
+	 *         false and call {@link Chart#redraw|chart.redraw()} after.
 	 */
 	setVisible: function (vis, redraw) {
 		var series = this,
@@ -930,14 +962,23 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 	},
 
 	/**
-	 * Show the graph
+	 * Show the series if hidden.
+	 *
+	 * @sample highcharts/members/series-hide/
+	 *         Toggle visibility from a button
 	 */
 	show: function () {
 		this.setVisible(true);
 	},
 
 	/**
-	 * Hide the graph
+	 * Hide the series if visible. If the {@link
+	 * https://api.highcharts.com/highcharts/chart.ignoreHiddenSeries|
+	 * chart.ignoreHiddenSeries} option is true, the chart is redrawn without
+	 * this series.
+	 *
+	 * @sample highcharts/members/series-hide/
+	 *         Toggle visibility from a button
 	 */
 	hide: function () {
 		this.setVisible(false);
@@ -945,15 +986,24 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 
 
 	/**
-	 * Set the selected state of the graph
+	 * Select or unselect the series. This means its {@link
+	 * Highcharts.Series.selected|selected} property is set, the checkbox in the
+	 * legend is toggled and when selected, the series is returned by the
+	 * {@link Highcharts.Chart#getSelectedSeries} function.
 	 *
-	 * @param selected {Boolean} True to select the series, false to unselect. If
-	 *				undefined, the selection state is toggled.
+	 * @param  {Boolean} [selected]
+	 *         True to select the series, false to unselect. If	undefined, the
+	 *         selection state is toggled.
+	 *
+	 * @sample highcharts/members/series-select/
+	 *         Select a series from a button
 	 */
 	select: function (selected) {
 		var series = this;
-		// if called without an argument, toggle
-		series.selected = selected = (selected === undefined) ? !series.selected : selected;
+		
+		series.selected = selected = (selected === undefined) ?
+			!series.selected :
+			selected;
 
 		if (series.checkbox) {
 			series.checkbox.checked = selected;
