@@ -49,6 +49,7 @@ wrap(Renderer.prototype.symbols, 'arc', function (proceed, x, y, w, h, options) 
 		// Insert rounded edge on end, and remove line.
 		path.splice.apply(path, [11, 3].concat(roundEnd));
 	}
+	
 	return path;
 });
 
@@ -150,12 +151,20 @@ colorAxisMethods = {
 		return color;
 	}
 };
-
-// The solidgauge series type
-H.seriesType('solidgauge', 'gauge', {
+/** 
+ * @extends plotOptions.gauge
+ * @optionparent plotOptions.solidgauge
+ */
+var solidGaugeOptions = {
+	/**
+	 */
 	colorByPoint: true
 
-}, {
+};
+
+
+// The solidgauge series type
+H.seriesType('solidgauge', 'gauge', solidGaugeOptions, {
 
 	/**
 	 * Extend the translate function to extend the Y axis with the necessary

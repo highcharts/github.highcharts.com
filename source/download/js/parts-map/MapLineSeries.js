@@ -11,9 +11,30 @@ var seriesType = H.seriesType,
 	seriesTypes = H.seriesTypes;
 
 // The mapline series type
+// 
+/**
+ * @extends {plotOptions.map}
+ * @optionparent plotOptions.mapline
+ */
 seriesType('mapline', 'map', {
 	/*= if (build.classic) { =*/
+
+	/**
+	 * The width of the map line.
+	 * 
+	 * @type {Number}
+	 * @default 1
+	 * @product highmaps
+	 */
 	lineWidth: 1,
+
+	/**
+	 * Fill color for the map line shapes
+	 * 
+	 * @type {Color}
+	 * @default none
+	 * @product highmaps
+	 */
 	fillColor: 'none'
 	/*= } =*/
 }, {

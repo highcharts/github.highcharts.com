@@ -41,7 +41,7 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 	 * Add a series to the chart after render time. Note that this method should
 	 * never be used when adding data synchronously at chart render time, as it
 	 * adds expense to the calculations and rendering. When adding data at the
-	 * same time as the chart is initiated, add the series as a configuration
+	 * same time as the chart is initialized, add the series as a configuration
 	 * option instead. With multiple axes, the `offset` is dynamically adjusted.
 	 *
 	 * @param  {SeriesOptions} options
@@ -85,7 +85,7 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
      * Add an axis to the chart after render time. Note that this method should
      * never be used when adding data synchronously at chart render time, as it
      * adds expense to the calculations and rendering. When adding data at the
-     * same time as the chart is initiated, add the axis as a configuration
+     * same time as the chart is initialized, add the axis as a configuration
      * option instead.
      * @param  {AxisOptions} options
      *         The axis options.
@@ -97,6 +97,9 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
      *         Whether and how to apply animation in the redraw.
      *
      * @sample highcharts/members/chart-addaxis/ Add and remove axes
+     *
+     * @return {Axis}
+     *         The newly generated Axis object.
      */
 	addAxis: function (options, isX, redraw, animation) {
 		var key = isX ? 'xAxis' : 'yAxis',
@@ -104,9 +107,10 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			userOptions = merge(options, {
 				index: this[key].length,
 				isX: isX
-			});
+			}),
+			axis;
 
-		new Axis(this, userOptions); // eslint-disable-line no-new
+		axis = new Axis(this, userOptions);
 
 		// Push the new axis options to the chart options
 		chartOptions[key] = splat(chartOptions[key] || {});
@@ -115,6 +119,8 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 		if (pick(redraw, true)) {
 			this.redraw(animation);
 		}
+
+		return axis;
 	},
 
 	/**
@@ -252,7 +258,10 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 	 * existing object. If an existing object of the same id is not found, the
 	 * corresponding item is updated. So for example, running `chart.update`
 	 * with a series item without an id, will cause the existing chart's series
-	 * with the same index in the series array to be updated.
+	 * with the same index in the series array to be updated. When the
+	 * `oneToOne` parameter is true, `chart.update` will also take care of
+	 * adding and removing items from the collection. Read more under the
+	 * parameter description below.
 	 *
 	 * See also the {@link https://api.highcharts.com/highcharts/responsive|
 	 * responsive option set}. Switching between `responsive.rules` basically
@@ -262,11 +271,22 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 	 *         A configuration object for the new chart options.
 	 * @param  {Boolean} [redraw=true]
 	 *         Whether to redraw the chart.
+	 * @param  {Boolean} [oneToOne=false]
+	 *         When `true`, the `series`, `xAxis` and `yAxis` collections will
+	 *         be updated one to one, and items will be either added or removed
+	 *         to match the new updated options. For example, if the chart has
+	 *         two series and we call `chart.update` with a configuration 
+	 *         containing three series, one will be added. If we call
+	 *         `chart.update` with one series, one will be removed. Setting an
+	 *         empty `series` array will remove all series, but leaving out the
+	 *         `series` property will leave all series untouched. If the series
+	 *         have id's, the new series options will be matched by id, and the
+	 *         remaining ones removed.
 	 *
 	 * @sample highcharts/members/chart-update/
 	 *         Update chart geometry 
 	 */
-	update: function (options, redraw) {
+	update: function (options, redraw, oneToOne) {
 		var chart = this,
 			adders = {
 				credits: 'addCredits',
@@ -277,7 +297,8 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			updateAllAxes,
 			updateAllSeries,
 			newWidth,
-			newHeight;
+			newHeight,
+			itemsForRemoval = [];
 
 		// If the top-level chart option is present, some special updates are required		
 		if (optionsChart) {
@@ -376,9 +397,42 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 					) || chart[coll][i];
 					if (item && item.coll === coll) {
 						item.update(newOptions, false);
+
+						if (oneToOne) {
+							item.touched = true;
+						}
 					}
+
+					// If oneToOne and no matching item is found, add one
+					if (!item && oneToOne) {
+						if (coll === 'series') {
+							chart.addSeries(newOptions, false)
+								.touched = true;
+						} else if (coll === 'xAxis' || coll === 'yAxis') {
+							chart.addAxis(newOptions, coll === 'xAxis', false)
+								.touched = true;
+						}
+					}
+
 				});
+
+				// Add items for removal
+				if (oneToOne) {
+					each(chart[coll], function (item) {
+						if (!item.touched) {
+							itemsForRemoval.push(item);
+						} else {
+							delete item.touched;
+						}
+					});
+				}
+
+
 			}
+		});
+
+		each(itemsForRemoval, function (item) {
+			item.remove(false);
 		});
 
 		if (updateAllAxes) {
@@ -412,7 +466,12 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 	},
 
 	/**
-	 * Setter function to allow use from chart.update
+	 * Shortcut to set the subtitle options. This can also be done from {@link
+	 * Chart#update} or {@link Chart#setTitle}.
+	 *
+	 * @param  {SubtitleOptions} options
+	 *         New subtitle options. The subtitle text itself is set by the
+	 *         `options.text` property.
 	 */
 	setSubtitle: function (options) {
 		this.setTitle(undefined, options);
@@ -470,7 +529,8 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 			if (isObject(options, true)) {
 				// Destroy so we can get new elements
 				if (graphic && graphic.element) {
-					if (options && options.marker && options.marker.symbol) {
+					// "null" is also a valid symbol
+					if (options && options.marker && options.marker.symbol !== undefined) {
 						point.graphic = graphic.destroy();
 					}
 				}
@@ -779,8 +839,20 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 			oldType = series.oldType || series.type,
 			newType = newOptions.type || oldOptions.type || chart.options.chart.type,
 			proto = seriesTypes[oldType].prototype,
-			preserve = ['group', 'markerGroup', 'dataLabelsGroup'],
-			n;
+			n,
+			preserve = [
+				'group',
+				'markerGroup',
+				'dataLabelsGroup',
+				'navigatorSeries',
+				'baseSeries'
+			],
+
+			// Animation must be enabled when calling update before the initial
+			// animation has first run. This happens when calling update
+			// directly after chart initialization, or when applying responsive
+			// rules (#6912).
+			animation = series.finishedAnimating && { animation: false };
 
 		// Running Series.update to update the data only is an intuitive usage,
 		// so we want to make sure that when used like this, we run the
@@ -802,8 +874,7 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 		});
 
 		// Do the merge, with some forced options
-		newOptions = merge(oldOptions, {
-			animation: false,
+		newOptions = merge(oldOptions, animation, {
 			index: series.index,
 			pointStart: series.xData[0] // when updating after addPoint
 		}, { data: series.options.data }, newOptions);
@@ -816,7 +887,7 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 		}
 		extend(series, seriesTypes[newType || oldType].prototype);
 
-		// Re-register groups (#3094)
+		// Re-register groups (#3094) and other preserved properties
 		each(preserve, function (prop) {
 			series[prop] = preserve[prop];
 		});

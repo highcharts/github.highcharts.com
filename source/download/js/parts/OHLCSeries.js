@@ -18,8 +18,24 @@ var each = H.each,
  * @constructor seriesTypes.ohlc
  * @augments seriesTypes.column
  */
+/**
+ * @extends {plotOptions.column}
+ * @optionparent plotOptions.ohlc
+ */
 seriesType('ohlc', 'column', {
+
+	/**
+	 * The pixel width of the line/border. Defaults to `1`.
+	 * 
+	 * @type {Number}
+	 * @sample {highstock} stock/plotoptions/ohlc-linewidth/ A greater line width
+	 * @default 1
+	 * @product highstock
+	 */
 	lineWidth: 1,
+
+	/**
+	 */
 	tooltip: {
 		/*= if (!build.classic) { =*/
 		pointFormat: '<span class="highcharts-color-{point.colorIndex}">\u25CF</span> <b> {series.name}</b><br/>' +
@@ -28,6 +44,9 @@ seriesType('ohlc', 'column', {
 			'Low: {point.low}<br/>' +
 			'Close: {point.close}<br/>',
 		/*= } else { =*/
+
+		/**
+		 */
 		pointFormat: '<span style="color:{point.color}">\u25CF</span> <b> {series.name}</b><br/>' +
 			'Open: {point.open}<br/>' +
 			'High: {point.high}<br/>' +
@@ -35,13 +54,36 @@ seriesType('ohlc', 'column', {
 			'Close: {point.close}<br/>'
 		/*= } =*/
 	},
+
+	/**
+	 */
 	threshold: null,
 	/*= if (build.classic) { =*/
+
+	/**
+	 */
 	states: {
+
+		/**
+		 * @extends plotOptions.column.states.hover
+		 * @product highstock
+		 */
 		hover: {
+
+			/**
+			 * The pixel width of the line representing the OHLC point. Defaults
+			 * to `3`.
+			 * 
+			 * @type {Number}
+			 * @default 3
+			 * @product highstock
+			 */
 			lineWidth: 3
 		}
 	},
+
+	/**
+	 */
 	stickyTracking: true
 	//upColor: undefined
 	/*= } =*/

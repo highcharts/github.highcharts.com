@@ -14,16 +14,44 @@ var merge = H.merge,
 	seriesType = H.seriesType;
 
 // The mappoint series type
+/**
+ * @extends plotOptions.scatter
+ * @optionparent plotOptions.mappoint
+ */
 seriesType('mappoint', 'scatter', {
+
+	/**
+	 */
 	dataLabels: {
+
+		/**
+		 */
 		enabled: true,
+
+		/**
+		 */
 		formatter: function () { // #2945
 			return this.point.name;
 		},
+
+		/**
+		 */
 		crop: false,
+
+		/**
+		 */
 		defer: false,
+
+		/**
+		 */
 		overflow: false,
+
+		/**
+		 */
 		style: {
+
+			/**
+			 */
 			color: '${palette.neutralColor100}'
 		}
 	}

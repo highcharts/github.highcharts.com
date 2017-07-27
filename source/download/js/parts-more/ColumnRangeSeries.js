@@ -15,16 +15,47 @@ var defaultPlotOptions = H.defaultPlotOptions,
 	seriesTypes = H.seriesTypes;
 
 var colProto = seriesTypes.column.prototype;
+/**
+ * @extends {plotOptions.arearange}
+ * @optionparent plotOptions.columrange
+ */
+var columnRangeOptions = {
 
+	/**
+	 */
+	lineWidth: 1,
+
+	/**
+	 */
+	pointRange: null,
+
+	/**
+	 */
+	marker: null,
+
+	/**
+	 */
+	states: {
+
+		/**
+		 */
+		hover: {
+
+			/**
+			 */
+			halo: false
+		}
+	}
+};
 /**
  * The ColumnRangeSeries class
  */
-seriesType('columnrange', 'arearange', merge(defaultPlotOptions.column, defaultPlotOptions.arearange, {
-	lineWidth: 1,
-	pointRange: null
+seriesType('columnrange', 'arearange', merge(
+	defaultPlotOptions.column,
+	defaultPlotOptions.arearange,
+	columnRangeOptions
 
-// Prototype members
-}), {
+), {
 	/**
 	 * Translate data points from raw values x and y to plotX and plotY
 	 */
@@ -36,7 +67,17 @@ seriesType('columnrange', 'arearange', merge(defaultPlotOptions.column, defaultP
 			start,
 			chart = series.chart,
 			isRadial = series.xAxis.isRadial,
+			safeDistance = Math.max(chart.chartWidth, chart.chartHeight) + 999,
 			plotHigh;
+
+		// Don't draw too far outside plot area (#6835)
+		function safeBounds(pixelPos) {
+			return Math.min(Math.max(
+				-safeDistance,
+				pixelPos
+			), safeDistance);
+		}
+
 
 		colProto.translate.apply(series);
 
@@ -48,8 +89,10 @@ seriesType('columnrange', 'arearange', merge(defaultPlotOptions.column, defaultP
 				height,
 				y;
 
-			point.plotHigh = plotHigh = yAxis.translate(point.high, 0, 1, 0, 1);
-			point.plotLow = point.plotY;
+			point.plotHigh = plotHigh = safeBounds(
+				yAxis.translate(point.high, 0, 1, 0, 1)
+			);
+			point.plotLow = safeBounds(point.plotY);
 
 			// adjust shape
 			y = plotHigh;
@@ -75,6 +118,7 @@ seriesType('columnrange', 'arearange', merge(defaultPlotOptions.column, defaultP
 					d: series.polarArc(y + height, y, start, start + point.pointWidth)
 				};
 			} else {
+
 				shapeArgs.height = height;
 				shapeArgs.y = y;
 
@@ -96,6 +140,7 @@ seriesType('columnrange', 'arearange', merge(defaultPlotOptions.column, defaultP
 	directTouch: true,
 	trackerGroups: ['group', 'dataLabelsGroup'],
 	drawGraph: noop,
+	getSymbol: noop,
 	crispCol: colProto.crispCol,
 	drawPoints: colProto.drawPoints,
 	drawTracker: colProto.drawTracker,
@@ -107,4 +152,6 @@ seriesType('columnrange', 'arearange', merge(defaultPlotOptions.column, defaultP
 		return colProto.polarArc.apply(this, arguments);
 	},
 	pointAttribs: colProto.pointAttribs
+}, {
+	setState: colProto.pointClass.prototype.setState
 });

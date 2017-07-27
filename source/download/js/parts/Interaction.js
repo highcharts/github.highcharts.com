@@ -34,8 +34,6 @@ var addEvent = H.addEvent,
 
 /**
  * TrackerMixin for points and graphs.
- *
- * @mixin
  */
 TrackerMixin = H.TrackerMixin = {
 
@@ -304,7 +302,9 @@ defaultOptions.legend.itemStyle.cursor = 'pointer';
 
 extend(Chart.prototype, /** @lends Chart.prototype */ {
 	/**
-	 * Display the zoom button
+	 * Display the zoom button.
+	 *
+	 * @private
 	 */
 	showResetZoom: function () {
 		var chart = this,
@@ -330,7 +330,9 @@ extend(Chart.prototype, /** @lends Chart.prototype */ {
 	},
 
 	/**
-	 * Zoom out to 1:1
+	 * Zoom out to 1:1.
+	 *
+	 * @private
 	 */
 	zoomOut: function () {
 		var chart = this;
@@ -340,8 +342,10 @@ extend(Chart.prototype, /** @lends Chart.prototype */ {
 	},
 
 	/**
-	 * Zoom into a given portion of the chart given by axis coordinates
+	 * Zoom into a given portion of the chart given by axis coordinates.
 	 * @param {Object} event
+	 *
+	 * @private
 	 */
 	zoom: function (event) {
 		var chart = this,
@@ -355,6 +359,8 @@ extend(Chart.prototype, /** @lends Chart.prototype */ {
 			each(chart.axes, function (axis) {
 				hasZoomed = axis.zoom();
 			});
+			pointer.initiated = false; // #6804
+
 		} else { // else, zoom in on all axes
 			each(event.xAxis.concat(event.yAxis), function (axisData) {
 				var axis = axisData.axis,
@@ -388,9 +394,11 @@ extend(Chart.prototype, /** @lends Chart.prototype */ {
 	},
 
 	/**
-	 * Pan the chart by dragging the mouse across the pane. This function is called
-	 * on mouse move, and the distance to pan is computed from chartX compared to
-	 * the first chartX position in the dragging operation.
+	 * Pan the chart by dragging the mouse across the pane. This function is
+	 * called on mouse move, and the distance to pan is computed from chartX
+	 * compared to the first chartX position in the dragging operation.
+	 *
+	 * @private
 	 */
 	pan: function (e, panning) {
 
@@ -507,8 +515,9 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 			
 			/**
 			 * Whether the point is selected or not. 
-			 * @see Highcharts.Point#select
-			 * @memberof Highcharts.Point
+			 * @see Point#select
+			 * @see Chart#getSelectedPoints
+			 * @memberof Point
 			 * @name selected
 			 * @type {Boolean}
 			 */
@@ -532,7 +541,8 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 	},
 
 	/**
-	 * Runs on mouse over the point
+	 * Runs on mouse over the point. Called internally from mouse and touch
+	 * events.
 	 * 
 	 * @param {Object} e The event arguments
 	 */
@@ -549,7 +559,8 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 	},
 
 	/**
-	 * Runs on mouse out from the point
+	 * Runs on mouse out from the point. Called internally from mouse and touch
+	 * events.
 	 */
 	onMouseOut: function () {
 		var point = this,
@@ -564,6 +575,8 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 	/**
 	 * Import events from the series' and point's options. Only do it on
 	 * demand, to save processing time on hovering.
+	 *
+	 * @private
 	 */
 	importEvents: function () {
 		if (!this.hasImportedEvents) {
@@ -582,8 +595,10 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 	},
 
 	/**
-	 * Set the point's state
-	 * @param {String} state
+	 * Set the point's state.
+	 * @param  {String} [state]
+	 *         The new state, can be one of `''` (an empty string), `hover` or
+	 *         `select`.
 	 */
 	setState: function (state, move) {
 		var point = this,
@@ -609,18 +624,30 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 		state = state || ''; // empty string
 
 		if (
-				// already has this state
-				(state === point.state && !move) ||
-				// selected points don't respond to hover
-				(point.selected && state !== 'select') ||
-				// series' state options is disabled
-				(stateOptions.enabled === false) ||
-				// general point marker's state options is disabled
-				(state && (stateDisabled || (normalDisabled && markerStateOptions.enabled === false))) ||
-				// individual point marker's state options is disabled
-				(state && pointMarker.states && pointMarker.states[state] && pointMarker.states[state].enabled === false) // #1610
+			// already has this state
+			(state === point.state && !move) ||
+			
+			// selected points don't respond to hover
+			(point.selected && state !== 'select') ||
+			
+			// series' state options is disabled
+			(stateOptions.enabled === false) ||
+			
+			// general point marker's state options is disabled
+			(state && (
+				stateDisabled || 
+				(normalDisabled && markerStateOptions.enabled === false)
+			)) ||
+			
+			// individual point marker's state options is disabled
+			(
+				state &&
+				pointMarker.states &&
+				pointMarker.states[state] &&
+				pointMarker.states[state].enabled === false
+			) // #1610
 
-			) {
+		) {
 			return;
 		}
 
@@ -647,7 +674,13 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 
 			/*= if (build.classic) { =*/
 			//attribs = merge(series.pointAttribs(point, state), attribs);
-			point.graphic.attr(series.pointAttribs(point, state));
+			point.graphic.animate(
+				series.pointAttribs(point, state),
+				pick(
+					chart.options.chart.animation,
+					stateOptions.animation
+				)
+			);
 			/*= } =*/
 
 			if (markerAttribs) {
@@ -745,9 +778,11 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 	},
 
 	/**
-	 * Get the circular path definition for the halo
-	 * @param  {Number} size The radius of the circular halo.
-	 * @returns {Array} The path definition
+	 * Get the path definition for the halo, which is usually a shadow-like
+	 * circle around the currently hovered point.
+	 * @param  {Number} size
+	 *         The radius of the circular halo.
+	 * @return {Array} The path definition
 	 */
 	haloPath: function (size) {
 		var series = this.series,
@@ -768,7 +803,7 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 
 extend(Series.prototype, /** @lends Highcharts.Series.prototype */ {
 	/**
-	 * Series mouse over handler
+	 * Runs on mouse over the series graphical items.
 	 */
 	onMouseOver: function () {
 		var series = this,
@@ -792,7 +827,7 @@ extend(Series.prototype, /** @lends Highcharts.Series.prototype */ {
 	},
 
 	/**
-	 * Series mouse out handler
+	 * Runs on mouse out of the series graphical items.
 	 */
 	onMouseOut: function () {
 		// trigger the event only if listeners exist
@@ -825,7 +860,13 @@ extend(Series.prototype, /** @lends Highcharts.Series.prototype */ {
 	},
 
 	/**
-	 * Set the state of the graph
+	 * Set the state of the series. Called internally on mouse interaction and
+	 * select operations, but it can also be called directly to visually
+	 * highlight a series.
+	 *
+	 * @param  {String} [state]
+	 *         Can be either `hover`, `select` or undefined to set to normal
+	 *         state.
 	 */
 	setState: function (state) {
 		var series = this,

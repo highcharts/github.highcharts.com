@@ -20,17 +20,97 @@ var correctFloat = H.correctFloat,
 /* ****************************************************************************
  * Start Waterfall series code                                                *
  *****************************************************************************/
+/**
+ * @extends {plotOptions.column}
+ * @optionparent plotOptions.waterfall
+ */
 seriesType('waterfall', 'column', {
+
+	/**
+	 */
 	dataLabels: {
+
+		/**
+		 */
 		inside: true
 	},
 	/*= if (build.classic) { =*/
+
+	/**
+	 * The width of the line connecting waterfall columns.
+	 * 
+	 * @type {Number}
+	 * @default 1
+	 * @product highcharts
+	 */
 	lineWidth: 1,
+
+	/**
+	 * The color of the line that connects columns in a waterfall series.
+	 * 
+	 * 
+	 * In [styled mode](http://www.highcharts.com/docs/chart-design-and-
+	 * style/style-by-css), the stroke can be set with the `.highcharts-
+	 * graph` class.
+	 * 
+	 * @type {Color}
+	 * @default #333333
+	 * @since 3.0
+	 * @product highcharts
+	 */
 	lineColor: '${palette.neutralColor80}',
+
+	/**
+	 * A name for the dash style to use for the line connecting the columns
+	 * of the waterfall series. Possible values:
+	 * 
+	 * *   Solid
+	 * *   ShortDash
+	 * *   ShortDot
+	 * *   ShortDashDot
+	 * *   ShortDashDotDot
+	 * *   Dot
+	 * *   Dash
+	 * *   LongDash
+	 * *   DashDot
+	 * *   LongDashDot
+	 * *   LongDashDotDot
+	 * 
+	 * In [styled mode](http://www.highcharts.com/docs/chart-design-and-
+	 * style/style-by-css), the stroke dash-array can be set with the `.
+	 * highcharts-graph` class.
+	 * 
+	 * @type {String}
+	 * @default Dot
+	 * @since 3.0
+	 * @product highcharts
+	 */
 	dashStyle: 'dot',
+
+	/**
+	 * The color of the border of each waterfall column.
+	 * 
+	 * In [styled mode](http://www.highcharts.com/docs/chart-design-and-
+	 * style/style-by-css), the border stroke can be set with the `.highcharts-
+	 * point` class.
+	 * 
+	 * @type {Color}
+	 * @default #333333
+	 * @since 3.0
+	 * @product highcharts
+	 */
 	borderColor: '${palette.neutralColor80}',
+
+	/**
+	 */
 	states: {
+
+		/**
+		 */
 		hover: {
+
+			/**
+			 */
 			lineWidthPlus: 0 // #3126
 		}
 	}

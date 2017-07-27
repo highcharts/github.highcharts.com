@@ -12,8 +12,7 @@ import '../parts/Legend.js';
 import '../parts/Point.js';
 import '../parts/Series.js';
 import '../parts/ScatterSeries.js';
-var color = H.color,
-	colorPointMixin = H.colorPointMixin,
+var colorPointMixin = H.colorPointMixin,
 	colorSeriesMixin = H.colorSeriesMixin,
 	doc = H.doc,
 	each = H.each,
@@ -36,46 +35,136 @@ var color = H.color,
 var supportsVectorEffect = doc.documentElement.style.vectorEffect !== undefined;
 
 
+// Add the map series type
 /**
- * The MapAreaPoint object
- */
-/**
- * Add the map series type
+ * @extends {plotOptions.scatter}
+ * @optionparent plotOptions.map
  */
 seriesType('map', 'scatter', {
+
+	/**
+	 */
 	allAreas: true,
 
+
+	/**
+	 */
 	animation: false, // makes the complex shapes slow
+
+	/**
+	 * The color to apply to null points.
+	 * 
+	 * In [styled mode](http://www.highcharts.com/docs/chart-design-and-
+	 * style/style-by-css), the null point fill is set in the `.highcharts-
+	 * null-point` class.
+	 * 
+	 * @type {Color}
+	 * @sample {highmaps} maps/demo/all-areas-as-null/ Null color
+	 * @default #f7f7f7
+	 * @product highmaps
+	 */
 	nullColor: '${palette.neutralColor3}',
+
+	/**
+	 */
 	borderColor: '${palette.neutralColor20}',
+
+	/**
+	 */
 	borderWidth: 1,
+
+	/**
+	 */
 	marker: null,
+
+	/**
+	 */
 	stickyTracking: false,
+
+	/**
+	 */
 	joinBy: 'hc-key',
+
+	/**
+	 */
 	dataLabels: {
+
+		/**
+		 */
 		formatter: function () { // #2945
 			return this.point.value;
 		},
+
+		/**
+		 */
 		inside: true, // for the color
+
+		/**
+		 */
 		verticalAlign: 'middle',
+
+		/**
+		 */
 		crop: false,
+
+		/**
+		 */
 		overflow: false,
+
+		/**
+		 */
 		padding: 0
 	},
+
+	/**
+	 */
 	turboThreshold: 0,
+
+	/**
+	 */
 	tooltip: {
+
+		/**
+		 */
 		followPointer: true,
+
+		/**
+		 */
 		pointFormat: '{point.name}: {point.value}<br/>'
 	},
+
+	/**
+	 */
 	states: {
+
+		/**
+		 */
 		normal: {
+
+			/**
+			 */
 			animation: true
 		},
+
+		/**
+		 */
 		hover: {
+
+			/**
+			 */
 			brightness: 0.2,
+
+			/**
+			 */
 			halo: null
 		},
+
+		/**
+		 */
 		select: {
+
+			/**
+			 */
 			color: '${palette.neutralColor20}'
 		}
 	}
@@ -83,7 +172,6 @@ seriesType('map', 'scatter', {
 // Prototype members
 }, merge(colorSeriesMixin, {
 	type: 'map',
-	supportsDrilldown: true,
 	getExtremesFromAll: true,
 	useMapGeometry: true, // get axis extremes from paths, not values
 	forceDL: true,
@@ -136,11 +224,18 @@ seriesType('map', 'scatter', {
 							even = !even;
 						}
 					}
-					// Cache point bounding box for use to position data labels, bubbles etc
-					point._midX = pointMinX + (pointMaxX - pointMinX) *
-						(point.middleX || (properties && properties['hc-middle-x']) || 0.5); // pick is slower and very marginally needed
-					point._midY = pointMinY + (pointMaxY - pointMinY) *
-						(point.middleY || (properties && properties['hc-middle-y']) || 0.5);
+					// Cache point bounding box for use to position data labels,
+					// bubbles etc
+					point._midX = pointMinX + (pointMaxX - pointMinX) *	pick(
+						point.middleX,
+						properties && properties['hc-middle-x'],
+						0.5
+					);
+					point._midY = pointMinY + (pointMaxY - pointMinY) * pick(
+						point.middleY,
+						properties && properties['hc-middle-y'],
+						0.5
+					);
 					point._maxX = pointMaxX;
 					point._minX = pointMinX;
 					point._maxY = pointMaxY;
@@ -431,11 +526,6 @@ seriesType('map', 'scatter', {
 		/*= } else { =*/
 		attr = this.colorAttribs(point);
 		/*= } =*/
-
-		// Prevent flickering whan called from setState
-		if (point.isFading) {
-			delete attr.fill;
-		}
 
 		// If vector-effect is not supported, we set the stroke-width on the group element
 		// and let all point graphics inherit. That way we don't have to iterate over all 
@@ -793,46 +883,6 @@ seriesType('map', 'scatter', {
 			this.series.onMouseOut(e);
 		}
 	},
-	/*= if (build.classic) { =*/
-	// Todo: check unstyled
-	/**
-	 * Custom animation for tweening out the colors. Animation reduces blinking when hovering
-	 * over islands and coast lines. We run a custom implementation of animation becuase we
-	 * need to be able to run this independently from other animations like zoom redraw. Also,
-	 * adding color animation to the adapters would introduce almost the same amount of code.
-	 */
-	onMouseOut: function () {
-		var point = this,
-			start = +new Date(),
-			normalColor = color(this.series.pointAttribs(point).fill),
-			hoverColor = color(this.series.pointAttribs(point, 'hover').fill),
-			animation = point.series.options.states.normal.animation,
-			duration = animation && (animation.duration || 500);
-
-		if (duration && normalColor.rgba.length === 4 && hoverColor.rgba.length === 4 && point.state !== 'select') {
-			clearTimeout(point.colorInterval);
-			point.colorInterval = setInterval(function () {
-				var pos = (new Date() - start) / duration,
-					graphic = point.graphic;
-				if (pos > 1) {
-					pos = 1;
-				}
-				if (graphic) {
-					graphic.attr(
-						'fill',
-						hoverColor.tweenTo(normalColor, pos)
-					);
-				}
-				if (pos >= 1) {
-					clearTimeout(point.colorInterval);
-				}
-			}, 13);
-			point.isFading = true;
-		}
-		Point.prototype.onMouseOut.call(point);
-		point.isFading = null;
-	},
-	/*= } =*/
 
 	/**
 	 * Highmaps only. Zoom in on the point using the global animation.

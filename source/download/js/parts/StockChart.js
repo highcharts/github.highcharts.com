@@ -57,7 +57,7 @@ var arrayMax = H.arrayMax,
  * @param  {Function} callback
  *         A function to execute when the chart object is finished loading and
  *         rendering. In most cases the chart is built in one thread, but in
- *         Internet Explorer version 8 or less the chart is sometimes initiated
+ *         Internet Explorer version 8 or less the chart is sometimes initialized
  *         before the document is ready, and in these cases the chart object
  *         will not be finished synchronously. As a consequence, code that
  *         relies on the newly built Chart object should always run in the
@@ -230,7 +230,7 @@ wrap(Axis.prototype, 'autoLabelAlign', function (proceed) {
 			return 'right';
 		}
 	}
-	return proceed.call(this, [].slice.call(arguments, 1));
+	return proceed.apply(this, [].slice.call(arguments, 1));
 });
 
 // Clear axis from label panes (#6071)
@@ -242,7 +242,7 @@ wrap(Axis.prototype, 'destroy', function (proceed) {
 		delete chart._labelPanes[key];
 	}
 
-	return proceed.call(this, Array.prototype.slice.call(arguments, 1));
+	return proceed.apply(this, Array.prototype.slice.call(arguments, 1));
 });
 
 // Override getPlotLinePath to allow for multipane charts
