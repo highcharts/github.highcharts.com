@@ -42,12 +42,11 @@ Do deployment of new version.
 Before deploying a new application, please ensure the following requirements are met.
 ### Requirements
 1. Any updates must be committed to ensure the running application is tracked.
-2. Create folder tmp if not exist, mkdir tmp
-3. `config.json` is configured according to guide. (Contents of config.json stored in 1password)
+2. `config.json` is configured according to guide. (Contents of config.json stored in 1password)
 
 ### Packaging
 Open a CLI and run the following command:
-`npm run deploy`
+`npm run build`
 The application will be packed into an archive named `github.highcharts.com.zip`. The zip is ready to be uploaded and unpacked on your server.
 
 ## File Structure

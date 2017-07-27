@@ -3,9 +3,11 @@ const fs = require('fs');
 const archiver = require('archiver');
 const versionNumber = require('../package.json').version;
 const archiveName = 'github.highcharts-' + versionNumber + '.zip';
-const folders = ['app', 'assembler', 'assets', 'source', 'views', 'tmp'];
+const folders = ['app', 'assembler', 'assets', 'source', 'views'];
+const emptyFolders = ['tmp'];
 const files = ['config.json', 'package.json', 'server.js'];
 const output = fs.createWriteStream(archiveName);
+const placeholder = 'EMPTY.md';
 const archive = archiver('zip', {
     store: true // Sets the compression method to STORE. 
 });
@@ -29,6 +31,11 @@ archive.pipe(output);
 folders.forEach((f) => {
     // append files from a directory 
     archive.directory(f);
+});
+
+// Can't put empty folders into the archive, so we use a placeholder.
+emptyFolders.forEach((f) => {
+    archive.file(placeholder, { name: f + '/' + placeholder });
 });
 
 files.forEach((f) => {
