@@ -19,7 +19,7 @@
 ## 1.3.0 [WIP]
 - Fixed issue with validation of Github Webhook.
 - Fixed issue with custom body parser.
-- Updated source files used in download builder to v5.0.13.
+- Updated source files used in download builder to v5.0.14.
 - Modified download builder router to receive more compact requests.
 - Created deploy script to package application files into a zip archive.
 - Updated assembler files.
