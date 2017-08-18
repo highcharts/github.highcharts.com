@@ -25,3 +25,4 @@
 - Updated assembler files.
 - Fixed issue with themes UMD wrap.
 - Fixed issue with missing tmp folder when using deploy script.
+- Included .ebextensions in build.
