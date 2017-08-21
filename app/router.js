@@ -8,6 +8,7 @@ const router = express.Router();
 const D = require('./download.js');
 const I = require('./interpreter.js');
 const U = require('./utilities.js');
+const message = require('./message.json');
 const build = require('../assembler/build.js').build;
 const tmpFolder = './tmp/';
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
@@ -18,19 +19,18 @@ const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
  * @param  {Error|string} err Can either be an Error object
  * @param  {object} res Express response object.
  * @return {undefined}
- * @todo Stop logging the error in seperate files, output them to the same log file in stead.
  */
 const handleError = (err, res) => {
-	const date = new Date();
-	const name = U.formatDate(date);
-	const content = (typeof err === 'object') ? err.message + '\n\r' + err.stack : err;
-	try {
-		U.writeFile('./logs/' + name + '.log', content);
-	} catch (e) {
-		U.debug(true, e.message);
+	const date = U.formatDate(new Date());
+	const content = [date];
+	if (typeof err === 'object') {
+		content.push(err.stack);
+	} else {
+		content.push(err);
 	}
+	U.debug(true, content.join('\n'));
 	res.status(500)
-		.send('Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.');
+		.send(message.error['500']);
 };
 
 /**
