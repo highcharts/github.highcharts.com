@@ -22,7 +22,7 @@ const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
  */
 const handleError = (err, res) => {
 	const date = new Date();
-	const name = [date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()].join('-') + 'T' + [date.getUTCHours(), date.getUTCMinutes(), date.getUTCSeconds()].join('-');
+	const name = U.formatDate(date);
 	const content = (typeof err === 'object') ? err.message + '\n\r' + err.stack : err;
 	try {
 		U.writeFile('./logs/' + name + '.log', content);

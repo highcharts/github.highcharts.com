@@ -156,6 +156,41 @@ const cleanPath = path => {
     return p;
 };
 
+
+/**
+ * isDate - Checks wether the input is a valid Date object.
+ * @param {Date} x Item to test.
+ * @return {bool} true if valid, false if not.
+ */
+const isDate = (x) => (
+    Object.prototype.toString.call(x) === '[object Date]' &&
+    !isNaN(x.getDay())
+)
+
+/**
+ * formatDate - Format a date as YYYY-MM-DDTHH-MM-SS.
+ * @param {Date} date A Date object to be formatted.
+ * @return {bool|string} Returns false if input is not a valid date. Returns a
+ *     string with date formatted as YYYY-MM-DDTHH-MM-SS.
+ */
+const formatDate = (date) => {
+    let result = false;
+    if (isDate(date)) {
+        const day = [
+            date.getUTCFullYear(),
+            date.getUTCMonth(),
+            date.getUTCDate()
+        ].join('-');
+        const time = 'T' + [
+            date.getUTCHours(),
+            date.getUTCMinutes(),
+            date.getUTCSeconds()
+        ].join('-');
+        result = day + time;
+    }
+    return result;
+}
+
 module.exports = {
     cleanPath,
     copyFile,
@@ -163,8 +198,10 @@ module.exports = {
     debug,
     exists,
     folder,
+    formatDate,
     getFile,
     getFilesInFolder,
+    isDate,
     randomString,
     removeDirectory,
     removeFile,

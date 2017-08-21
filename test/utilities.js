@@ -18,9 +18,13 @@ describe('utilities.js', () => {
             .that.is.a('function');
         expect(defaults).to.have.property('folder')
             .that.is.a('function');
+        expect(defaults).to.have.property('formatDate')
+            .that.is.a('function');
         expect(defaults).to.have.property('getFile')
             .that.is.a('function');
         expect(defaults).to.have.property('getFilesInFolder')
+            .that.is.a('function');
+        expect(defaults).to.have.property('isDate')
             .that.is.a('function');
         expect(defaults).to.have.property('randomString')
             .that.is.a('function');
@@ -30,5 +34,48 @@ describe('utilities.js', () => {
             .that.is.a('function');
         expect(defaults).to.have.property('writeFile')
             .that.is.a('function');
+    });
+    describe('formatDate', () => {
+        const formatDate = defaults.formatDate
+        it('should return date formatted as YYYY-MM-DDTHH-MM-SS', () => {
+            const date = new Date(1503341243862)
+            expect(formatDate(date)).to.equal('2017-07-21T18-47-23')
+        });
+        it('should return false when input is not a date', () => {
+            expect(formatDate(undefined)).to.equal(false)
+        });
+    });
+    describe('isDate', () => {
+        const isDate = defaults.isDate;
+        it('should return true when Date', () => {
+            expect(isDate(new Date())).to.equal(true);
+        })
+        it('should return false when invalid Date', () => {
+            expect(isDate(new Date('a'))).to.equal(false);
+        })
+        it('should return false when undefined', () => {
+            expect(isDate(undefined)).to.equal(false);
+        })
+        it('should return false when null', () => {
+            expect(isDate(null)).to.equal(false);
+        })
+        it('should return false when object', () => {
+            expect(isDate({})).to.equal(false);
+        })
+        it('should return false when array', () => {
+            expect(isDate([])).to.equal(false);
+        })
+        it('should return false when boolean', () => {
+            expect(isDate(true)).to.equal(false);
+        })
+        it('should return false when number', () => {
+            expect(isDate(1)).to.equal(false);
+        })
+        it('should return false when string', () => {
+            expect(isDate('')).to.equal(false);
+        })
+        it('should return false when function', () => {
+            expect(isDate(function () {})).to.equal(false);
+        })
     });
 })
