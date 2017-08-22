@@ -20,7 +20,7 @@
     "stop": "node node_modules/forever/bin/forever stop server.js",
     "restart": "node node_modules/forever/bin/forever restart server.js",
     "test": "mocha test/test.js",
-    "lint": "standard \"app/*.js\"",
+    "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "build": "node ./scripts/deploy.js",
     "update-assembler": "node ./scripts/update-assembler.js",
     "update-download-source": "node ./scripts/update-download-source.js"

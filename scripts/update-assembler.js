@@ -5,9 +5,9 @@
  * @todo Add license
  * @todo Publish the assembler to NPM to always keep it up to date.
  */
-'use strict';
-const U = require('../app/utilities.js');
-const files = U.getFilesInFolder('../../highcharts/', 'assembler', true);
+'use strict'
+const U = require('../app/utilities.js')
+const files = U.getFilesInFolder('../../highcharts/', 'assembler', true)
 files.forEach(file => {
-	U.copyFile('../../highcharts/' + file, '../' + file);
-});
+  U.copyFile('../../highcharts/' + file, '../' + file)
+})

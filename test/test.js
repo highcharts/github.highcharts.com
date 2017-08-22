@@ -1,1 +1,1 @@
-require('./utilities.js');
+require('./utilities.js')
