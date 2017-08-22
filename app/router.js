@@ -5,7 +5,7 @@
 'use strict'
 const express = require('express')
 const router = express.Router()
-const config = require('./config.json')
+const config = require('../config.json')
 const D = require('./download.js')
 const I = require('./interpreter.js')
 const U = require('./utilities.js')
@@ -116,15 +116,22 @@ const serveBuildFile = (repositoryURL, requestURL) => {
         }
       } else if (!fileExists) {
         const fileOptions = I.getFileOptions(folder + 'js/masters/')
-        build({
-          base: folder + 'js/masters/',
-          output: outputFolder,
-          files: [file],
-          pretty: false,
-          type: type,
-          version: branch,
-          fileOptions: fileOptions
-        })
+        try {
+          build({
+            base: folder + 'js/masters/',
+            output: outputFolder,
+            files: [file],
+            pretty: false,
+            type: type,
+            version: branch,
+            fileOptions: fileOptions
+          })
+        } catch (e) {
+          obj = {
+            message: response.invalidBuild.body,
+            status: respone.invalidBuild.status
+          };
+        }
       }
       return obj
     })
@@ -167,29 +174,48 @@ const serveDownloadFile = (jsonParts, compile) => {
       '' // new line at end of file
     ].join(LB)
     let outputFile = 'custom.src.js'
+    let result
     U.writeFile(folder + outputFile, content)
-    build({
-      base: folder,
-      jsBase: sourceFolder,
-      output: outputFolder,
-      files: [outputFile],
-      type: 'classic',
-      version: version
-    })
+    try {
+      build({
+        base: folder,
+        jsBase: sourceFolder,
+        output: outputFolder,
+        files: [outputFile],
+        type: 'classic',
+        version: version
+      })
+    } catch (e) {
+      resolve({
+        message: response.invalidBuild.body,
+        status: respone.invalidBuild.status
+      });
+    }
     if (compile) {
-      C.compile(outputFolder + outputFile)
-      outputFile = 'custom.js'
+      if (U.exists(outputFolder + outputFile)) {
+        C.compile(outputFolder + outputFile)
+        outputFile = 'custom.js'
+      } else {
+        result = {
+          message: response.missingFile.body + outputFolder + outputFile,
+          status: response.missingFile.status
+        }
+        resolve(result)
+      }
     }
     if (U.exists(outputFolder + outputFile)) {
-      resolve({
+      result = {
         file: U.cleanPath(__dirname + '/../' + outputFolder + outputFile),
+        message: false,
         delete: true
-      })
+      }
     } else {
-      reject(new Error(
-        'Could not find the compiled file. Path: ' + outputFolder + outputFile
-      ))
+      result = {
+        message: response.missingFile.body + outputFolder + outputFile,
+        status: response.missingFile.status
+      }
     }
+    resolve(result)
   })
 }
 

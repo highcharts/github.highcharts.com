@@ -7,6 +7,10 @@
         "status": 500,
         "body": "Something went wrong. Please contact <a href=\"http://www.highcharts.com/support\">Highcharts support</a> if this happens repeatedly."
     },
+    "missingFile": {
+      "status": 500,
+      "body": "Could not find the compiled file. Path: "
+    },
     "insecureWebhook": {
         "status": 400,
         "body": "Payload from webhook is considered insecure. Reason: "
@@ -14,6 +18,10 @@
     "invalidBranch": {
         "status": 400,
         "body": "Referenced branch was not valid"
+    },
+    "invalidBuild": {
+      "status": 500,
+      "body": "Could not assemble this file. It is likely an error located in the source files."
     },
     "notFound": {
         "status": 404,
