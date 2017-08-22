@@ -22,15 +22,12 @@ const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
  */
 const handleError = (err, res) => {
 	const date = U.formatDate(new Date());
-	const content = [date];
-	if (typeof err === 'object') {
-		content.push(err.stack);
-	} else {
-		content.push(err);
-	}
+	const content = [
+		date,
+		(typeof err === 'object') ? err.stack : err
+	];
 	U.debug(true, content.join('\n'));
-	res.status(500)
-		.send(message.error['500']);
+	res.status(500).send(message.error['500']);
 };
 
 /**
