@@ -8,7 +8,7 @@ const router = express.Router();
 const D = require('./download.js');
 const I = require('./interpreter.js');
 const U = require('./utilities.js');
-const message = require('./message.json');
+const response = require('./message.json');
 const build = require('../assembler/build.js').build;
 const tmpFolder = './tmp/';
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/';
@@ -27,7 +27,7 @@ const handleError = (err, res) => {
 		(typeof err === 'object') ? err.stack : err
 	];
 	U.debug(true, content.join('\n'));
-	res.status(500).send(message.error['500']);
+	res.status(response.error.status).send(response.error.body);
 };
 
 /**
@@ -61,15 +61,22 @@ const serveStaticFile = (repositoryURL, requestURL) => {
 	const folder = tmpFolder + branch + '/';
 	const outputFolder = folder + 'output/';
 	return new Promise((resolve, reject) => {
-		(U.exists(outputFolder + file) ? 
-			Promise.resolve({ status: 200 }) : 
+		(U.exists(outputFolder + file) ?
+			Promise.resolve({ status: response.ok.status }) :
 			D.downloadFile(repositoryURL + branch + '/js/', file, outputFolder)
 		).then(result => {
-			resolve({
-				file: ((result.status === 200) ? U.cleanPath(__dirname + '/../' + outputFolder + file) : false),
-				status:((result.status === 200) ? 200 : 404),
-				message: ((result.status === 200) ? false : 'Could not find file ' + branch + '/' + file)
-			})
+			const r = result.status === response.ok.status ?
+				{
+					file: U.cleanPath(__dirname + '/../' + outputFolder + file),
+					status: response.ok.status,
+					message: false
+				} :
+				{
+					file: false,
+					status: response.notFound.status,
+					message: response.notFound.body
+				};
+			resolve(r);
 		})
 		.catch(reject)
 	});
@@ -93,13 +100,13 @@ const serveBuildFile = (repositoryURL, requestURL) => {
 		.then(() => {
 			let obj = {
 				file: U.cleanPath(__dirname + '/../' + outputFolder + (type === 'css' ? 'js/' : '') + file),
-				status: 200
+				status: response.ok.status
 			};
 			const fileExists = U.exists(outputFolder + (type === 'css' ? 'js/' : '') + file);
 			const mastersExists = U.exists(folder + 'js/masters/' + file);
 			if (!mastersExists) {
 				obj = {
-					status: 404
+					status: response.notFound.status
 				};
 			} else if (!fileExists) {
 				const fileOptions = I.getFileOptions(folder + 'js/masters/');
@@ -172,7 +179,7 @@ const serveDownloadFile = (jsonParts, compile) => {
  * Health check url
  */
 router.get('/health', (req, res) => {
-	res.sendStatus(200);
+	res.sendStatus(response.ok.status);
 });
 
 /**
@@ -183,9 +190,9 @@ router.get('/health', (req, res) => {
 router.post('/update', (req, res) => {
 	const W = require('./webhook.js');
 	const body = req.body;
-	let hook = W.validateWebHook(req);
-	let status = 500;
-	let	message = hook.message;
+	const hook = W.validateWebHook(req);
+	let status;
+	let	message;
 	let exists = false;
 	let path = '';
 	if (hook.valid) {
@@ -194,11 +201,15 @@ router.post('/update', (req, res) => {
 		if (branch) {
 			path = tmpFolder + branch;
 			exists = U.exists(path);
-			message = exists ? 'OK' : `Folder of branch "${branch}" did not exists`;
-			status = exists ? 200 : status;
+			message = exists ? response.cacheDeleted.body : response.noCache.body;
+			status = exists ? response.cacheDeleted.status : response.noCache.status;
 		} else {
-			message = 'Referenced branch was not valid';
+			status = response.invalidBranch.status
+			message = response.invalidBranch.body;
 		}
+	} else {
+		message = response.insecureWebhook.body + hook.message;
+		status = response.insecureWebhook.status;
 	}
 
 	(exists ? U.removeDirectory(path) : Promise.resolve(false))

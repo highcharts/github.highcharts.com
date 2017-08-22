@@ -4,13 +4,13 @@
  * @todo Add license
  */
 'use strict';
+const https = require('https');
 /**
  * Check if a url returns 200.
  * @param  {string} url Url to check
  * @return {Promise} Returns a Promise which resolves when the a response from the url is given. Returns true if statusCode is 200, otherwise false.
  */
 const urlExists = url => {
-    const https = require('https');
     return new Promise(resolve => {
         https.get(url, response => resolve(response.statusCode === 200));
     });
@@ -27,7 +27,6 @@ const downloadFile = (base, path, output) => {
     const U = require('./utilities.js');
     return new Promise((resolve) => {
         const fs = require('fs');
-        const https = require('https');
         let url = base + '/' + path;
         let outputPath = output + path;
         U.createDirectory(U.folder(outputPath));
@@ -65,7 +64,6 @@ const downloadFiles = (base, filePaths, output) => {
 };
 
 const get = (host, path) => new Promise((resolve, reject) => {
-    const https = require('https');
     const agent = 'github.highcharts.com';
     https.get({
         hostname: host,
@@ -89,7 +87,9 @@ const get = (host, path) => new Promise((resolve, reject) => {
 
 const getFilesInFolder = (path, branch) => new Promise((resolve, reject) => {
     const token = require('../config.json').token;
-    get('api.github.com', `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`)
+    const host = 'api.github.com';
+    const path = `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`
+    get(host, path)
         .then(result => {
             if (result.status === 200) {
                 let contents = JSON.parse(result.body);

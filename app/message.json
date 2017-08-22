@@ -1,5 +1,30 @@
 {
+    "cacheDeleted": {
+        "status": 200,
+        "body": "Successfully deleted cache for given branch."
+    },
     "error": {
-        "500": "Something went wrong. Please contact <a href=\"http://www.highcharts.com/support\">Highcharts support</a> if this happens repeatedly."
+        "status": 500,
+        "body": "Something went wrong. Please contact <a href=\"http://www.highcharts.com/support\">Highcharts support</a> if this happens repeatedly."
+    },
+    "insecureWebhook": {
+        "status": 400,
+        "body": "Payload from webhook is considered insecure. Reason: "
+    },
+    "invalidBranch": {
+        "status": 400,
+        "body": "Referenced branch was not valid"
+    },
+    "notFound": {
+        "status": 404,
+        "body": "Not found"
+    },
+    "noCache": {
+        "status": 202,
+        "body": "This branch has no cached files, aborting."
+    },
+    "ok": {
+        "status": 200,
+        "body": "OK"
     }
 }
