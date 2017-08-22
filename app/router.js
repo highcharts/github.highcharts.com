@@ -5,6 +5,7 @@
 'use strict';
 const express = require('express');
 const router = express.Router();
+const config = require('./config.json');
 const D = require('./download.js');
 const I = require('./interpreter.js');
 const U = require('./utilities.js');
@@ -137,21 +138,31 @@ const serveDownloadFile = (jsonParts, compile) => {
 		const parts = JSON.parse(jsonParts);
 		const importFolder = '../../source/download/js/';
 		const sourceFolder = './source/download/js/';
-		const version = '5.0.14 custom build'; // @todo Improve logic for versioning.
+		const version = config.version; // @todo Improve logic for versioning.
 		const folder = tmpFolder + 'download/';
 		const outputFolder = folder + 'output/'; 
-		let outputFile = 'custom.src.js';
-		let imports = ['/**', ' * @license @product.name@ JS v@product.version@ (@product.date@)', ' *', ' * (c) 2009-2016 Torstein Honsi', ' *', ' * License: www.highcharts.com/license', ' */'];
-		imports.push('\'use strict\';');
-		imports.push('import Highcharts from \'' + importFolder + 'parts/Globals.js\';');
-		imports = imports.concat(parts.reduce((arr, path) => {
+		const LB = '\r\n'; // Line break
+		const imports = parts.reduce((arr, path) => {
 			if (U.exists(sourceFolder + path)) {
 				arr.push('import \'' + importFolder + path + '\';');
 			}
 			return arr;
-		}, []));
-		imports.push('export default Highcharts;\r\n');
-		U.writeFile(folder + outputFile, imports.join('\r\n'));
+		}, []).join(LB);
+		const content = [
+			'/**',
+			' * @license @product.name@ JS v@product.version@ (@product.date@)',
+			' *', ' * (c) 2009-2016 Torstein Honsi',
+			' *',
+			' * License: www.highcharts.com/license',
+			' */',
+			'\'use strict\';',
+			'import Highcharts from \'' + importFolder + 'parts/Globals.js\';',
+			imports,
+			'export default Highcharts;',
+			'' // new line at end of file
+		].join(LB);
+		let outputFile = 'custom.src.js';
+		U.writeFile(folder + outputFile, content);
 		build({
 			base: folder,
 			jsBase: sourceFolder,
