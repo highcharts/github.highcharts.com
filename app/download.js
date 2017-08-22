@@ -146,23 +146,7 @@ const downloadJSFolder = (output, repositoryURL, branch) => {
         .then(files => downloadFiles(url, files, output))
 }
 
-/**
- * Download all the files in the assembler folder of the repository
- * @param  {string} output Where to output all the files
- * @param  {string} url Url to the repository in raw format
- * @return {Promise} Returns a promise which is resolved when all files are downloaded
- */
-const downloadAssembler = (output, url) => {
-  return downloadFiles(url, [
-    'assembler/build.js',
-    'assembler/dependencies.js',
-    'assembler/process.js',
-    'assembler/utilities.js'
-  ], output)
-}
-
 module.exports = {
-  downloadAssembler,
   downloadFile,
   downloadFiles,
   downloadJSFolder,
