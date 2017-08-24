@@ -11,18 +11,19 @@ const path = require('path')
  * Returns fileOptions for the build script
  * @return {Object} Object containing all fileOptions
  */
-const getFileOptions = (base) => {
+const getFileOptions = (sourceFolder) => {
   const U = require('./utilities.js')
   const DS = '[\\\\\\\/][^\\\\\\\/]' // Regex: Single directory seperator
   const folders = {
     'parts': 'parts' + DS + '+\.js$',
     'parts-more': 'parts-more' + DS + '+\.js$'
   }
-  const fsPath = path.join('../', base)
+  const files = U.getFilesInFolder(sourceFolder)
   // Modules should not be standalone, and they should exclude all parts files.
-  const fileOptions = U.getFilesInFolder(fsPath)
-    .map(s => s.substring(1)) // Trim forward slash
+  const fileOptions = (files || [])
+    // .map(s => s.substring(1)) // Trim forward slash
     .reduce((obj, file) => {
+      console.log(file, (file.indexOf('modules') > -1 || file.indexOf('themes') > -1))
       if (file.indexOf('modules') > -1 || file.indexOf('themes') > -1) {
         obj[file] = {
           exclude: new RegExp(folders.parts),
@@ -36,7 +37,11 @@ const getFileOptions = (base) => {
   * solid-gauge should also exclude gauge-series
   * highcharts-more and highcharts-3d is also not standalone.
   */
-  fileOptions['modules/solid-gauge.src.js'].exclude = new RegExp([folders.parts, 'GaugeSeries\.js$'].join('|'))
+  if (fileOptions['modules/solid-gauge.src.js']) {
+    fileOptions['modules/solid-gauge.src.js'].exclude = new RegExp(
+      [folders.parts, 'GaugeSeries\.js$'].join('|')
+    )
+  }
   Object.assign(fileOptions, {
     'highcharts-more.src.js': {
       exclude: new RegExp(folders.parts),
