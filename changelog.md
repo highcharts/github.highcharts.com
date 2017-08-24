@@ -26,3 +26,7 @@
 - Fixed issue with themes UMD wrap.
 - Fixed issue with missing tmp folder when using deploy script.
 - Included .ebextensions in build.
+- Added initial tests for utilities.js.
+- Changed code style and linter to StandardJS.
+- Fixed multiple issues with paths in utility functions.
+- Extracted response status and messages from the code into a configuration file.
