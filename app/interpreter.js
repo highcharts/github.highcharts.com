@@ -5,7 +5,6 @@
  * @todo Add license
  */
 'use strict'
-const path = require('path')
 
 /**
  * Returns fileOptions for the build script
@@ -23,7 +22,6 @@ const getFileOptions = (sourceFolder) => {
   const fileOptions = (files || [])
     // .map(s => s.substring(1)) // Trim forward slash
     .reduce((obj, file) => {
-      console.log(file, (file.indexOf('modules') > -1 || file.indexOf('themes') > -1))
       if (file.indexOf('modules') > -1 || file.indexOf('themes') > -1) {
         obj[file] = {
           exclude: new RegExp(folders.parts),
