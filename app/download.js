@@ -92,7 +92,7 @@ const getFilesInFolder = (path, branch) => new Promise((resolve, reject) => {
           if (result.status === 200) {
             let contents = JSON.parse(result.body)
             let promises = contents.map(obj => new Promise((resolve) => {
-              let name = url + '/' + obj.name
+              let name = path + '/' + obj.name
               let result
               if (obj.type === 'dir') {
                 result = getFilesInFolder(name, branch)
@@ -115,7 +115,7 @@ const getFilesInFolder = (path, branch) => new Promise((resolve, reject) => {
                     })
                     .catch(reject)
           } else {
-            reject(result.body)
+            reject(new Error(result.body))
           }
         })
         .catch(reject)
