@@ -4,11 +4,11 @@
         "body": "Successfully deleted cache for given branch."
     },
     "error": {
-        "status": 500,
+        "status": 400,
         "body": "Something went wrong. Please contact <a href=\"http://www.highcharts.com/support\">Highcharts support</a> if this happens repeatedly."
     },
     "missingFile": {
-      "status": 500,
+      "status": 400,
       "body": "Could not find the compiled file. Path: "
     },
     "insecureWebhook": {
@@ -20,7 +20,7 @@
         "body": "Referenced branch was not valid"
     },
     "invalidBuild": {
-      "status": 500,
+      "status": 400,
       "body": "Could not assemble this file. It is likely an error located in the source files."
     },
     "notFound": {
