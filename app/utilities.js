@@ -6,100 +6,130 @@
  * @todo Give script a more relevant name. E.g filesystem.js.
  */
 'use strict'
-const getFilesInFolder = (base, path, includeSubfolders) => {
-  const fs = require('fs')
-  const p = (typeof path === 'undefined') ? '' : path + '/'
-  const folderPath = __dirname + '/' + base + path
-  let filenames = []
-  fs.readdirSync(folderPath).forEach((filename) => {
-    const filepath = folderPath + filename
-    const isDirectory = fs.lstatSync(filepath).isDirectory()
-    if (isDirectory && includeSubfolders) {
-      filenames = filenames.concat(getFilesInFolder(base, p + filename, includeSubfolders))
-    } else if (!isDirectory) {
-      filenames.push(p + filename)
-    }
-  })
-  return filenames
+const path = require('path')
+const fs = require('fs')
+
+const fsStat = p => {
+  let result = false
+  if (isString(p)) {
+    try {
+      result = fs.lstatSync(p)
+    } catch (err) {}
+  }
+  return result
 }
 
-const exists = path => {
+const isUndefined = x => (typeof x === 'undefined')
+
+const isString = string => (typeof string === 'string')
+
+const isBool = x => (typeof x === 'boolean')
+
+const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
+  let result = false
+  const sub = isUndefined(subfolder) ? '' : subfolder
+  if (isString(folder) && isString(sub)) {
+    const fsFolderPath = path.join(folder, sub)
+    const f2 = fsStat(fsFolderPath)
+    const include = isBool(includeSubfolders) ? includeSubfolders : true
+    if (f2 && f2.isDirectory()) {
+      result = []
+      fs.readdirSync(fsFolderPath).forEach((filename) => {
+        const fsFilePath = path.join(fsFolderPath, filename)
+        const file = fsStat(fsFilePath)
+        const relativeFilePath = path.join(sub, filename).split(path.sep).join('/')
+        if (file && file.isFile()) {
+          result.push(relativeFilePath)
+        } else if (include && file && file.isDirectory()) {
+          result = result.concat(getFilesInFolder(
+            folder,
+            include,
+            relativeFilePath
+          ))
+        }
+      })
+    }
+  }
+  return result
+}
+
+const exists = ph => {
   const fs = require('fs')
   let exists = true
   try {
-    fs.statSync(path)
+    fs.statSync(ph)
   } catch (err) {
     exists = false
   }
   return exists
 }
 
-const getFile = path => {
+const getFile = ph => {
   const fs = require('fs')
-  return (exists(path) ? fs.readFileSync(path, 'utf8') : null)
+  return (exists(ph) ? fs.readFileSync(ph, 'utf8') : null)
 }
 
 /**
- * Gets directory path from a file path
- * @param  {string} path File path
+ * Gets directory ph from a file ph
+ * @param  {string} ph File ph
  * @return {string} Path to directory where the file is located
  */
-const folder = path => {
+const folder = ph => {
   let folderPath = '.'
-  if (path !== '') {
-    folderPath = path.substring(0, path.lastIndexOf('/'))
+  if (ph !== '') {
+    folderPath = ph.substring(0, ph.lastIndexOf('/'))
   }
   return folderPath + '/'
 }
 
 /**
- * Takes a folder path and creates all the missing folders
- * @param  {string} path Path to directory
+ * Takes a folder ph and creates all the missing folders
+ * @param  {string} ph Path to directory
  * @return {undefined} Returns nothing
  */
-const createDirectory = path => {
+const createDirectory = ph => {
   const fs = require('fs')
-  const folders = path.split('/').filter(item => Boolean(item))
+  const folders = ph.split('/').filter(item => Boolean(item))
   folders.reduce((base, name) => {
-    const path = base + name
+    const ph = base + name
     try {
-      fs.statSync(path)
+      fs.statSync(ph)
     } catch (err) {
-      fs.mkdirSync(path)
+      fs.mkdirSync(ph)
     }
-    return path + '/'
+    return ph + '/'
   }, '')
 }
 
-const copyFile = (path, output) => {
+const copyFile = (ph, output) => {
   const fs = require('fs')
   const base = __dirname + '/'
   const outFile = base + output
   createDirectory(folder(outFile))
-  fs.createReadStream(base + path).pipe(fs.createWriteStream(outFile))
+  fs.createReadStream(base + ph).pipe(fs.createWriteStream(outFile))
 }
 
-const writeFile = (path, content) => {
+const writeFile = (ph, content) => {
   const fs = require('fs')
-  createDirectory(folder(path))
-  fs.writeFileSync(path, content)
+  createDirectory(folder(ph))
+  fs.writeFileSync(ph, content)
 }
 
 /**
  * Removes a file.
  * Creates a promise which resolves when the file is deleted.
  * Promise is rejected if the file does not exist.
- * @param  {string} path Path to file
+ * @param  {string} ph Path to file
  * @returns {Promise} Returns a promise which resolves when the file is deleted.
  */
-const removeFile = path => new Promise((resolve, reject) => {
+const removeFile = ph => new Promise((resolve, reject) => {
   const fs = require('fs')
-  if (exists(path)) {
-    fs.unlink(path, () => {
+  if (exists(ph)) {
+    fs.unlink(ph, () => {
       resolve(true)
     })
   } else {
-    reject(new Error('File does not exist: ' + path))
+    reject(new Error('File does not exist: ' + ph))
   }
 })
 
@@ -107,23 +137,23 @@ const removeFile = path => new Promise((resolve, reject) => {
  * Removes a directory.
  * Creates a promise which resolves when the directory is deleted.
  * Promise is rejected if the file does not exist.
- * @param  {string} path Path to file
+ * @param  {string} ph Path to file
  * @returns {Promise} Returns a promise which resolves when the file is deleted.
  */
-const removeDirectory = path => new Promise((resolve, reject) => {
+const removeDirectory = ph => new Promise((resolve, reject) => {
   const fs = require('fs')
-  if (exists(path)) {
-    const files = fs.readdirSync(path)
-    const promises = files.map(file => path + '/' + file)
+  if (exists(ph)) {
+    const files = fs.readdirSync(ph)
+    const promises = files.map(file => ph + '/' + file)
             .map(itemPath => (fs.statSync(itemPath).isDirectory()) ? removeDirectory(itemPath) : removeFile(itemPath))
     Promise.all(promises)
       .then(() => {
-        fs.rmdirSync(path)
+        fs.rmdirSync(ph)
         resolve(true)
       })
       .catch(reject)
   } else {
-    reject(new Error('Directory does not exist: ' + path))
+    reject(new Error('Directory does not exist: ' + ph))
   }
 })
 
@@ -144,8 +174,8 @@ const randomString = (length) => {
   }).join('')
 }
 
-const cleanPath = path => {
-  let p = path
+const cleanPath = ph => {
+  let p = ph
   while (p.indexOf('/./') > -1) {
     p = p.replace('/./', '/')
   }
@@ -199,7 +229,10 @@ module.exports = {
   formatDate,
   getFile,
   getFilesInFolder,
+  isBool,
   isDate,
+  isString,
+  isUndefined,
   randomString,
   removeDirectory,
   removeFile,

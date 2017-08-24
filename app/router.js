@@ -129,13 +129,12 @@ const serveBuildFile = (repositoryURL, requestURL) => {
         } catch (e) {
           obj = {
             message: response.invalidBuild.body,
-            status: respone.invalidBuild.status
-          };
+            status: response.invalidBuild.status
+          }
         }
       }
       return obj
-    })
-    .catch(Promise.reject)
+    }).catch(err => Promise.reject(err))
 }
 
 /**
@@ -188,8 +187,8 @@ const serveDownloadFile = (jsonParts, compile) => {
     } catch (e) {
       resolve({
         message: response.invalidBuild.body,
-        status: respone.invalidBuild.status
-      });
+        status: response.invalidBuild.status
+      })
     }
     if (compile) {
       if (U.exists(outputFolder + outputFile)) {

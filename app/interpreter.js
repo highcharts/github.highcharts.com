@@ -5,6 +5,8 @@
  * @todo Add license
  */
 'use strict'
+const path = require('path')
+
 /**
  * Returns fileOptions for the build script
  * @return {Object} Object containing all fileOptions
@@ -16,9 +18,9 @@ const getFileOptions = (base) => {
     'parts': 'parts' + DS + '+\.js$',
     'parts-more': 'parts-more' + DS + '+\.js$'
   }
-
+  const fsPath = path.join('../', base)
   // Modules should not be standalone, and they should exclude all parts files.
-  const fileOptions = U.getFilesInFolder('../' + base, '', true)
+  const fileOptions = U.getFilesInFolder(fsPath)
     .map(s => s.substring(1)) // Trim forward slash
     .reduce((obj, file) => {
       if (file.indexOf('modules') > -1 || file.indexOf('themes') > -1) {
@@ -29,7 +31,6 @@ const getFileOptions = (base) => {
       }
       return obj
     }, {})
-
   /**
   * Special cases
   * solid-gauge should also exclude gauge-series
