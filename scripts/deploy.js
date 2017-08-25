@@ -9,7 +9,7 @@ const files = ['config.json', 'package.json', 'server.js']
 const output = fs.createWriteStream(archiveName)
 const placeholder = 'EMPTY.md'
 const archive = archiver('zip', {
-  store: true // Sets the compression method to STORE.
+  zlib: { level: 9 }
 })
 const log = (s) => console.log(s) // eslint-disable-line no-console
 
