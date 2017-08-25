@@ -1,38 +1,61 @@
 {
-    "cacheDeleted": {
-        "status": 200,
-        "body": "Successfully deleted cache for given branch."
-    },
-    "error": {
+    "response": {
+      "cacheDeleted": {
+          "status": 200,
+          "body": "Successfully deleted cache for given branch."
+      },
+      "error": {
+          "status": 400,
+          "body": "Something went wrong. Please contact <a href=\"http://www.highcharts.com/support\">Highcharts support</a> if this happens repeatedly."
+      },
+      "missingFile": {
         "status": 400,
-        "body": "Something went wrong. Please contact <a href=\"http://www.highcharts.com/support\">Highcharts support</a> if this happens repeatedly."
-    },
-    "missingFile": {
-      "status": 400,
-      "body": "Could not find the compiled file. Path: "
-    },
-    "insecureWebhook": {
+        "body": "Could not find the compiled file. Path: "
+      },
+      "insecureWebhook": {
+          "status": 400,
+          "body": "Payload from webhook is considered insecure. Reason: "
+      },
+      "invalidBranch": {
+          "status": 400,
+          "body": "Referenced branch was not valid"
+      },
+      "invalidBuild": {
         "status": 400,
-        "body": "Payload from webhook is considered insecure. Reason: "
+        "body": "Could not assemble this file. It is likely an error located in the source files."
+      },
+      "notFound": {
+          "status": 404,
+          "body": "Not found"
+      },
+      "noCache": {
+          "status": 202,
+          "body": "This branch has no cached files, aborting."
+      },
+      "ok": {
+          "status": 200,
+          "body": "OK"
+      }
+  },
+  "fileOptions": {
+    "modules": {
+      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "umd": false
     },
-    "invalidBranch": {
-        "status": 400,
-        "body": "Referenced branch was not valid"
+    "themes": {
+      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "umd": false
     },
-    "invalidBuild": {
-      "status": 400,
-      "body": "Could not assemble this file. It is likely an error located in the source files."
+    "modules/solid-gauge.src.js": {
+      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$|GaugeSeries\\.js$"
     },
-    "notFound": {
-        "status": 404,
-        "body": "Not found"
+    "highcharts-more.src.js": {
+      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "umd": false
     },
-    "noCache": {
-        "status": 202,
-        "body": "This branch has no cached files, aborting."
-    },
-    "ok": {
-        "status": 200,
-        "body": "OK"
+    "highcharts-3d.src.js": {
+      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "umd": false
     }
+  }
 }

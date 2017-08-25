@@ -9,7 +9,8 @@ const config = require('../config.json')
 const D = require('./download.js')
 const I = require('./interpreter.js')
 const U = require('./utilities.js')
-const response = require('./message.json')
+const publicConfig = require('./message.json')
+const response = publicConfig.response
 const build = require('../assembler/build.js').build
 const tmpFolder = './tmp/'
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
@@ -115,7 +116,8 @@ const serveBuildFile = (repositoryURL, requestURL) => {
           status: response.notFound.status
         }
       } else if (!fileExists) {
-        const fileOptions = I.getFileOptions(folder + 'js/masters/')
+        const files = U.getFilesInFolder(folder + 'js/masters/')
+        const fileOptions = I.getFileOptions(files, publicConfig.fileOptions)
         try {
           build({
             base: folder + 'js/masters/',

@@ -25,6 +25,10 @@ const isString = string => (typeof string === 'string')
 
 const isBool = x => (typeof x === 'boolean')
 
+const isArray = x => Array.isArray(x)
+
+const isObject = x => ((typeof x === 'object') && !isArray(x))
+
 const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
   let result = false
   const sub = isUndefined(subfolder) ? '' : subfolder
@@ -229,8 +233,10 @@ module.exports = {
   formatDate,
   getFile,
   getFilesInFolder,
+  isArray,
   isBool,
   isDate,
+  isObject,
   isString,
   isUndefined,
   randomString,

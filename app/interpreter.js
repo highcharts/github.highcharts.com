@@ -5,52 +5,39 @@
  * @todo Add license
  */
 'use strict'
-
+const U = require('./utilities')
+const isObject = U.isObject
+const isArray = U.isArray
+const isString = U.isString
 /**
  * Returns fileOptions for the build script
  * @return {Object} Object containing all fileOptions
  */
-const getFileOptions = (sourceFolder) => {
-  const U = require('./utilities.js')
-  const DS = '[\\\\\\\/][^\\\\\\\/]' // Regex: Single directory seperator
-  const folders = {
-    'parts': 'parts' + DS + '+\.js$',
-    'parts-more': 'parts-more' + DS + '+\.js$'
-  }
-  const files = U.getFilesInFolder(sourceFolder)
-  // Modules should not be standalone, and they should exclude all parts files.
-  const fileOptions = (files || [])
-    // .map(s => s.substring(1)) // Trim forward slash
-    .reduce((obj, file) => {
-      if (file.indexOf('modules') > -1 || file.indexOf('themes') > -1) {
-        obj[file] = {
-          exclude: new RegExp(folders.parts),
-          umd: false
-        }
+const getFileOptions = (files, options) => {
+  let result = {}
+  if (isArray(files) && isObject(options)) {
+    const keys = Object.keys(options)
+    result = files
+      .reduce((obj, filename) => {
+        keys.forEach(k => {
+          if (filename.indexOf(k) > -1) {
+            const current = obj[filename] || {}
+            const latest = options[k]
+            obj[filename] = Object.assign(current, latest)
+          }
+        })
+        return obj
+      }, {})
+    // Converts exclude strings to RegExp
+    Object.keys(result).forEach(filename => {
+      const options = result[filename]
+      const exclude = options.exclude
+      if (isString(exclude)) {
+        options.exclude = new RegExp(exclude)
       }
-      return obj
-    }, {})
-  /**
-  * Special cases
-  * solid-gauge should also exclude gauge-series
-  * highcharts-more and highcharts-3d is also not standalone.
-  */
-  if (fileOptions['modules/solid-gauge.src.js']) {
-    fileOptions['modules/solid-gauge.src.js'].exclude = new RegExp(
-      [folders.parts, 'GaugeSeries\.js$'].join('|')
-    )
+    })
   }
-  Object.assign(fileOptions, {
-    'highcharts-more.src.js': {
-      exclude: new RegExp(folders.parts),
-      umd: false
-    },
-    'highcharts-3d.src.js': {
-      exclude: new RegExp(folders.parts),
-      umd: false
-    }
-  })
-  return fileOptions
+  return result
 }
 
 /**
