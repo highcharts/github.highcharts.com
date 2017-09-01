@@ -32,3 +32,4 @@
 - Extracted response status and messages from the code into a configuration file.
 - Extracted file options from getFileOptions.
 - Added compression to build package.
+- Added initial robots.txt
