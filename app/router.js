@@ -277,6 +277,17 @@ router.get('/favicon.ico', (req, res) => {
 })
 
 /**
+ * Requests to /robots.txt
+ * Always returns the robots file.
+ * TODO Use express.static in stead if send file.
+ */
+router.get('/robots.txt', (req, res) => {
+  const path = require('path')
+  const location = path.join(__dirname, '../assets/robots.txt')
+  res.sendFile(location)
+})
+
+/**
  * Requests to /
  * When the parameter parts is sent, then it is a request from the Download Builder.
  * Otherwise respond with the homepage.
