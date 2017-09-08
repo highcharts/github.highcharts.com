@@ -29,6 +29,16 @@ const isArray = x => Array.isArray(x)
 
 const isObject = x => ((typeof x === 'object') && !isArray(x))
 
+/**
+ * isDate - Checks wether the input is a valid Date object.
+ * @param {Date} x Item to test.
+ * @return {bool} true if valid, false if not.
+ */
+const isDate = (x) => (
+    Object.prototype.toString.call(x) === '[object Date]' &&
+    !isNaN(x.getDay())
+)
+
 const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
   let result = false
   const sub = isUndefined(subfolder) ? '' : subfolder
@@ -188,16 +198,6 @@ const cleanPath = ph => {
   }
   return p
 }
-
-/**
- * isDate - Checks wether the input is a valid Date object.
- * @param {Date} x Item to test.
- * @return {bool} true if valid, false if not.
- */
-const isDate = (x) => (
-    Object.prototype.toString.call(x) === '[object Date]' &&
-    !isNaN(x.getDay())
-)
 
 /**
  * formatDate - Format a date as YYYY-MM-DDTHH-MM-SS.
