@@ -6,7 +6,7 @@
  */
 'use strict'
 const U = require('../app/utilities.js')
-let files = U.getFilesInFolder('../../highcharts/', 'js', true).concat(U.getFilesInFolder('../../highcharts/', 'css', true))
+let files = U.getFilesInFolder('../highcharts/', true, 'js').concat(U.getFilesInFolder('../highcharts/', true, 'css'))
 files.filter(file => (file.endsWith('.js') || file.endsWith('.scss'))).forEach(file => {
   U.copyFile('../../highcharts/' + file, '../source/download/' + file)
 })
