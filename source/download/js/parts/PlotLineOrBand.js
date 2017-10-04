@@ -53,7 +53,8 @@ H.PlotLineOrBand.prototype = {
 			zIndex = pick(options.zIndex, 0),
 			events = options.events,
 			attribs = {
-				'class': 'highcharts-plot-' + (isBand ? 'band ' : 'line ') + (options.className || '')
+				'class': 'highcharts-plot-' + (isBand ? 'band ' : 'line ') +
+					(options.className || '')
 			},
 			groupAttribs = {},
 			renderer = axis.chart.renderer,
@@ -96,8 +97,9 @@ H.PlotLineOrBand.prototype = {
 
 		group = axis.plotLinesAndBandsGroups[groupName];
 		if (!group) {
-			axis.plotLinesAndBandsGroups[groupName] = group = renderer.g('plot-' + groupName)
-				.attr(groupAttribs).add();
+			axis.plotLinesAndBandsGroups[groupName] = group =
+				renderer.g('plot-' + groupName)
+					.attr(groupAttribs).add();
 		}
 
 		// Create the path
@@ -144,8 +146,15 @@ H.PlotLineOrBand.prototype = {
 		}
 
 		// the plot band/line label
-		if (optionsLabel && defined(optionsLabel.text) && path && path.length && 
-				axis.width > 0 && axis.height > 0 && !path.flat) {
+		if (
+			optionsLabel &&
+			defined(optionsLabel.text) &&
+			path &&
+			path.length && 
+			axis.width > 0 &&
+			axis.height > 0 &&
+			!path.flat
+		) {
 			// apply defaults
 			optionsLabel = merge({
 				align: horiz && isBand && 'center',
@@ -173,8 +182,8 @@ H.PlotLineOrBand.prototype = {
 			label = plotLine.label,
 			renderer = plotLine.axis.chart.renderer,
 			attribs,
-			xs,
-			ys,
+			xBounds,
+			yBounds,
 			x,
 			y;
 
@@ -183,7 +192,8 @@ H.PlotLineOrBand.prototype = {
 			attribs = {
 				align: optionsLabel.textAlign || optionsLabel.align,
 				rotation: optionsLabel.rotation,
-				'class': 'highcharts-plot-' + (isBand ? 'band' : 'line') + '-label ' + (optionsLabel.className || '')
+				'class': 'highcharts-plot-' + (isBand ? 'band' : 'line') +
+					'-label ' + (optionsLabel.className || '')
 			};
 			
 			attribs.zIndex = zIndex;
@@ -204,16 +214,19 @@ H.PlotLineOrBand.prototype = {
 
 		// get the bounding box and align the label
 		// #3000 changed to better handle choice between plotband or plotline
-		xs = [path[1], path[4], (isBand ? path[6] : path[1])];
-		ys = [path[2], path[5], (isBand ? path[7] : path[2])];
-		x = arrayMin(xs);
-		y = arrayMin(ys);
+		xBounds = path.xBounds ||
+			[path[1], path[4], (isBand ? path[6] : path[1])];
+		yBounds = path.yBounds ||
+			[path[2], path[5], (isBand ? path[7] : path[2])];
+		
+		x = arrayMin(xBounds);
+		y = arrayMin(yBounds);
 
 		label.align(optionsLabel, false, {
 			x: x,
 			y: y,
-			width: arrayMax(xs) - x,
-			height: arrayMax(ys) - y
+			width: arrayMax(xBounds) - x,
+			height: arrayMax(yBounds) - y
 		});
 		label.show();
 	},
@@ -271,7 +284,8 @@ H.extend(Axis.prototype, /** @lends Highcharts.Axis.prototype */ {
 				horiz && toPath[4] === path[4] ? toPath[4] + plus : toPath[4], 
 				!horiz && toPath[5] === path[5] ? toPath[5] + plus : toPath[5],
 				horiz && toPath[1] === path[1] ? toPath[1] + plus : toPath[1],
-				!horiz && toPath[2] === path[2] ? toPath[2] + plus : toPath[2]
+				!horiz && toPath[2] === path[2] ? toPath[2] + plus : toPath[2],
+				'z'
 			);
 		} else { // outside the axis area
 			path = null;

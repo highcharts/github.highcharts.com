@@ -488,7 +488,7 @@ extend(Point.prototype, /** @lends Highcharts.Point.prototype */ {
 	 *
 	 * @param  {Object} options
 	 *         The point options. Point options are handled as described under
-	 *         the `series<type>.data` item for each series type. For example
+	 *         the `series.type.data` item for each series type. For example
 	 *         for a line series, if options is a single number, the point will
 	 *         be given that number as the main y value. If it is an array, it
 	 *         will be interpreted as x and y values respectively. If it is an
@@ -670,7 +670,7 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 				i--;
 			}
 		}
-
+		
 		series.updateParallelArrays(point, 'splice', i, 0, 0); // insert undefined item
 		series.updateParallelArrays(point, i); // update it
 
@@ -840,10 +840,12 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 			newType = newOptions.type || oldOptions.type || chart.options.chart.type,
 			proto = seriesTypes[oldType].prototype,
 			n,
-			preserve = [
+			preserveGroups = [
 				'group',
 				'markerGroup',
-				'dataLabelsGroup',
+				'dataLabelsGroup'
+			],
+			preserve = [
 				'navigatorSeries',
 				'baseSeries'
 			],
@@ -863,11 +865,19 @@ extend(Series.prototype, /** @lends Series.prototype */ {
 		}
 
 		// If we're changing type or zIndex, create new groups (#3380, #3404)
-		if ((newType && newType !== oldType) || newOptions.zIndex !== undefined) {
+		// Also create new groups for navigator series.
+		if (
+			(newType && newType !== oldType) ||
+			newOptions.zIndex !== undefined
+		) {
+			preserveGroups.length = 0;
+		}
+		if (series.options.isInternal) {
 			preserve.length = 0;
 		}
 
-		// Make sure groups are not destroyed (#3094)
+		// Make sure preserved properties are not destroyed (#3094)
+		preserve = preserveGroups.concat(preserve);
 		each(preserve, function (prop) {
 			preserve[prop] = series[prop];
 			delete series[prop];

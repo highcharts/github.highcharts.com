@@ -30,7 +30,7 @@ extend(defaultOptions.lang, {
 // Set the default map navigation options
 
 /** 
- * @products highmaps
+ * @product highmaps
  * @optionparent mapNavigation 
  */
 defaultOptions.mapNavigation = {
@@ -120,22 +120,16 @@ defaultOptions.mapNavigation = {
 		 * Text styles for the map navigation buttons. Defaults to
 		 * 
 		 * <pre>{
-		 * fontSize: '15px',
-		 * fontWeight: 'bold',
-		 * textAlign: 'center'
+		 *     fontSize: '15px',
+		 *     fontWeight: 'bold',
+		 *     textAlign: 'center'
 		 * }</pre>
 		 * 
 		 * @type {CSSObject}
 		 * @product highmaps
 		 */
 		style: {
-
-			/**
-			 */
 			fontSize: '15px',
-
-			/**
-			 */
 			fontWeight: 'bold'
 		},
 
@@ -146,14 +140,12 @@ defaultOptions.mapNavigation = {
 		 * objects.
 		 * 
 		 * @type {Object}
-		 * @sample {highmaps} maps/mapnavigation/button-theme/ Themed navigation buttons
+		 * @sample {highmaps} maps/mapnavigation/button-theme/
+		 *         Themed navigation buttons
 		 * @product highmaps
 		 */
 		theme: {
 			'stroke-width': 1,
-
-			/**
-			 */
 			'text-align': 'center'
 		}
 		/*= } =*/
@@ -233,7 +225,7 @@ defaultOptions.mapNavigation = {
 			 * Click handler for the button. Defaults to:
 			 * 
 			 * <pre>function () {
-			 * this.mapZoom(2);
+			 *     this.mapZoom(2);
 			 * }</pre>
 			 * 
 			 * @type {Function}

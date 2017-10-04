@@ -26,7 +26,6 @@ var addEvent = H.addEvent,
 	extend = H.extend,
 	find = H.find,
 	fireEvent = H.fireEvent,
-	getStyle = H.getStyle,
 	grep = H.grep,
 	isNumber = H.isNumber,
 	isObject = H.isObject,
@@ -43,8 +42,7 @@ var addEvent = H.addEvent,
 	splat = H.splat,
 	svg = H.svg,
 	syncTimeout = H.syncTimeout,
-	win = H.win,
-	Renderer = H.Renderer;
+	win = H.win;
 /**
  * The Chart class. The recommended constructor is {@link Highcharts#chart}.
  * @class Highcharts.Chart
@@ -162,8 +160,11 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 		this.margin = [];
 		this.spacing = [];
 
-		//this.runChartClick = chartEvents && !!chartEvents.click;
 		this.bounds = { h: {}, v: {} }; // Pixel data bounds for touch zoom
+
+		// An array of functions that returns labels that should be considered
+		// for anti-collision
+		this.labelCollectors = [];
 
 		this.callback = callback;
 		this.isResizing = 0;
@@ -221,33 +222,7 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 
 
 		this.hasCartesianSeries = optionsChart.showAxes;
-		//this.axisOffset = undefined;
-		//this.inverted = undefined;
-		//this.loadingShown = undefined;
-		//this.container = undefined;
-		//this.chartWidth = undefined;
-		//this.chartHeight = undefined;
-		//this.marginRight = undefined;
-		//this.marginBottom = undefined;
-		//this.containerWidth = undefined;
-		//this.containerHeight = undefined;
-		//this.oldChartWidth = undefined;
-		//this.oldChartHeight = undefined;
-
-		//this.renderTo = undefined;
-
-		//this.spacingBox = undefined
-
-		//this.legend = undefined;
-
-		// Elements
-		//this.chartBackground = undefined;
-		//this.plotBackground = undefined;
-		//this.plotBGImage = undefined;
-		//this.plotBorder = undefined;
-		//this.loadingDiv = undefined;
-		//this.loadingSpan = undefined;
-
+		
 		var chart = this;
 
 		// Add the chart to the global lookup
@@ -794,10 +769,10 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 
 		// Get inner width and height
 		if (!defined(widthOption)) {
-			chart.containerWidth = getStyle(renderTo, 'width');
+			chart.containerWidth = H.getStyle(renderTo, 'width');
 		}
 		if (!defined(heightOption)) {
-			chart.containerHeight = getStyle(renderTo, 'height');
+			chart.containerHeight = H.getStyle(renderTo, 'height');
 		}
 		
 		/**
@@ -823,7 +798,8 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			H.relativeLength(
 				heightOption,
 				chart.chartWidth
-			) || chart.containerHeight || 400
+			) ||
+			(chart.containerHeight > 1 ? chart.containerHeight : 400)
 		);
 	},
 
@@ -845,13 +821,14 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			while (node && node.style) {
 
 				// When rendering to a detached node, it needs to be temporarily
-				// attached in order to read styling and bounding boxes (#5783).
-				if (!doc.body.contains(node)) {
+				// attached in order to read styling and bounding boxes (#5783,
+				// #7024).
+				if (!doc.body.contains(node) && !node.parentNode) {
 					node.hcOrigDetached = true;
 					doc.body.appendChild(node);
 				}
 				if (
-					getStyle(node, 'display', false) === 'none' ||
+					H.getStyle(node, 'display', false) === 'none' ||
 					node.hcOricDetached
 				) {
 					node.hcOrigStyle = {
@@ -1010,7 +987,8 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 		chart._cursor = container.style.cursor;
 
 		// Initialize the renderer
-		Ren = H[optionsChart.renderer] || Renderer;
+		Ren = H[optionsChart.renderer] || H.Renderer;
+		
 		/**
 		 * The renderer instance of the chart. Each chart instance has only one
 		 * associated renderer.
@@ -1066,7 +1044,7 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 		}
 
 		// Adjust for legend
-		if (chart.legend.display) {
+		if (chart.legend && chart.legend.display) {
 			chart.legend.adjustMargins(margin, spacing);
 		}
 
@@ -1075,9 +1053,12 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			chart[chart.extraMargin.type] =
 				(chart[chart.extraMargin.type] || 0) + chart.extraMargin.value;
 		}
-		if (chart.extraTopMargin) {
-			chart.plotTop += chart.extraTopMargin;
+		
+		// adjust for rangeSelector 
+		if (chart.adjustPlotArea) {
+			chart.adjustPlotArea();
 		}
+		
 		if (!skipAxes) {
 			this.getAxisMargins();
 		}
@@ -1135,8 +1116,8 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 				defined(optionsChart.width) &&
 				defined(optionsChart.height)
 			),
-			width = optionsChart.width || getStyle(renderTo, 'width'),
-			height = optionsChart.height || getStyle(renderTo, 'height'),
+			width = optionsChart.width || H.getStyle(renderTo, 'width'),
+			height = optionsChart.height || H.getStyle(renderTo, 'height'),
 			target = e ? e.target : win;
 
 		// Width and height checks for display:none. Target is doc in IE8 and
@@ -1304,11 +1285,6 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			plotHeight,
 			plotBorderWidth;
 
-		function clipOffsetSide(side) {
-			var offset = clipOffset[side] || 0;
-			return Math.max(plotBorderWidth || offset, offset) / 2;
-		}
-
 		/**
 		 * The current left position of the plot area in pixels.
 		 *
@@ -1371,21 +1347,21 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 		};
 
 		plotBorderWidth = 2 * Math.floor(chart.plotBorderWidth / 2);
-		clipX = Math.ceil(clipOffsetSide(3));
-		clipY = Math.ceil(clipOffsetSide(0));
+		clipX = Math.ceil(Math.max(plotBorderWidth, clipOffset[3]) / 2);
+		clipY = Math.ceil(Math.max(plotBorderWidth, clipOffset[0]) / 2);
 		chart.clipBox = {
 			x: clipX, 
 			y: clipY, 
 			width: Math.floor(
 				chart.plotSizeX -
-				clipOffsetSide(1) -
+				Math.max(plotBorderWidth, clipOffset[1]) / 2 -
 				clipX
 			), 
 			height: Math.max(
 				0,
 				Math.floor(
 					chart.plotSizeY -
-					clipOffsetSide(2) -
+					Math.max(plotBorderWidth, clipOffset[2]) / 2 -
 					clipY
 				)
 			)
@@ -1427,7 +1403,7 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			chart[m] = pick(chart.margin[side], chart.spacing[side]);
 		});
 		chart.axisOffset = [0, 0, 0, 0]; // top, right, bottom, left
-		chart.clipOffset = [];
+		chart.clipOffset = [0, 0, 0, 0];
 	},
 
 	/**
@@ -1568,7 +1544,7 @@ extend(Chart.prototype, /** @lends Highcharts.Chart.prototype */ {
 			y: plotTop,
 			width: plotWidth,
 			height: plotHeight
-		}, -plotBorder.strokeWidth())); //#3282 plotBorder should be negative;
+		}, -plotBorder.strokeWidth())); // #3282 plotBorder should be negative;
 
 		// reset
 		chart.isDirtyBox = false;

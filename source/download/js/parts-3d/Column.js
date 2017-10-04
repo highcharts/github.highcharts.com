@@ -16,16 +16,59 @@ var each = H.each,
 	svg = H.svg,
 	wrap = H.wrap;
 
-/***
-	EXTENSION FOR 3D COLUMNS
-***/
+
+
+/**
+ * Depth of the columns in a 3D column chart. Requires `highcharts-3d.
+ * js`.
+ * 
+ * @type {Number}
+ * @default 25
+ * @since 4.0
+ * @product highcharts
+ * @apioption plotOptions.column.depth
+ */
+
+/**
+ * 3D columns only. The color of the edges. Similar to `borderColor`,
+ *  except it defaults to the same color as the column.
+ * 
+ * @type {Color}
+ * @product highcharts
+ * @apioption plotOptions.column.edgeColor
+ */
+
+/**
+ * 3D columns only. The width of the colored edges.
+ * 
+ * @type {Number}
+ * @default 1
+ * @product highcharts
+ * @apioption plotOptions.column.edgeWidth
+ */
+
+/**
+ * The spacing between columns on the Z Axis in a 3D chart. Requires
+ * `highcharts-3d.js`.
+ * 
+ * @type {Number}
+ * @default 1
+ * @since 4.0
+ * @product highcharts
+ * @apioption plotOptions.column.groupZPadding
+ */
+
 wrap(seriesTypes.column.prototype, 'translate', function (proceed) {
 	proceed.apply(this, [].slice.call(arguments, 1));
 
 	// Do not do this if the chart is not 3D
-	if (!this.chart.is3d()) {
-		return;
+	if (this.chart.is3d()) {
+		this.translate3dShapes();
 	}
+});
+
+seriesTypes.column.prototype.translate3dPoints = function () {};
+seriesTypes.column.prototype.translate3dShapes = function () {
 
 	var series = this,
 		chart = series.chart,
@@ -98,7 +141,7 @@ wrap(seriesTypes.column.prototype, 'translate', function (proceed) {
 	});
 	// store for later use #4067
 	series.z = z;
-});
+};
 
 wrap(seriesTypes.column.prototype, 'animate', function (proceed) {
 	if (!this.chart.is3d()) {
@@ -115,7 +158,7 @@ wrap(seriesTypes.column.prototype, 'animate', function (proceed) {
 				each(series.data, function (point) {
 					if (point.y !== null) {
 						point.height = point.shapeArgs.height;
-						point.shapey = point.shapeArgs.y;	//#2968
+						point.shapey = point.shapeArgs.y;	// #2968
 						point.shapeArgs.height = 1;
 						if (!reversed) {
 							if (point.stackY) {
@@ -131,7 +174,7 @@ wrap(seriesTypes.column.prototype, 'animate', function (proceed) {
 				each(series.data, function (point) {					
 					if (point.y !== null) {
 						point.shapeArgs.height = point.height;
-						point.shapeArgs.y = point.shapey;	//#2968
+						point.shapeArgs.y = point.shapey;	// #2968
 						// null value do not have a graphic
 						if (point.graphic) {
 							point.graphic.animate(point.shapeArgs, series.options.animation);
@@ -157,8 +200,11 @@ wrap(seriesTypes.column.prototype, 'animate', function (proceed) {
 
 wrap(seriesTypes.column.prototype, 'plotGroup', function (proceed, prop, name, visibility, zIndex, parent) {
 	if (this.chart.is3d() && parent && !this[prop]) {
-		this[prop] = parent;
-		parent.attr(this.getPlotBox());
+		if (!this.chart.columnGroup) {
+			this.chart.columnGroup = this.chart.renderer.g('columnGroup').add(parent);
+		}
+		this[prop] = this.chart.columnGroup;
+		this.chart.columnGroup.attr(this.getPlotBox());
 		this[prop].survive = true;
 	}
 	return proceed.apply(this, Array.prototype.slice.call(arguments, 1));
@@ -277,10 +323,10 @@ wrap(H.StackItem.prototype, 'getStackBox', function (proceed, chart) { // #3946
 	return stackBox;
 });
 
-/***
+/*
 	EXTENSION FOR 3D CYLINDRICAL COLUMNS
 	Not supported
-***/
+*/
 /*
 var defaultOptions = H.getOptions();
 defaultOptions.plotOptions.cylinder = H.merge(defaultOptions.plotOptions.column);

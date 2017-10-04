@@ -24,8 +24,7 @@ var H = Highcharts,
 	pick = H.pick,
 	removeEvent = H.removeEvent,
 	splat = H.splat,
-	Tooltip = H.Tooltip,
-	win = H.win;
+	Tooltip = H.Tooltip;
 
 /**
  * The mouse and touch tracker object. Each {@link Chart} item has one
@@ -119,15 +118,7 @@ Highcharts.Pointer.prototype = {
 	 *         A browser event with extended properties `chartX` and `chartY`.
 	 */
 	normalize: function (e, chartPosition) {
-		var chartX,
-			chartY,
-			ePos;
-
-		// IE normalizing
-		e = e || win.event;
-		if (!e.target) {
-			e.target = e.srcElement;
-		}
+		var ePos;
 
 		// iOS (#2757)
 		ePos = e.touches ?  (e.touches.length ? e.touches.item(0) : e.changedTouches[0]) : e;
@@ -137,19 +128,9 @@ Highcharts.Pointer.prototype = {
 			this.chartPosition = chartPosition = offset(this.chart.container);
 		}
 
-		// chartX and chartY
-		if (ePos.pageX === undefined) { // IE < 9. #886.
-			chartX = Math.max(e.x, e.clientX - chartPosition.left); // #2005, #2129: the second case is 
-				// for IE10 quirks mode within framesets
-			chartY = e.y;
-		} else {
-			chartX = ePos.pageX - chartPosition.left;
-			chartY = ePos.pageY - chartPosition.top;
-		}
-
 		return extend(e, {
-			chartX: Math.round(chartX),
-			chartY: Math.round(chartY)
+			chartX: Math.round(ePos.pageX - chartPosition.left),
+			chartY: Math.round(ePos.pageY - chartPosition.top)
 		});
 	},
 
@@ -292,11 +273,13 @@ Highcharts.Pointer.prototype = {
 		series,
 		isDirectTouch,
 		shared,
-		coordinates
+		coordinates,
+		params
 	) {
 		var hoverPoint,
 			hoverPoints = [],
 			hoverSeries = existingHoverSeries,
+			isBoosting = params && params.isBoosting,
 			useExisting = !!(isDirectTouch && existingHoverPoint),
 			notSticky = hoverSeries && !hoverSeries.stickyTracking,
 			filter = function (s) {
@@ -334,9 +317,16 @@ Highcharts.Pointer.prototype = {
 				// Get all points with the same x value as the hoverPoint
 				each(searchSeries, function (s) {
 					var point = find(s.points, function (p) {
-						return p.x === hoverPoint.x;
+						return p.x === hoverPoint.x && !p.isNull;
 					});
-					if (isObject(point) && !point.isNull) {
+					if (isObject(point)) {
+						/*
+						* Boost returns a minimal point. Convert it to a usable
+						* point for tooltip and states.
+						*/
+						if (isBoosting) {
+							point = s.getPoint(point);
+						}
 						hoverPoints.push(point);
 					}
 				});
@@ -344,7 +334,6 @@ Highcharts.Pointer.prototype = {
 				hoverPoints.push(hoverPoint);
 			}
 		}
-
 		return {
 			hoverPoint: hoverPoint,
 			hoverSeries: hoverSeries,
@@ -361,7 +350,9 @@ Highcharts.Pointer.prototype = {
 		var pointer = this,
 			chart = pointer.chart,
 			series = chart.series,
-			tooltip = chart.tooltip,
+			tooltip = chart.tooltip && chart.tooltip.options.enabled ? 
+				chart.tooltip :
+				undefined,
 			shared = tooltip ? tooltip.shared : false,
 			hoverPoint = p || chart.hoverPoint,
 			hoverSeries = hoverPoint && hoverPoint.series || chart.hoverSeries,
@@ -376,12 +367,14 @@ Highcharts.Pointer.prototype = {
 				series,
 				isDirectTouch,
 				shared,
-				e
+				e,
+				{ isBoosting: chart.isBoosting }
 			),
 			useSharedTooltip,
 			followPointer,
 			anchor,
 			points;
+
 		// Update variables from hoverData.
 		hoverPoint = hoverData.hoverPoint;
 		points = hoverData.hoverPoints;
@@ -415,6 +408,12 @@ Highcharts.Pointer.prototype = {
 			if (chart.hoverPoint) {
 				chart.hoverPoint.firePointEvent('mouseOut');
 			}
+
+			// Hover point may have been destroyed in the event handlers (#7127)
+			if (!hoverPoint.series) {
+				return;
+			}
+
 			hoverPoint.firePointEvent('mouseOver');
 			chart.hoverPoints = points;
 			chart.hoverPoint = hoverPoint;
@@ -856,14 +855,22 @@ Highcharts.Pointer.prototype = {
 	onTrackerMouseOut: function (e) {
 		var series = this.chart.hoverSeries,
 			relatedTarget = e.relatedTarget || e.toElement;
+		
 		this.isDirectTouch = false;
-		if (series && relatedTarget && !series.stickyTracking && 
-				!this.inClass(relatedTarget, 'highcharts-tooltip') &&
-					(
-						!this.inClass(relatedTarget, 'highcharts-series-' + series.index) || // #2499, #4465
-						!this.inClass(relatedTarget, 'highcharts-tracker') // #5553
-					)
-				) {
+
+		if (
+			series &&
+			relatedTarget &&
+			!series.stickyTracking && 
+			!this.inClass(relatedTarget, 'highcharts-tooltip') &&
+			(
+				!this.inClass(
+					relatedTarget,
+					'highcharts-series-' + series.index
+				) || // #2499, #4465
+				!this.inClass(relatedTarget, 'highcharts-tracker') // #5553
+			)
+		) {
 			series.onMouseOut();
 		}
 	},

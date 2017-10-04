@@ -3,6 +3,7 @@
  *
  * License: www.highcharts.com/license
  */
+/* eslint max-len: ["warn", 80, 4] */
 'use strict';
 import H from './Globals.js';
 import './Utilities.js';
@@ -12,9 +13,37 @@ import './Chart.js';
 import './Series.js';
 import './Options.js';
 import './Scrollbar.js';
-/* ****************************************************************************
- * Start Navigator code														*
- *****************************************************************************/
+
+/**
+ * Options for the corresponding navigator series if `showInNavigator`
+ * is `true` for this series. Available options are the same as any
+ * series, documented at [plotOptions](#plotOptions.series) and
+ * [series](#series).
+ *
+ *
+ * These options are merged with options in [navigator.series](#navigator.
+ * series), and will take precedence if the same option is defined both
+ * places.
+ *
+ * @type {Object}
+ * @see [navigator.series](#navigator.series)
+ * @default undefined
+ * @since 5.0.0
+ * @product highstock
+ * @apioption plotOptions.series.navigatorOptions
+ */
+
+/**
+ * Whether or not to show the series in the navigator. Takes precedence
+ * over [navigator.baseSeries](#navigator.baseSeries) if defined.
+ *
+ * @type {Boolean}
+ * @default undefined
+ * @since 5.0.0
+ * @product highstock
+ * @apioption plotOptions.series.showInNavigator
+ */
+
 var addEvent = H.addEvent,
 	Axis = H.Axis,
 	Chart = H.Chart,
@@ -39,14 +68,13 @@ var addEvent = H.addEvent,
 	Series = H.Series,
 	seriesTypes = H.seriesTypes,
 	wrap = H.wrap,
-	swapXY = H.swapXY,
 
 	units = [].concat(defaultDataGroupingUnits), // copy
 	defaultSeriesType,
 
-	// Finding the min or max of a set of variables where we don't know if they are defined,
-	// is a pattern that is repeated several places in Highcharts. Consider making this
-	// a global utility method.
+	// Finding the min or max of a set of variables where we don't know if they
+	// are defined, is a pattern that is repeated several places in Highcharts.
+	// Consider making this a global utility method.
 	numExt = function (extreme) {
 		var numbers = grep(arguments, isNumber);
 		if (numbers.length) {
@@ -58,7 +86,9 @@ var addEvent = H.addEvent,
 units[4] = ['day', [1, 2, 3, 4]]; // allow more days
 units[5] = ['week', [1, 2, 3]]; // allow more weeks
 
-defaultSeriesType = seriesTypes.areaspline === undefined ? 'line' : 'areaspline';
+defaultSeriesType = seriesTypes.areaspline === undefined ?
+	'line' :
+	'areaspline';
 
 extend(defaultOptions, {
 
@@ -67,15 +97,13 @@ extend(defaultOptions, {
 	 * a view of the entire data set. It provides tools to zoom in and
 	 * out on parts of the data as well as panning across the dataset.
 	 *
-	 * @optionparent navigator
 	 * @product highstock
+	 * @optionparent navigator
 	 */
 	navigator: {
-		//enabled: true,
-
 		/**
 		 * The height of the navigator.
-		 * 
+		 *
 		 * @type {Number}
 		 * @sample {highstock} stock/navigator/height/ A higher navigator
 		 * @default 40
@@ -85,9 +113,10 @@ extend(defaultOptions, {
 
 		/**
 		 * The distance from the nearest element, the X axis or X axis labels.
-		 * 
+		 *
 		 * @type {Number}
-		 * @sample {highstock} stock/navigator/margin/ A margin of 2 draws the     navigator closer to the X axis labels
+		 * @sample {highstock} stock/navigator/margin/
+		 *         A margin of 2 draws the navigator closer to the X axis labels
 		 * @default 25
 		 * @product highstock
 		 */
@@ -96,57 +125,125 @@ extend(defaultOptions, {
 		/**
 		 * Whether the mask should be inside the range marking the zoomed
 		 * range, or outside. In Highstock 1.x it was always `false`.
-		 * 
+		 *
 		 * @type {Boolean}
-		 * @sample {highstock} stock/navigator/maskinside-false/ False, mask outside
+		 * @sample {highstock} stock/navigator/maskinside-false/
+		 *         False, mask outside
 		 * @default true
 		 * @since 2.0
 		 * @product highstock
 		 */
 		maskInside: true,
-		/*= if (build.classic) { =*/
 
 		/**
-		 * Options for the handles for dragging the zoomed area. Available
-		 * options are `backgroundColor` (defaults to `#ebe7e8`) and `borderColor`
-		 * (defaults to `#b2b1b6`).
-		 * 
+		 * Options for the handles for dragging the zoomed area.
+		 *
 		 * @type {Object}
-		 * @sample {highstock} stock/navigator/handles/ Colored handles
 		 * @sample {highstock} stock/navigator/handles/ Colored handles
 		 * @product highstock
 		 */
 		handles: {
+			/**
+			 * Width for handles.
+			 *
+			 * @type {umber}
+			 * @default 7
+			 * @product highstock
+			 * @sample {highstock} stock/navigator/styled-handles/
+			 *         Styled handles
+			 * @since 6.0.0
+			 */
+			width: 7,
+
+			/**
+			 * Height for handles.
+			 *
+			 * @type {Number}
+			 * @default 15
+			 * @product highstock
+			 * @sample {highstock} stock/navigator/styled-handles/
+			 *         Styled handles
+			 * @since 6.0.0
+			 */
+			height: 15,
+
+			/**
+			 * Array to define shapes of handles. 0-index for left, 1-index for
+			 * right.
+			 *
+			 * Additionally, the URL to a graphic can be given on this form:
+			 * `url(graphic.png)`. Note that for the image to be applied to
+			 * exported charts, its URL needs to be accessible by the export
+			 * server.
+			 *
+			 * Custom callbacks for symbol path generation can also be added to
+			 * `Highcharts.SVGRenderer.prototype.symbols`. The callback is then
+			 * used by its method name, as shown in the demo.
+			 *
+			 * @type {Array}
+			 * @default ['navigator-handle', 'navigator-handle']
+			 * @product highstock
+			 * @sample {highstock} stock/navigator/styled-handles/
+			 *         Styled handles
+			 * @since 6.0.0
+			 */
+			symbols: ['navigator-handle', 'navigator-handle'],
+
+			/**
+			 * Allows to enable/disable handles.
+			 *
+			 * @type {Boolean}
+			 * @default true
+			 * @product highstock
+			 * @since 6.0.0
+			 */
+			enabled: true,
+
+			/*= if (build.classic) { =*/
+			/**
+			 * The width for the handle border and the stripes inside.
+			 *
+			 * @type {Number}
+			 * @default 7
+			 * @product highstock
+			 * @sample {highstock} stock/navigator/styled-handles/
+			 *         Styled handles
+			 * @since 6.0.0
+			 */
+			lineWidth: 1,
 
 			/**
 			 * The fill for the handle.
-			 * 
+			 *
 			 * @type {Color}
-			 * @default #f2f2f2
 			 * @product highstock
 			 */
 			backgroundColor: '${palette.neutralColor5}',
 
 			/**
 			 * The stroke for the handle border and the stripes inside.
-			 * 
+			 *
 			 * @type {Color}
-			 * @default #999999
 			 * @product highstock
 			 */
 			borderColor: '${palette.neutralColor40}'
+
+			/*= } =*/
 		},
+
+		/*= if (build.classic) { =*/
 
 		/**
 		 * The color of the mask covering the areas of the navigator series
 		 * that are currently not visible in the main series. The default
 		 * color is bluish with an opacity of 0.3 to see the series below.
-		 * 
+		 *
 		 * @type {Color}
-		 * @see In [styled mode](http://www.highcharts.com/docs/chart-design-and-
-		 * style/style-by-css), the mask is styled with the `.highcharts-navigator-
-		 * mask` and `.highcharts-navigator-mask-inside` classes.
-		 * @sample {highstock} stock/navigator/maskfill/ Blue, semi transparent mask
+		 * @see     In styled mode, the mask is styled with the
+		 *          `.highcharts-navigator-mask` and
+		 *          `.highcharts-navigator-mask-inside` classes.
+		 * @sample  {highstock} stock/navigator/maskfill/
+		 *          Blue, semi transparent mask
 		 * @default rgba(102,133,194,0.3)
 		 * @product highstock
 		 */
@@ -155,7 +252,7 @@ extend(defaultOptions, {
 		/**
 		 * The color of the line marking the currently zoomed area in the
 		 * navigator.
-		 * 
+		 *
 		 * @type {Color}
 		 * @sample {highstock} stock/navigator/outline/ 2px blue outline
 		 * @default #cccccc
@@ -166,10 +263,9 @@ extend(defaultOptions, {
 		/**
 		 * The width of the line marking the currently zoomed area in the
 		 * navigator.
-		 * 
+		 *
 		 * @type {Number}
-		 * @see In [styled mode](http://www.highcharts.com/docs/chart-design-and-
-		 * style/style-by-css), the outline stroke width is set with the `.
+		 * @see In styled mode, the outline stroke width is set with the `.
 		 * highcharts-navigator-outline` class.
 		 * @sample {highstock} stock/navigator/outline/ 2px blue outline
 		 * @default 2
@@ -182,298 +278,262 @@ extend(defaultOptions, {
 		 * Options for the navigator series. Available options are the same
 		 * as any series, documented at [plotOptions](#plotOptions.series)
 		 * and [series](#series).
-		 * 
+		 *
 		 * Unless data is explicitly defined on navigator.series, the data
 		 * is borrowed from the first series in the chart.
-		 * 
+		 *
 		 * Default series options for the navigator series are:
-		 * 
+		 *
 		 * <pre>series: {
-		 * type: 'areaspline',
-		 * color: '#4572A7',
-		 * fillOpacity: 0.05,
-		 * dataGrouping: {
-		 * smoothed: true
-		 * },
-		 * lineWidth: 1,
-		 * marker: {
-		 * enabled: false
-		 * }
+		 *     type: 'areaspline',
+		 *     fillOpacity: 0.05,
+		 *     dataGrouping: {
+		 *         smoothed: true
+		 *     },
+		 *     lineWidth: 1,
+		 *     marker: {
+		 *         enabled: false
+		 *     }
 		 * }</pre>
-		 * 
+		 *
 		 * @type {Object}
-		 * @see In [styled mode](http://www.highcharts.com/docs/chart-design-and-
-		 * style/style-by-css), the navigator series is styled with the `.
+		 * @see In styled mode, the navigator series is styled with the `.
 		 * highcharts-navigator-series` class.
-		 * @sample {highstock} stock/navigator/series-data/ Using a separate data set for the navigator
-		 * @sample {highstock} stock/navigator/series/ A green navigator series
+		 * @sample {highstock} stock/navigator/series-data/
+		 *         Using a separate data set for the navigator
+		 * @sample {highstock} stock/navigator/series/
+		 *         A green navigator series
 		 * @product highstock
 		 */
 		series: {
 
 			/**
+			 * The type of the navigator series. Defaults to `areaspline` if
+			 * defined, otherwise `line`.
+			 *
+			 * @type {String}
 			 */
 			type: defaultSeriesType,
 			/*= if (build.classic) { =*/
 
-			/**
-			 */
-			color: '${palette.highlightColor80}',
 
 			/**
+			 * The fill opacity of the navigator series.
 			 */
 			fillOpacity: 0.05,
 
 			/**
+			 * The pixel line width of the navigator series.
 			 */
 			lineWidth: 1,
 			/*= } =*/
 
 			/**
+			 * @ignore
 			 */
 			compare: null,
 
 			/**
+			 * Data grouping options for the navigator series.
+			 *
+			 * @extends {plotOptions.series.dataGrouping}
 			 */
 			dataGrouping: {
-
-				/**
-				 */
 				approximation: 'average',
-
-				/**
-				 */
 				enabled: true,
-
-				/**
-				 */
 				groupPixelWidth: 2,
-
-				/**
-				 */
 				smoothed: true,
-
-				/**
-				 */
 				units: units
 			},
 
 			/**
+			 * Data label options for the navigator series. Data labels are
+			 * disabled by default on the navigator series.
+			 *
+			 * @extends {plotOptions.series.dataLabels}
 			 */
 			dataLabels: {
-
-				/**
-				 */
 				enabled: false,
-
-				/**
-				 */
 				zIndex: 2 // #1839
 			},
 
-			/**
-			 */
 			id: 'highcharts-navigator-series',
-
-			/**
-			 */
 			className: 'highcharts-navigator-series',
 
 			/**
+			 * Line color for the navigator series. Allows setting the color
+			 * while disallowing the default candlestick setting.
+			 *
+			 * @type {Color}
 			 */
-			lineColor: null, // Allow color setting while disallowing default candlestick setting (#4602)
+			lineColor: null, // #4602
 
-			/**
-			 */
 			marker: {
-
-				/**
-				 */
 				enabled: false
 			},
 
-			/**
-			 */
 			pointRange: 0,
-
 			/**
-			 */
-			shadow: false,
-
-			/**
+			 * The threshold option. Setting it to 0 will make the default
+			 * navigator area series draw its area from the 0 value and up.
+			 * @type {Number}
 			 */
 			threshold: null
 		},
-		//top: undefined,
-		//opposite: undefined,
 
 		/**
-		 * Options for the navigator X axis. Available options are the same
-		 * as any X axis, documented at [xAxis](#xAxis). Default series options
+		 * Options for the navigator X axis. Default series options
 		 * for the navigator xAxis are:
-		 * 
+		 *
 		 * <pre>xAxis: {
-		 * tickWidth: 0,
-		 * lineWidth: 0,
-		 * gridLineWidth: 1,
-		 * tickPixelInterval: 200,
-		 * labels: {
-		 * align: 'left',
-		 * style: {
-		 * color: '#888'
-		 * },
-		 * x: 3,
-		 * y: -4
-		 * }
+		 *     tickWidth: 0,
+		 *     lineWidth: 0,
+		 *     gridLineWidth: 1,
+		 *     tickPixelInterval: 200,
+		 *     labels: {
+		 *     	   align: 'left',
+		 *         style: {
+		 *             color: '#888'
+		 *         },
+		 *         x: 3,
+		 *         y: -4
+		 *     }
 		 * }</pre>
-		 * 
+		 *
 		 * @type {Object}
+		 * @extends {xAxis}
+		 * @excluding linkedTo,maxZoom,minRange,opposite,range,scrollbar,
+		 *          showEmpty,maxRange
 		 * @product highstock
 		 */
 		xAxis: {
-
 			/**
+			 * Additional range on the right side of the xAxis. Works similar to
+			 * xAxis.maxPadding, but value is set in milliseconds.
+			 * Can be set for both, main xAxis and navigator's xAxis.
+			 *
+			 * @type {Number}
+			 * @default 0
+			 * @since 6.0.0
+			 * @product highstock
+			 * @apioption xAxis.overscroll
 			 */
+			overscroll: 0,
+
 			className: 'highcharts-navigator-xaxis',
-
-			/**
-			 */
 			tickLength: 0,
+
 			/*= if (build.classic) { =*/
-
-			/**
-			 */
 			lineWidth: 0,
-
-			/**
-			 */
 			gridLineColor: '${palette.neutralColor10}',
-
-			/**
-			 */
 			gridLineWidth: 1,
 			/*= } =*/
 
-			/**
-			 */
 			tickPixelInterval: 200,
 
-			/**
-			 */
 			labels: {
-
-				/**
-				 */
 				align: 'left',
+
 				/*= if (build.classic) { =*/
-
-				/**
-				 */
 				style: {
-
-					/**
-					 */
 					color: '${palette.neutralColor40}'
 				},
 				/*= } =*/
 
-				/**
-				 */
 				x: 3,
-
-				/**
-				 */
 				y: -4
 			},
 
-			/**
-			 */
 			crosshair: false
 		},
 
 		/**
-		 * Options for the navigator Y axis. Available options are the same
-		 * as any y axis, documented at [yAxis](#yAxis). Default series options
+		 * Options for the navigator Y axis. Default series options
 		 * for the navigator yAxis are:
-		 * 
+		 *
 		 * <pre>yAxis: {
-		 * gridLineWidth: 0,
-		 * startOnTick: false,
-		 * endOnTick: false,
-		 * minPadding: 0.1,
-		 * maxPadding: 0.1,
-		 * labels: {
-		 * enabled: false
-		 * },
-		 * title: {
-		 * text: null
-		 * },
-		 * tickWidth: 0
+		 *     gridLineWidth: 0,
+		 *     startOnTick: false,
+		 *     endOnTick: false,
+		 *     minPadding: 0.1,
+		 *     maxPadding: 0.1,
+		 *     labels: {
+		 *         enabled: false
+		 *     },
+		 *     title: {
+		 *         text: null
+		 *     },
+		 *     tickWidth: 0
 		 * }</pre>
-		 * 
+		 *
 		 * @type {Object}
+		 * @extends {yAxis}
+		 * @excluding height,linkedTo,maxZoom,minRange,ordinal,range,showEmpty,
+		 *          scrollbar,top,units,maxRange
 		 * @product highstock
 		 */
 		yAxis: {
 
-			/**
-			 */
 			className: 'highcharts-navigator-yaxis',
-			/*= if (build.classic) { =*/
 
-			/**
-			 */
+			/*= if (build.classic) { =*/
 			gridLineWidth: 0,
 			/*= } =*/
 
-			/**
-			 */
 			startOnTick: false,
-
-			/**
-			 */
 			endOnTick: false,
-
-			/**
-			 */
 			minPadding: 0.1,
-
-			/**
-			 */
 			maxPadding: 0.1,
-
-			/**
-			 */
 			labels: {
-
-				/**
-				 */
 				enabled: false
 			},
-
-			/**
-			 */
 			crosshair: false,
-
-			/**
-			 */
 			title: {
-
-				/**
-				 */
 				text: null
 			},
-
-			/**
-			 */
 			tickLength: 0,
-
-			/**
-			 */
 			tickWidth: 0
 		}
 	}
 });
+
+/**
+ * Draw one of the handles on the side of the zoomed range in the navigator
+ * @param {Boolean} inverted flag for chart.inverted
+ * @returns {Array} Path to be used in a handle
+ */
+H.Renderer.prototype.symbols['navigator-handle'] = function (
+	x,
+	y,
+	w,
+	h,
+	options
+) {
+	var halfWidth = options.width / 2,
+		markerPosition = Math.round(halfWidth / 3) + 0.5,
+		height = options.height;
+
+	return [
+		'M',
+		-halfWidth - 1, 0.5,
+		'L',
+		halfWidth, 0.5,
+		'L',
+		halfWidth, height + 0.5,
+		'L',
+		-halfWidth - 1, height + 0.5,
+		'L',
+		-halfWidth - 1, 0.5,
+		'M',
+		-markerPosition, 4,
+		'L',
+		-markerPosition, height - 3,
+		'M',
+		markerPosition - 1, 4,
+		'L',
+		markerPosition - 1, height - 3
+	];
+};
 
 /**
  * The Navigator class
@@ -493,45 +553,23 @@ Navigator.prototype = {
 	 * @param {String} verb use 'animate' or 'attr'
 	 */
 	drawHandle: function (x, index, inverted, verb) {
-		var navigator = this;
+		var navigator = this,
+			height = navigator.navigatorOptions.handles.height;
 
 		// Place it
 		navigator.handles[index][verb](inverted ? {
-			translateX: Math.round(navigator.left + navigator.height / 2 - 8),
-			translateY: Math.round(navigator.top + parseInt(x, 10) + 0.5)
+			translateX: Math.round(navigator.left + navigator.height / 2),
+			translateY: Math.round(
+				navigator.top + parseInt(x, 10) + 0.5 - height
+			)
 		} : {
 			translateX: Math.round(navigator.left + parseInt(x, 10)),
-			translateY: Math.round(navigator.top + navigator.height / 2 - 8)
+			translateY: Math.round(
+				navigator.top + navigator.height / 2 - height / 2 - 1
+			)
 		});
 	},
 
-	/**
-	 * Draw one of the handles on the side of the zoomed range in the navigator
-	 * @param {Boolean} inverted flag for chart.inverted
-	 * @returns {Array} Path to be used in a handle
-	 */
-	getHandlePath: function (inverted) {
-		return swapXY([
-			'M',
-			-4.5, 0.5,
-			'L',
-			3.5, 0.5,
-			'L',
-			3.5, 15.5,
-			'L',
-			-4.5, 15.5,
-			'L',
-			-4.5, 0.5,
-			'M',
-			-1.5, 4,
-			'L',
-			-1.5, 12,
-			'M',
-			0.5, 4,
-			'L',
-			0.5, 12
-		], inverted);
-	},
 	/**
 	 * Render outline around the zoomed range
 	 * @param {Number} zoomedMin in pixels position where zoomed range starts
@@ -640,7 +678,7 @@ Navigator.prototype = {
 			x,
 			y;
 
-		// Determine rectangle position & size 
+		// Determine rectangle position & size
 		// According to (non)inverted position:
 		if (inverted) {
 			x = [left, left, left];
@@ -705,7 +743,7 @@ Navigator.prototype = {
 		// Create masks, each mask will get events and fill:
 		each([!maskInside, maskInside, !maskInside], function (hasMask, index) {
 			navigator.shades[index] = renderer.rect()
-				.addClass('highcharts-navigator-mask' + 
+				.addClass('highcharts-navigator-mask' +
 					(index === 1 ? '-inside' : '-outside'))
 				/*= if (build.classic) { =*/
 				.attr({
@@ -728,28 +766,38 @@ Navigator.prototype = {
 			.add(navigatorGroup);
 
 		// Create the handlers:
-		each([0, 1], function (index) {
-			navigator.handles[index] = renderer
-				.path(navigator.getHandlePath(inverted))
+		if (navigatorOptions.handles.enabled) {
+			each([0, 1], function (index) {
+				navigatorOptions.handles.inverted = chart.inverted;
+				navigator.handles[index] = renderer.symbol(
+					navigatorOptions.handles.symbols[index],
+					-navigatorOptions.handles.width / 2 - 1,
+					0,
+					navigatorOptions.handles.width,
+					navigatorOptions.handles.height,
+					navigatorOptions.handles
+				);
 				// zIndex = 6 for right handle, 7 for left.
 				// Can't be 10, because of the tooltip in inverted chart #2908
-				.attr({ zIndex: 7 - index })
-				.addClass(
-					'highcharts-navigator-handle highcharts-navigator-handle-' +
-					['left', 'right'][index]
-				).add(navigatorGroup);
+				navigator.handles[index].attr({ zIndex: 7 - index })
+					.addClass(
+						'highcharts-navigator-handle ' +
+						'highcharts-navigator-handle-' +
+						['left', 'right'][index]
+					).add(navigatorGroup);
 
-			/*= if (build.classic) { =*/
-			var handlesOptions = navigatorOptions.handles;
-			navigator.handles[index]
-				.attr({
-					fill: handlesOptions.backgroundColor,
-					stroke: handlesOptions.borderColor,
-					'stroke-width': 1
-				})
-				.css(mouseCursor);
-			/*= } =*/
-		});
+				/*= if (build.classic) { =*/
+				var handlesOptions = navigatorOptions.handles;
+				navigator.handles[index]
+					.attr({
+						fill: handlesOptions.backgroundColor,
+						stroke: handlesOptions.borderColor,
+						'stroke-width': handlesOptions.lineWidth
+					})
+					.css(mouseCursor);
+				/*= } =*/
+			});
+		}
 	},
 
 	/**
@@ -795,7 +843,9 @@ Navigator.prototype = {
 			verb,
 			newMin,
 			newMax,
-			minRange = chart.xAxis[0].minRange;
+			currentRange,
+			minRange = chart.xAxis[0].minRange,
+			maxRange = chart.xAxis[0].options.maxRange;
 
 		// Don't redraw while moving the handles (#4703).
 		if (this.hasDragged && !defined(pxMin)) {
@@ -822,7 +872,8 @@ Navigator.prototype = {
 
 		navigator.size = zoomedMax = navigatorSize = pick(
 			xAxis.len,
-			(inverted ? chart.plotHeight : chart.plotWidth) - 2 * scrollbarHeight
+			(inverted ? chart.plotHeight : chart.plotWidth) -
+				2 * scrollbarHeight
 		);
 
 		if (inverted) {
@@ -835,7 +886,8 @@ Navigator.prototype = {
 		pxMin = pick(pxMin, xAxis.toPixels(min, true));
 		pxMax = pick(pxMax, xAxis.toPixels(max, true));
 
-		if (!isNumber(pxMin) || Math.abs(pxMin) === Infinity) { // Verify (#1851, #2238)
+		// Verify (#1851, #2238)
+		if (!isNumber(pxMin) || Math.abs(pxMin) === Infinity) {
 			pxMin = 0;
 			pxMax = navigatorWidth;
 		}
@@ -843,13 +895,30 @@ Navigator.prototype = {
 		// Are we below the minRange? (#2618, #6191)
 		newMin = xAxis.toValue(pxMin, true);
 		newMax = xAxis.toValue(pxMax, true);
-		if (Math.abs(newMax - newMin) < minRange) {
+		currentRange = Math.abs(H.correctFloat(newMax - newMin));
+		if (currentRange < minRange) {
 			if (this.grabbedLeft) {
 				pxMin = xAxis.toPixels(newMax - minRange, true);
 			} else if (this.grabbedRight) {
 				pxMax = xAxis.toPixels(newMin + minRange, true);
-			} else {
-				return;
+			}
+		} else if (defined(maxRange) && currentRange > maxRange) {
+			/**
+			 * Maximum range which can be set using the navigator's handles.
+			 * Opposite of [xAxis.minRange](#xAxis.minRange).
+			 *
+			 * @type {Number}
+			 * @default undefined
+			 * @product highstock
+			 * @sample {highstock} stock/navigator/maxrange/
+			 *         Defined max and min range
+			 * @since 6.0.0
+			 * @apioption xAxis.maxRange
+			 */
+			if (this.grabbedLeft) {
+				pxMin = xAxis.toPixels(newMax - maxRange, true);
+			} else if (this.grabbedRight) {
+				pxMax = xAxis.toPixels(newMin + maxRange, true);
 			}
 		}
 
@@ -879,8 +948,11 @@ Navigator.prototype = {
 
 			navigator.drawMasks(zoomedMin, zoomedMax, inverted, verb);
 			navigator.drawOutline(zoomedMin, zoomedMax, inverted, verb);
-			navigator.drawHandle(zoomedMin, 0, inverted, verb);
-			navigator.drawHandle(zoomedMax, 1, inverted, verb);
+
+			if (navigator.navigatorOptions.handles.enabled) {
+				navigator.drawHandle(zoomedMin, 0, inverted, verb);
+				navigator.drawHandle(zoomedMax, 1, inverted, verb);
+			}
 		}
 
 		if (navigator.scrollbar) {
@@ -908,7 +980,8 @@ Navigator.prototype = {
 			);
 			// Keep scale 0-1
 			navigator.scrollbar.setRange(
-				// Use real value, not rounded because range can be very small (#1716)
+				// Use real value, not rounded because range can be very small
+				// (#1716)
 				navigator.zoomedMin / navigatorSize,
 				navigator.zoomedMax / navigatorSize
 			);
@@ -941,7 +1014,8 @@ Navigator.prototype = {
 		// Add shades and handles mousedown events
 		eventsToUnbind = navigator.getPartsEvents('mousedown');
 		// Add mouse move and mouseup events. These are bind to doc/container,
-		// because Navigator.grabbedSomething flags are stored in mousedown events:
+		// because Navigator.grabbedSomething flags are stored in mousedown
+		// events
 		eventsToUnbind.push(
 			addEvent(container, 'mousemove', mouseMoveHandler),
 			addEvent(container.ownerDocument, 'mouseup', mouseUpHandler)
@@ -961,9 +1035,13 @@ Navigator.prototype = {
 		// Data events
 		if (navigator.series && navigator.series[0]) {
 			eventsToUnbind.push(
-				addEvent(navigator.series[0].xAxis, 'foundExtremes', function () {
-					chart.navigator.modifyNavigatorAxisExtremes();
-				})
+				addEvent(
+					navigator.series[0].xAxis,
+					'foundExtremes',
+					function () {
+						chart.navigator.modifyNavigatorAxisExtremes();
+					}
+				)
 			);
 		}
 	},
@@ -994,7 +1072,7 @@ Navigator.prototype = {
 
 	/**
 	 * Mousedown on a shaded mask, either:
-	 * - will be stored for future drag&drop 
+	 * - will be stored for future drag&drop
 	 * - will directly shift to a new range
 	 *
 	 * @param {Object} e Mouse event
@@ -1097,9 +1175,10 @@ Navigator.prototype = {
 			chartX;
 
 
-		// In iOS, a mousemove event with e.pageX === 0 is fired when holding the finger
-		// down in the center of the scrollbar. This should be ignored.
-		if (!e.touches || e.touches[0].pageX !== 0) { // #4696, scrollbar failed on Android
+		// In iOS, a mousemove event with e.pageX === 0 is fired when holding
+		// the finger down in the center of the scrollbar. This should be
+		// ignored.
+		if (!e.touches || e.touches[0].pageX !== 0) { // #4696
 
 			e = chart.pointer.normalize(e);
 			chartX = e.chartX;
@@ -1133,7 +1212,8 @@ Navigator.prototype = {
 				navigator.hasDragged = true;
 				if (chartX < dragOffset) { // outside left
 					chartX = dragOffset;
-				} else if (chartX > navigatorSize + dragOffset - range) { // outside right
+				// outside right
+				} else if (chartX > navigatorSize + dragOffset - range) {
 					chartX = navigatorSize + dragOffset - range;
 				}
 
@@ -1144,8 +1224,12 @@ Navigator.prototype = {
 					chartX - dragOffset + range
 				);
 			}
-			if (navigator.hasDragged && navigator.scrollbar && navigator.scrollbar.options.liveRedraw) {
-				e.DOMType = e.type; // DOMType is for IE8 because it can't read type async
+			if (
+				navigator.hasDragged &&
+				navigator.scrollbar &&
+				navigator.scrollbar.options.liveRedraw
+			) {
+				e.DOMType = e.type; // DOMType is for IE8
 				setTimeout(function () {
 					navigator.onMouseUp(e);
 				}, 0);
@@ -1196,7 +1280,9 @@ Navigator.prototype = {
 					Math.min(ext.min, ext.max),
 					Math.max(ext.min, ext.max),
 					true,
-					navigator.hasDragged ? false : null, // Run animation when clicking buttons, scrollbar track etc, but not when dragging handles or scrollbar
+					// Run animation when clicking buttons, scrollbar track etc,
+					// but not when dragging handles or scrollbar
+					navigator.hasDragged ? false : null,
 					{
 						trigger: 'navigator',
 						triggerOp: 'navigator-drag',
@@ -1241,7 +1327,11 @@ Navigator.prototype = {
 
 			// We only listen for extremes-events on the first baseSeries
 			if (baseSeries[0].xAxis) {
-				removeEvent(baseSeries[0].xAxis, 'foundExtremes', this.modifyBaseAxisExtremes);
+				removeEvent(
+					baseSeries[0].xAxis,
+					'foundExtremes',
+					this.modifyBaseAxisExtremes
+				);
 			}
 		}
 	},
@@ -1272,21 +1362,31 @@ Navigator.prototype = {
 		this.scrollbarOptions = scrollbarOptions;
 		this.outlineHeight = height + scrollbarHeight;
 
-		this.opposite = pick(navigatorOptions.opposite, !navigatorEnabled && chart.inverted); // #6262
+		this.opposite = pick(
+			navigatorOptions.opposite,
+			!navigatorEnabled && chart.inverted
+		); // #6262
 
 		var navigator = this,
 			baseSeries = navigator.baseSeries,
 			xAxisIndex = chart.xAxis.length,
 			yAxisIndex = chart.yAxis.length,
-			baseXaxis = baseSeries && baseSeries[0] && baseSeries[0].xAxis || chart.xAxis[0];
+			baseXaxis = baseSeries && baseSeries[0] && baseSeries[0].xAxis ||
+				chart.xAxis[0];
 
 		// Make room for the navigator, can be placed around the chart:
 		chart.extraMargin = {
 			type: navigator.opposite ? 'plotTop' : 'marginBottom',
-			value: (navigatorEnabled || !chart.inverted ? navigator.outlineHeight : 0) + navigatorOptions.margin
+			value: (
+				navigatorEnabled || !chart.inverted ?
+					navigator.outlineHeight :
+					0
+			) + navigatorOptions.margin
 		};
 		if (chart.inverted) {
-			chart.extraMargin.type = navigator.opposite ? 'marginRight' : 'plotLeft';
+			chart.extraMargin.type = navigator.opposite ?
+				'marginRight' :
+				'plotLeft';
 		}
 		chart.isDirtyBox = true;
 
@@ -1359,7 +1459,11 @@ Navigator.prototype = {
 						ext = axis.getExtremes(),
 						scrollTrackWidth = axis.len - 2 * scrollbarHeight,
 						min = numExt('min', axis.options.min, ext.dataMin),
-						valueRange = numExt('max', axis.options.max, ext.dataMax) - min;
+						valueRange = numExt(
+							'max',
+							axis.options.max,
+							ext.dataMax
+						) - min;
 
 					return reverse ?
 						// from pixel to value
@@ -1383,7 +1487,7 @@ Navigator.prototype = {
 		if (chart.options.scrollbar.enabled) {
 			chart.scrollbar = navigator.scrollbar = new Scrollbar(
 				chart.renderer,
-				merge(chart.options.scrollbar, { 
+				merge(chart.options.scrollbar, {
 					margin: navigator.navigatorEnabled ? 0 : 10,
 					vertical: chart.inverted
 				}),
@@ -1397,7 +1501,10 @@ Navigator.prototype = {
 				navigator.hasDragged = navigator.scrollbar.hasDragged;
 				navigator.render(0, 0, from, to);
 
-				if (chart.options.scrollbar.liveRedraw || e.DOMType !== 'mousemove') {
+				if (
+					chart.options.scrollbar.liveRedraw ||
+					e.DOMType !== 'mousemove'
+				) {
 					setTimeout(function () {
 						navigator.onMouseUp(e);
 					});
@@ -1412,8 +1519,8 @@ Navigator.prototype = {
 	},
 
 	/**
-	 * Get the union data extremes of the chart - the outer data extremes of the base
-	 * X axis and the navigator axis.
+	 * Get the union data extremes of the chart - the outer data extremes of the
+	 * base X axis and the navigator axis.
 	 * @param {boolean} returnFalseOnNoBaseSeries - as the param says.
 	 */
 	getUnionExtremes: function (returnFalseOnNoBaseSeries) {
@@ -1451,21 +1558,30 @@ Navigator.prototype = {
 	},
 
 	/**
-	 * Set the base series and update the navigator series from this. With a bit 
-	 * of modification we should be able to make this an API method to be called 
+	 * Set the base series and update the navigator series from this. With a bit
+	 * of modification we should be able to make this an API method to be called
 	 * from the outside
-	 * @param {Object} baseSeriesOptions - additional series options for a navigator
+	 * @param  {Object} baseSeriesOptions
+	 *         Additional series options for a navigator
+	 * @param  {Boolean} [redraw]
+	 *         Whether to redraw after update.
 	 */
-	setBaseSeries: function (baseSeriesOptions) {
+	setBaseSeries: function (baseSeriesOptions, redraw) {
 		var chart = this.chart,
 			baseSeries = this.baseSeries = [];
 
-		baseSeriesOptions = baseSeriesOptions || chart.options && chart.options.navigator.baseSeries || 0;	
+		baseSeriesOptions = (
+			baseSeriesOptions ||
+			chart.options && chart.options.navigator.baseSeries ||
+			0
+		);
 
-		// Iterate through series and add the ones that should be shown in navigator.
+		// Iterate through series and add the ones that should be shown in
+		// navigator.
 		each(chart.series || [], function (series, i) {
 			if (
-				!series.options.isInternal && // Don't include existing nav series
+				// Don't include existing nav series
+				!series.options.isInternal &&
 				(
 					series.options.showInNavigator ||
 					(
@@ -1478,10 +1594,10 @@ Navigator.prototype = {
 				baseSeries.push(series);
 			}
 		});
-			
+
 		// When run after render, this.xAxis already exists
 		if (this.xAxis && !this.xAxis.fake) {
-			this.updateNavigatorSeries();
+			this.updateNavigatorSeries(redraw);
 		}
 	},
 
@@ -1489,7 +1605,7 @@ Navigator.prototype = {
 	 * Update series in the navigator from baseSeries, adding new if does not
 	 * exist.
 	 */
-	updateNavigatorSeries: function () {
+	updateNavigatorSeries: function (redraw) {
 		var navigator = this,
 			chart = navigator.chart,
 			baseSeries = navigator.baseSeries,
@@ -1515,8 +1631,8 @@ Navigator.prototype = {
 				navigator.series || [], function (navSeries) {
 					var base = navSeries.baseSeries;
 					if (H.inArray(base, baseSeries) < 0) { // Not in array
-						// If there is still a base series connected to this series,
-						// remove event handler and reference.
+						// If there is still a base series connected to this
+						// series, remove event handler and reference.
 						if (base) {
 							removeEvent(
 								base,
@@ -1533,12 +1649,20 @@ Navigator.prototype = {
 				}
 			);
 
-		// Go through each base series and merge the options to create new series
+		// Go through each base series and merge the options to create new
+		// series
 		if (baseSeries && baseSeries.length) {
-			each(baseSeries, function (base, i) {
+			each(baseSeries, function eachBaseSeries(base) {
 				var linkedNavSeries = base.navigatorSeries,
-					userNavOptions = !isArray(chartNavigatorSeriesOptions) ?
-						chartNavigatorSeriesOptions : {};
+					userNavOptions = extend(
+						// Grab color from base as default
+						{
+							color: base.color
+						},
+						!isArray(chartNavigatorSeriesOptions) ?
+							chartNavigatorSeriesOptions :
+							defaultOptions.navigator.series
+					);
 
 				// Don't update if the series exists in nav and we have disabled
 				// adaptToUpdatedData.
@@ -1549,35 +1673,42 @@ Navigator.prototype = {
 					return;
 				}
 
-				navSeriesMixin.name = 'Navigator ' + (i + 1);
+				navSeriesMixin.name = 'Navigator ' + baseSeries.length;
 
 				baseOptions = base.options || {};
 				baseNavigatorOptions = baseOptions.navigatorOptions || {};
 				mergedNavSeriesOptions = merge(
-					baseOptions, 
-					navSeriesMixin, 
+					baseOptions,
+					navSeriesMixin,
 					userNavOptions,
 					baseNavigatorOptions
 				);
 
-				// Merge data separately. Do a slice to avoid mutating the navigator options from base series (#4923).
-				var navigatorSeriesData = baseNavigatorOptions.data || userNavOptions.data;
-				navigator.hasNavigatorData = navigator.hasNavigatorData || !!navigatorSeriesData;
-				mergedNavSeriesOptions.data = navigatorSeriesData || baseOptions.data && baseOptions.data.slice(0);
+				// Merge data separately. Do a slice to avoid mutating the
+				// navigator options from base series (#4923).
+				var navigatorSeriesData =
+					baseNavigatorOptions.data || userNavOptions.data;
+				navigator.hasNavigatorData =
+					navigator.hasNavigatorData || !!navigatorSeriesData;
+				mergedNavSeriesOptions.data =
+					navigatorSeriesData ||
+					baseOptions.data && baseOptions.data.slice(0);
 
 				// Update or add the series
-				if (linkedNavSeries) {
-					linkedNavSeries.update(mergedNavSeriesOptions);
+				if (linkedNavSeries && linkedNavSeries.options) {
+					linkedNavSeries.update(mergedNavSeriesOptions, redraw);
 				} else {
-					base.navigatorSeries = chart.initSeries(mergedNavSeriesOptions);
+					base.navigatorSeries = chart.initSeries(
+						mergedNavSeriesOptions
+					);
 					base.navigatorSeries.baseSeries = base; // Store ref
 					navigatorSeries.push(base.navigatorSeries);
 				}
 			});
 		}
 
-		// If user has defined data (and no base series) or explicitly defined 
-		// navigator.series as an array, we create these series on top of any 
+		// If user has defined data (and no base series) or explicitly defined
+		// navigator.series as an array, we create these series on top of any
 		// base series.
 		if (
 			chartNavigatorSeriesOptions.data &&
@@ -1588,11 +1719,14 @@ Navigator.prototype = {
 			// Allow navigator.series to be an array
 			chartNavigatorSeriesOptions = H.splat(chartNavigatorSeriesOptions);
 			each(chartNavigatorSeriesOptions, function (userSeriesOptions, i) {
+				navSeriesMixin.name =
+					'Navigator ' + (navigatorSeries.length + 1);
 				mergedNavSeriesOptions = merge(
+					defaultOptions.navigator.series,
 					{
 						// Since we don't have a base series to pull color from,
 						// try to fake it by using color from series with same
-						// index. Otherwise pull from the colors array. We need 
+						// index. Otherwise pull from the colors array. We need
 						// an explicit color as otherwise updates will increment
 						// color counter and we'll get a new color for each
 						// update of the nav series.
@@ -1602,13 +1736,15 @@ Navigator.prototype = {
 							chart.options.colors[i] ||
 							chart.options.colors[0]
 					},
-					userSeriesOptions,
-					navSeriesMixin
+					navSeriesMixin,
+					userSeriesOptions
 				);
 				mergedNavSeriesOptions.data = userSeriesOptions.data;
 				if (mergedNavSeriesOptions.data) {
 					navigator.hasNavigatorData = true;
-					navigatorSeries.push(chart.initSeries(mergedNavSeriesOptions));
+					navigatorSeries.push(
+						chart.initSeries(mergedNavSeriesOptions)
+					);
 				}
 			});
 		}
@@ -1626,10 +1762,14 @@ Navigator.prototype = {
 
 		// Bind modified extremes event to first base's xAxis only.
 		// In event of > 1 base-xAxes, the navigator will ignore those.
-		// Adding this multiple times to the same axis is no problem, as 
+		// Adding this multiple times to the same axis is no problem, as
 		// duplicates should be discarded by the browser.
 		if (baseSeries[0] && baseSeries[0].xAxis) {
-			addEvent(baseSeries[0].xAxis, 'foundExtremes', this.modifyBaseAxisExtremes);
+			addEvent(
+				baseSeries[0].xAxis,
+				'foundExtremes',
+				this.modifyBaseAxisExtremes
+			);
 		}
 
 		each(baseSeries, function (base) {
@@ -1645,7 +1785,7 @@ Navigator.prototype = {
 				}
 			});
 
-			// Respond to updated data in the base series, unless explicitily 
+			// Respond to updated data in the base series, unless explicitily
 			// not adapting to data changes.
 			if (this.navigatorOptions.adaptToUpdatedData !== false) {
 				if (base.xAxis) {
@@ -1665,9 +1805,9 @@ Navigator.prototype = {
 	},
 
 	/**
-	 * Set the navigator x axis extremes to reflect the total. The navigator extremes
-	 * should always be the extremes of the union of all series in the chart as
-	 * well as the navigator series.
+	 * Set the navigator x axis extremes to reflect the total. The navigator
+	 * extremes should always be the extremes of the union of all series in the
+	 * chart as well as the navigator series.
 	 */
 	modifyNavigatorAxisExtremes: function () {
 		var xAxis = this.xAxis,
@@ -1675,7 +1815,13 @@ Navigator.prototype = {
 
 		if (xAxis.getExtremes) {
 			unionExtremes = this.getUnionExtremes(true);
-			if (unionExtremes && (unionExtremes.dataMin !== xAxis.min || unionExtremes.dataMax !== xAxis.max)) {
+			if (
+				unionExtremes &&
+				(
+					unionExtremes.dataMin !== xAxis.min ||
+					unionExtremes.dataMax !== xAxis.max
+				)
+			) {
 				xAxis.min = unionExtremes.dataMin;
 				xAxis.max = unionExtremes.dataMax;
 			}
@@ -1696,29 +1842,34 @@ Navigator.prototype = {
 			range = baseMax - baseMin,
 			stickToMin = navigator.stickToMin,
 			stickToMax = navigator.stickToMax,
+			overscroll = baseXAxis.options.overscroll,
 			newMax,
 			newMin,
 			navigatorSeries = navigator.series && navigator.series[0],
 			hasSetExtremes = !!baseXAxis.setExtremes,
 
-			// When the extremes have been set by range selector button, don't stick to min or max.
-			// The range selector buttons will handle the extremes. (#5489)
-			unmutable = baseXAxis.eventArgs && baseXAxis.eventArgs.trigger === 'rangeSelectorButton';
+			// When the extremes have been set by range selector button, don't
+			// stick to min or max. The range selector buttons will handle the
+			// extremes. (#5489)
+			unmutable = baseXAxis.eventArgs &&
+				baseXAxis.eventArgs.trigger === 'rangeSelectorButton';
 
 		if (!unmutable) {
-		
-			// If the zoomed range is already at the min, move it to the right as new data
-			// comes in
+
+			// If the zoomed range is already at the min, move it to the right
+			// as new data comes in
 			if (stickToMin) {
 				newMin = baseDataMin;
 				newMax = newMin + range;
 			}
 
-			// If the zoomed range is already at the max, move it to the right as new data
-			// comes in
+			// If the zoomed range is already at the max, move it to the right
+			// as new data comes in
 			if (stickToMax) {
-				newMax = baseDataMax;
-				if (!stickToMin) { // if stickToMin is true, the new min value is set above
+				newMax = baseDataMax + overscroll;
+
+				// if stickToMin is true, the new min value is set above
+				if (!stickToMin) {
 					newMin = Math.max(
 						newMax - range,
 						navigatorSeries && navigatorSeries.xData ?
@@ -1741,21 +1892,23 @@ Navigator.prototype = {
 	},
 
 	/**
-	 * Handler for updated data on the base series. When data is modified, the navigator series
-	 * must reflect it. This is called from the Chart.redraw function before axis and series
-	 * extremes are computed.
+	 * Handler for updated data on the base series. When data is modified, the
+	 * navigator series must reflect it. This is called from the Chart.redraw
+	 * function before axis and series extremes are computed.
 	 */
 	updatedDataHandler: function () {
 		var navigator = this.chart.navigator,
 			baseSeries = this,
 			navigatorSeries = this.navigatorSeries;
 
-		// If the scrollbar is scrolled all the way to the right, keep right as new data 
-		// comes in.
-		navigator.stickToMax = Math.round(navigator.zoomedMax) >= Math.round(navigator.size);
+		// If the scrollbar is scrolled all the way to the right, keep right as
+		// new data  comes in.
+		navigator.stickToMax =
+			Math.round(navigator.zoomedMax) >= Math.round(navigator.size);
 
-		// Detect whether the zoomed area should stick to the minimum or maximum. If the current
-		// axis minimum falls outside the new updated dataset, we must adjust.
+		// Detect whether the zoomed area should stick to the minimum or
+		// maximum. If the current axis minimum falls outside the new updated
+		// dataset, we must adjust.
 		navigator.stickToMin = isNumber(baseSeries.xAxis.min) &&
 			(baseSeries.xAxis.min <= baseSeries.xData[0]) &&
 			(!this.chart.fixedRange || !navigator.stickToMax);
@@ -1763,7 +1916,12 @@ Navigator.prototype = {
 		// Set the navigator series data to the new data of the base series
 		if (navigatorSeries && !navigator.hasNavigatorData) {
 			navigatorSeries.options.pointStart = baseSeries.xData[0];
-			navigatorSeries.setData(baseSeries.options.data, false, null, false); // #5414
+			navigatorSeries.setData(
+				baseSeries.options.data,
+				false,
+				null,
+				false
+			); // #5414
 		}
 	},
 
@@ -1772,7 +1930,8 @@ Navigator.prototype = {
 	 */
 	addChartEvents: function () {
 		addEvent(this.chart, 'redraw', function () {
-			// Move the scrollbar after redraw, like after data updata even if axes don't redraw
+			// Move the scrollbar after redraw, like after data updata even if
+			// axes don't redraw
 			var navigator = this.navigator,
 				xAxis = navigator && (
 					navigator.baseSeries &&
@@ -1832,8 +1991,9 @@ Navigator.prototype = {
 H.Navigator = Navigator;
 
 /**
- * For Stock charts, override selection zooming with some special features because
- * X axis zooming is already allowed by the Navigator and Range selector.
+ * For Stock charts, override selection zooming with some special features
+ * because X axis zooming is already allowed by the Navigator and Range
+ * selector.
  */
 wrap(Axis.prototype, 'zoom', function (proceed, newMin, newMax) {
 	var chart = this.chart,
@@ -1847,8 +2007,8 @@ wrap(Axis.prototype, 'zoom', function (proceed, newMin, newMax) {
 	if (this.isXAxis && ((navigator && navigator.enabled) ||
 			(rangeSelector && rangeSelector.enabled))) {
 
-		// For x only zooming, fool the chart.zoom method not to create the zoom button
-		// because the property already exists
+		// For x only zooming, fool the chart.zoom method not to create the zoom
+		// button because the property already exists
 		if (zoomType === 'x') {
 			chart.resetZoomButton = 'blocked';
 
@@ -1856,8 +2016,8 @@ wrap(Axis.prototype, 'zoom', function (proceed, newMin, newMax) {
 		} else if (zoomType === 'y') {
 			ret = false;
 
-		// For xy zooming, record the state of the zoom before zoom selection, then when
-		// the reset button is pressed, revert to this state
+		// For xy zooming, record the state of the zoom before zoom selection,
+		// then when the reset button is pressed, revert to this state
 		} else if (zoomType === 'xy') {
 			previousZoom = this.previousZoom;
 			if (defined(newMin)) {
@@ -1888,9 +2048,10 @@ wrap(Chart.prototype, 'init', function (proceed, options, callback) {
 });
 
 /**
- * For stock charts, extend the Chart.setChartSize method so that we can set the final top position
- * of the navigator once the height of the chart, including the legend, is determined. #367.
- * We can't use Chart.getMargins, because labels offsets are not calculated yet.
+ * For stock charts, extend the Chart.setChartSize method so that we can set the
+ * final top position of the navigator once the height of the chart, including
+ * the legend, is determined. #367. We can't use Chart.getMargins, because
+ * labels offsets are not calculated yet.
  */
 wrap(Chart.prototype, 'setChartSize', function (proceed) {
 
@@ -1904,7 +2065,7 @@ wrap(Chart.prototype, 'setChartSize', function (proceed) {
 	proceed.apply(this, [].slice.call(arguments, 1));
 
 	if (navigator) {
-		legendOptions = legend.options;
+		legendOptions = legend && legend.options;
 		xAxis = navigator.xAxis;
 		yAxis = navigator.yAxis;
 		scrollbarHeight = navigator.scrollbarHeight;
@@ -1912,15 +2073,31 @@ wrap(Chart.prototype, 'setChartSize', function (proceed) {
 		// Compute the top position
 		if (this.inverted) {
 			navigator.left = navigator.opposite ?
-				this.chartWidth - scrollbarHeight - navigator.height : 
+				this.chartWidth - scrollbarHeight - navigator.height :
 				this.spacing[3] + scrollbarHeight;
 			navigator.top = this.plotTop + scrollbarHeight;
 		} else {
 			navigator.left = this.plotLeft + scrollbarHeight;
 			navigator.top = navigator.navigatorOptions.top ||
-				this.chartHeight - navigator.height - scrollbarHeight - this.spacing[2] -
-					(legendOptions.verticalAlign === 'bottom' && legendOptions.enabled && !legendOptions.floating ?
-						legend.legendHeight + pick(legendOptions.margin, 10) : 0);
+				this.chartHeight -
+				navigator.height -
+				scrollbarHeight -
+				this.spacing[2] -
+				(
+					this.rangeSelector && this.extraBottomMargin ?
+						this.rangeSelector.getHeight() :
+						0
+				) -
+				(
+					(
+						legendOptions &&
+						legendOptions.verticalAlign === 'bottom' &&
+						legendOptions.enabled &&
+						!legendOptions.floating
+					) ?
+						legend.legendHeight + pick(legendOptions.margin, 10) :
+						0
+				);
 		}
 
 		if (xAxis && yAxis) { // false if navigator is disabled (#904)
@@ -1938,19 +2115,36 @@ wrap(Chart.prototype, 'setChartSize', function (proceed) {
 });
 
 // Pick up badly formatted point options to addPoint
-wrap(Series.prototype, 'addPoint', function (proceed, options, redraw, shift, animation) {
+wrap(Series.prototype, 'addPoint', function (
+	proceed,
+	options,
+	redraw,
+	shift,
+	animation
+) {
 	var turboThreshold = this.options.turboThreshold;
-	if (turboThreshold && this.xData.length > turboThreshold && isObject(options, true) && this.chart.navigator) {
+	if (
+		turboThreshold &&
+		this.xData.length > turboThreshold &&
+		isObject(options, true) &&
+		this.chart.navigator
+	) {
 		error(20, true);
 	}
 	proceed.call(this, options, redraw, shift, animation);
 });
 
 // Handle adding new series
-wrap(Chart.prototype, 'addSeries', function (proceed, options, redraw, animation) {
+wrap(Chart.prototype, 'addSeries', function (
+	proceed,
+	options,
+	redraw,
+	animation
+) {
 	var series = proceed.call(this, options, false, animation);
 	if (this.navigator) {
-		this.navigator.setBaseSeries(); // Recompute which series should be shown in navigator, and add them
+		// Recompute which series should be shown in navigator, and add them
+		this.navigator.setBaseSeries(null, false);
 	}
 	if (pick(redraw, true)) {
 		this.redraw();
@@ -1962,7 +2156,7 @@ wrap(Chart.prototype, 'addSeries', function (proceed, options, redraw, animation
 wrap(Series.prototype, 'update', function (proceed, newOptions, redraw) {
 	proceed.call(this, newOptions, false);
 	if (this.chart.navigator && !this.options.isInternal) {
-		this.chart.navigator.setBaseSeries();
+		this.chart.navigator.setBaseSeries(null, false);
 	}
 	if (pick(redraw, true)) {
 		this.chart.redraw();
@@ -1980,6 +2174,3 @@ Chart.prototype.callbacks.push(function (chart) {
 	}
 });
 
-/* ****************************************************************************
- * End Navigator code														  *
- *****************************************************************************/

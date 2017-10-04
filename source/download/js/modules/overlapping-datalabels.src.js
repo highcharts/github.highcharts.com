@@ -24,6 +24,11 @@ Chart.prototype.callbacks.push(function (chart) {
 	function collectAndHide() {
 		var labels = [];
 
+		// Consider external label collectors
+		each(chart.labelCollectors || [], function (collector) {
+			labels = labels.concat(collector());
+		});
+
 		each(chart.yAxis || [], function (yAxis) {
 			if (
 				yAxis.options.stackLabels &&
@@ -63,11 +68,8 @@ Chart.prototype.callbacks.push(function (chart) {
 		chart.hideOverlappingLabels(labels);
 	}
 
-	// Do it now ...
-	collectAndHide();
-
-	// ... and after each chart redraw
-	addEvent(chart, 'redraw', collectAndHide);
+	// Do it on render and after each chart redraw
+	addEvent(chart, 'render', collectAndHide);
 
 });
 

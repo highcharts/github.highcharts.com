@@ -12,7 +12,6 @@ import './Point.js';
 import './Pointer.js';
 import './Series.js';
 import './SvgRenderer.js';
-import './VmlRenderer.js';
 var arrayMax = H.arrayMax,
 	arrayMin = H.arrayMin,
 	Axis = H.Axis,
@@ -41,6 +40,53 @@ var arrayMax = H.arrayMax,
 	seriesInit = seriesProto.init, 
 	seriesProcessData = seriesProto.processData,
 	pointTooltipFormatter = Point.prototype.tooltipFormatter;
+
+
+/**
+ * Compare the values of the series against the first non-null, non-
+ * zero value in the visible range. The y axis will show percentage
+ * or absolute change depending on whether `compare` is set to `"percent"`
+ * or `"value"`. When this is applied to multiple series, it allows
+ * comparing the development of the series against each other.
+ * 
+ * @type {String}
+ * @see [compareBase](#plotOptions.series.compareBase), [Axis.setCompare()](#Axis.
+ * setCompare())
+ * @sample {highstock} stock/plotoptions/series-compare-percent/ Percent
+ * @sample {highstock} stock/plotoptions/series-compare-value/ Value
+ * @default undefined
+ * @since 1.0.1
+ * @product highstock
+ * @apioption plotOptions.series.compare
+ */
+
+/**
+ * Defines if comparisson should start from the first point within the visible
+ * range or should start from the first point <b>before</b> the range.
+ * In other words, this flag determines if first point within the visible range
+ * will have 0% (base) or should have been already calculated according to the
+ * previous point.
+ *
+ * @type {Boolean}
+ * @sample {highstock} stock/plotoptions/series-comparestart/ Calculate compare within visible range
+ * @default undefined
+ * @since 6.0.0
+ * @product highstock
+ * @apioption plotOptions.series.compareStart
+ */
+
+/**
+ * When [compare](#plotOptions.series.compare) is `percent`, this option
+ * dictates whether to use 0 or 100 as the base of comparison.
+ * 
+ * @validvalue [0, 100]
+ * @type {Number}
+ * @sample {highstock} / Compare base is 100
+ * @default 0
+ * @since 5.0.6
+ * @product highstock
+ * @apioption plotOptions.series.compareBase
+ */
 
 /**
  * Factory function for creating new stock charts. Creates a new {@link Chart|
@@ -113,6 +159,7 @@ H.StockChart = H.stockChart = function (a, b, c) {
 			{ // defaults
 				minPadding: 0,
 				maxPadding: 0,
+				overscroll: 0,
 				ordinal: true,
 				title: {
 					text: null
@@ -173,7 +220,7 @@ H.StockChart = H.stockChart = function (a, b, c) {
 				text: null
 			},
 			tooltip: {
-				shared: true,
+				split: true,
 				crosshairs: true
 			},
 			legend: {
@@ -258,7 +305,7 @@ wrap(Axis.prototype, 'getPlotLinePath', function (proceed, value, lineWidth, old
 		x2,
 		y2,
 		result = [],
-		axes = [], //#3416 need a default array
+		axes = [], // #3416 need a default array
 		axes2,
 		uniqueAxes,
 		transVal;
@@ -311,7 +358,7 @@ wrap(Axis.prototype, 'getPlotLinePath', function (proceed, value, lineWidth, old
 	// Remove duplicates in the axes array. If there are no axes in the axes array,
 	// we are adding an axis without data, so we need to populate this with grid
 	// lines (#2796).
-	uniqueAxes = axes.length ? [] : [axis.isXAxis ? chart.yAxis[0] : chart.xAxis[0]]; //#3742
+	uniqueAxes = axes.length ? [] : [axis.isXAxis ? chart.yAxis[0] : chart.xAxis[0]]; // #3742
 	each(axes, function (axis2) {
 		if (
 			inArray(axis2, uniqueAxes) === -1 &&
@@ -368,7 +415,7 @@ wrap(Axis.prototype, 'getPlotLinePath', function (proceed, value, lineWidth, old
 	}
 	return result.length > 0 ?
 		renderer.crispPolyLine(result, lineWidth || 1) :
-		null; //#3557 getPlotLinePath in regular Highcharts also returns null
+		null; // #3557 getPlotLinePath in regular Highcharts also returns null
 });
 
 // Override getPlotBandPath to allow for multipane charts
@@ -649,6 +696,7 @@ seriesProto.processData = function () {
 		keyIndex = -1,
 		processedXData,
 		processedYData,
+		compareStart = series.options.compareStart === true ? 0 : 1,
 		length,
 		compareValue;
 
@@ -673,11 +721,15 @@ seriesProto.processData = function () {
 		}
 
 		// find the first value for comparison
-		for (i = 0; i < length - 1; i++) {
+		for (i = 0; i < length - compareStart; i++) {
 			compareValue = processedYData[i] && keyIndex > -1 ? 
 				processedYData[i][keyIndex] :
 				processedYData[i];
-			if (isNumber(compareValue) && processedXData[i + 1] >= series.xAxis.min && compareValue !== 0) {
+			if (
+				isNumber(compareValue) &&
+				processedXData[i + compareStart] >= series.xAxis.min &&
+				compareValue !== 0
+			) {
 				series.compareValue = compareValue;
 				break;
 			}

@@ -8,7 +8,7 @@ import H from './Globals.js';
 import './Utilities.js';
 import './Series.js';
 import './SvgRenderer.js';
-import './VmlRenderer.js';
+import onSeriesMixin from '../mixins/on-series.js';
 var addEvent = H.addEvent,
 	each = H.each,
 	merge = H.merge,
@@ -16,29 +16,55 @@ var addEvent = H.addEvent,
 	Renderer = H.Renderer,
 	Series = H.Series,
 	seriesType = H.seriesType,
-	seriesTypes = H.seriesTypes,
 	SVGRenderer = H.SVGRenderer,
 	TrackerMixin = H.TrackerMixin,
 	VMLRenderer = H.VMLRenderer,
-	symbols = SVGRenderer.prototype.symbols,
-	stableSort = H.stableSort;
+	symbols = SVGRenderer.prototype.symbols;
 
 /**
- * The flags series type.
- *
+ * The Flags series.
  * @constructor seriesTypes.flags
  * @augments seriesTypes.column
  */
 /**
+ * Flags are used to mark events in stock charts. They can be added on the
+ * timeline, or attached to a specific series.
+ *
+ * @sample stock/demo/flags-general/ Flags on a line series
  * @extends {plotOptions.column}
+ * @excluding animation,borderColor,borderRadius,borderWidth,colorByPoint,dataGrouping,pointPadding,pointWidth,turboThreshold
+ * @product highstock
  * @optionparent plotOptions.flags
  */
 seriesType('flags', 'column', {
 
 	/**
+	 * In case the flag is placed on a series, on what point key to place
+	 * it. Line and columns have one key, `y`. In range or OHLC-type series,
+	 * however, the flag can optionally be placed on the `open`, `high`,
+	 *  `low` or `close` key.
+	 * 
+	 * @validvalue ["y", "open", "high", "low", "close"]
+	 * @type {String}
+	 * @sample {highstock} stock/plotoptions/flags-onkey/ Range series, flag on high
+	 * @default y
+	 * @since 4.2.2
+	 * @product highstock
+	 * @apioption plotOptions.flags.onKey
 	 */
+
+	/**
+	 * The id of the series that the flags should be drawn on. If no id
+	 * is given, the flags are drawn on the x axis.
+	 * 
+	 * @type {String}
+	 * @sample {highstock} stock/plotoptions/flags/ Flags on series and on x axis
+	 * @default undefined
+	 * @product highstock
+	 * @apioption plotOptions.flags.onSeries
+	 */
+
 	pointRange: 0, // #673
-	//radius: 2,
 
 	/**
 	 * The shape of the marker. Can be one of "flag", "circlepin", "squarepin",
@@ -87,15 +113,20 @@ seriesType('flags', 'column', {
 	 * @product highstock
 	 */
 	tooltip: {
-
-		/**
-		 */
 		pointFormat: '{point.text}<br/>'
 	},
 
-	/**
-	 */
 	threshold: null,
+
+	/**
+	 * The text to display on each flag. This can be defined on series level,
+	 *  or individually for each point. Defaults to `"A"`.
+	 * 
+	 * @type {String}
+	 * @default "A"
+	 * @product highstock
+	 * @apioption plotOptions.flags.title
+	 */
 
 	/**
 	 * The y position of the top left corner of the flag relative to either
@@ -107,15 +138,41 @@ seriesType('flags', 'column', {
 	 * @product highstock
 	 */
 	y: -30,
+
+	/**
+	 * Whether to use HTML to render the flag texts. Using HTML allows for
+	 * advanced formatting, images and reliable bi-directional text rendering.
+	 * Note that exported images won't respect the HTML, and that HTML
+	 * won't respect Z-index settings.
+	 * 
+	 * @type {Boolean}
+	 * @default false
+	 * @since 1.3
+	 * @product highstock
+	 * @apioption plotOptions.flags.useHTML
+	 */
+
 	/*= if (build.classic) { =*/
 
 	/**
+	 * The fill color for the flags.
 	 */
 	fillColor: '${palette.backgroundColor}',
-	// lineColor: color,
+	
+	/**
+	 * The color of the line/border of the flag.
+	 * 
+	 * In styled mode, the stroke is set in the `.highcharts-flag-series
+	 * .highcharts-point` rule.
+	 * 
+	 * @type {Color}
+	 * @default #000000
+	 * @product highstock
+	 * @apioption plotOptions.flags.lineColor
+	 */
 
 	/**
-	 * The pixel width of the candlestick line/border. Defaults to `1`.
+	 * The pixel width of the flag's line/border.
 	 * 
 	 * @type {Number}
 	 * @default 1
@@ -123,8 +180,6 @@ seriesType('flags', 'column', {
 	 */
 	lineWidth: 1,
 
-	/**
-	 */
 	states: {
 
 		/**
@@ -134,7 +189,7 @@ seriesType('flags', 'column', {
 		hover: {
 
 			/**
-			 * The color of the line/border of the flag Defaults to `"black"`.
+			 * The color of the line/border of the flag.
 			 * 
 			 * @type {String}
 			 * @default "black"
@@ -143,7 +198,7 @@ seriesType('flags', 'column', {
 			lineColor: '${palette.neutralColor100}',
 
 			/**
-			 * The fill or background color of the flag Defaults to `"#FCFFC5"`.
+			 * The fill or background color of the flag.
 			 * 
 			 * @type {String}
 			 * @default "#FCFFC5"
@@ -156,8 +211,7 @@ seriesType('flags', 'column', {
 	/**
 	 * The text styles of the flag.
 	 * 
-	 * In [styled mode](http://www.highcharts.com/docs/chart-design-and-
-	 * style/style-by-css), the styles are set in the `.highcharts-flag-
+	 * In styled mode, the styles are set in the `.highcharts-flag-
 	 * series .highcharts-point` rule.
 	 * 
 	 * @type {CSSObject}
@@ -165,13 +219,7 @@ seriesType('flags', 'column', {
 	 * @product highstock
 	 */
 	style: {
-
-		/**
-		 */
 		fontSize: '11px',
-
-		/**
-		 */
 		fontWeight: 'bold'
 	}
 	/*= } =*/
@@ -213,107 +261,7 @@ seriesType('flags', 'column', {
 	},
 	/*= } =*/
 
-	/**
-	 * Extend the translate method by placing the point on the related series
-	 */
-	translate: function () {
-
-		seriesTypes.column.prototype.translate.apply(this);
-
-		var series = this,
-			options = series.options,
-			chart = series.chart,
-			points = series.points,
-			cursor = points.length - 1,
-			point,
-			lastPoint,
-			optionsOnSeries = options.onSeries,
-			onSeries = optionsOnSeries && chart.get(optionsOnSeries),
-			onKey = options.onKey || 'y',
-			step = onSeries && onSeries.options.step,
-			onData = onSeries && onSeries.points,
-			i = onData && onData.length,
-			xAxis = series.xAxis,
-			yAxis = series.yAxis,
-			xAxisExt = xAxis.getExtremes(),
-			xOffset = 0,
-			leftPoint,
-			lastX,
-			rightPoint,
-			currentDataGrouping;
-
-		// relate to a master series
-		if (onSeries && onSeries.visible && i) {
-			xOffset = (onSeries.pointXOffset || 0) + (onSeries.barW || 0) / 2;
-			currentDataGrouping = onSeries.currentDataGrouping;
-			lastX = onData[i - 1].x + (currentDataGrouping ? currentDataGrouping.totalRange : 0); // #2374
-
-			// sort the data points
-			stableSort(points, function (a, b) {
-				return (a.x - b.x);
-			});
-
-			onKey = 'plot' + onKey[0].toUpperCase() + onKey.substr(1);
-			while (i-- && points[cursor]) {
-				point = points[cursor];
-				leftPoint = onData[i];
-				if (leftPoint.x <= point.x && leftPoint[onKey] !== undefined) {
-					if (point.x <= lastX) { // #803
-
-						point.plotY = leftPoint[onKey];
-
-						// interpolate between points, #666
-						if (leftPoint.x < point.x && !step) {
-							rightPoint = onData[i + 1];
-							if (rightPoint && rightPoint[onKey] !== undefined) {
-								point.plotY +=
-									((point.x - leftPoint.x) / (rightPoint.x - leftPoint.x)) * // the distance ratio, between 0 and 1
-									(rightPoint[onKey] - leftPoint[onKey]); // the y distance
-							}
-						}
-					}
-					cursor--;
-					i++; // check again for points in the same x position
-					if (cursor < 0) {
-						break;
-					}
-				}
-			}
-		}
-
-		// Add plotY position and handle stacking
-		each(points, function (point, i) {
-
-			var stackIndex;
-
-			// Undefined plotY means the point is either on axis, outside series
-			// range or hidden series. If the series is outside the range of the
-			// x axis it should fall through with an undefined plotY, but then
-			// we must remove the shapeArgs (#847).
-			if (point.plotY === undefined) {
-				if (point.x >= xAxisExt.min && point.x <= xAxisExt.max) {
-					// we're inside xAxis range
-					point.plotY = chart.chartHeight - xAxis.bottom -
-						(xAxis.opposite ? xAxis.height : 0) +
-						xAxis.offset - yAxis.top; // #3517
-				} else {
-					point.shapeArgs = {}; // 847
-				}
-			}
-			point.plotX += xOffset; // #2049
-			// if multiple flags appear at the same x, order them into a stack
-			lastPoint = points[i - 1];
-			if (lastPoint && lastPoint.plotX === point.plotX) {
-				if (lastPoint.stackIndex === undefined) {
-					lastPoint.stackIndex = 0;
-				}
-				stackIndex = lastPoint.stackIndex + 1;
-			}
-			point.stackIndex = stackIndex; // #3639
-		});
-
-
-	},
+	translate: onSeriesMixin.translate,
 
 	/**
 	 * Draw the markers
@@ -525,6 +473,72 @@ if (Renderer === VMLRenderer) {
 	});
 }
 /*= } =*/
-/* ****************************************************************************
- * End Flags series code													  *
- *****************************************************************************/
+
+/**
+ * A `flags` series. If the [type](#series.flags.type) option is not
+ * specified, it is inherited from [chart.type](#chart.type).
+ * 
+ * For options that apply to multiple series, it is recommended to add
+ * them to the [plotOptions.series](#plotOptions.series) options structure.
+ * To apply to all series of this specific type, apply it to [plotOptions.
+ * flags](#plotOptions.flags).
+ * 
+ * @type {Object}
+ * @extends series,plotOptions.flags
+ * @excluding dataParser,dataURL
+ * @product highstock
+ * @apioption series.flags
+ */
+
+/**
+ * An array of data points for the series. For the `flags` series type,
+ * points can be given in the following ways:
+ * 
+ * 1.  An array of objects with named values. The objects are point
+ * configuration objects as seen below. If the total number of data
+ * points exceeds the series' [turboThreshold](#series.flags.turboThreshold),
+ * this option is not available.
+ * 
+ *  ```js
+ *     data: [{
+ *     x: 1,
+ *     title: "A",
+ *     text: "First event"
+ * }, {
+ *     x: 1,
+ *     title: "B",
+ *     text: "Second event"
+ * }]</pre>
+ * 
+ * @type {Array<Object>}
+ * @extends series.line.data
+ * @excluding y,dataLabels,marker,name
+ * @product highstock
+ * @apioption series.flags.data
+ */
+
+/**
+ * The fill color of an individual flag. By default it inherits from
+ * the series color.
+ * 
+ * @type {Color}
+ * @product highstock
+ * @apioption series.flags.data.fillColor
+ */
+
+/**
+ * The longer text to be shown in the flag's tooltip.
+ * 
+ * @type {String}
+ * @product highstock
+ * @apioption series.flags.data.text
+ */
+
+/**
+ * The short text to be shown on the flag.
+ * 
+ * @type {String}
+ * @product highstock
+ * @apioption series.flags.data.title
+ */
+
