@@ -15,9 +15,10 @@
     "standard": "^10.0.3"
   },
   "scripts": {
-    "test": "mocha test/test.js",
     "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "build": "node ./scripts/deploy.js",
+    "test": "npm run lint && npm run unit-tests",
+    "unit-tests": "mocha test/test.js",
     "update-assembler": "node ./scripts/update-assembler.js",
     "update-download-source": "node ./scripts/update-download-source.js"
   },
