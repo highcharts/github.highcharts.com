@@ -4,12 +4,12 @@
  */
 'use strict'
 const express = require('express')
+const path = require('path')
 const router = express.Router()
 const config = require('../config.json')
 const D = require('./download.js')
 const I = require('./interpreter.js')
 const {
-  cleanPath,
   debug,
   exists,
   formatDate,
@@ -77,11 +77,11 @@ const serveStaticFile = (repositoryURL, requestURL) => {
       ? Promise.resolve({ status: response.ok.status })
       : D.downloadFile(filePath, file, outputFolder)
     ).then(result => {
-      const localPath = __dirname + '/../' + outputFolder + file
+      const localPath = path.join(__dirname, '/../', outputFolder, file)
       const r = (
         result.status === response.ok.status
         ? {
-          file: cleanPath(localPath),
+          file: localPath,
           status: response.ok.status,
           message: false
         }
@@ -113,9 +113,9 @@ const serveBuildFile = (repositoryURL, requestURL) => {
   const outputFolder = folder + 'output/'
   return (exists(folder + 'js/masters/') ? Promise.resolve() : D.downloadJSFolder(folder, repositoryURL, branch))
     .then(() => {
-      const localPath = __dirname + '/../' + outputFolder + (type === 'css' ? 'js/' : '') + file
+      const localPath = path.join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
       let obj = {
-        file: cleanPath(localPath),
+        file: localPath,
         status: response.ok.status
       }
       const fileExists = exists(outputFolder + (type === 'css' ? 'js/' : '') + file)
@@ -215,7 +215,7 @@ const serveDownloadFile = (jsonParts, compile) => {
     }
     if (exists(outputFolder + outputFile)) {
       result = {
-        file: cleanPath(__dirname + '/../' + outputFolder + outputFile),
+        file: path.join(__dirname, '/../', outputFolder, outputFile),
         message: false,
         delete: true
       }
@@ -281,7 +281,7 @@ router.post('/update', (req, res) => {
  * @todo Use express.static in stead if send file.
  */
 router.get('/favicon.ico', (req, res) => {
-  const pathIndex = cleanPath(__dirname + '/../assets/favicon.ico')
+  const pathIndex = path.join(__dirname, '/../assets/favicon.ico')
   res.sendFile(pathIndex)
 })
 
@@ -307,7 +307,7 @@ router.get('/', (req, res) => {
   (
     parts
     ? serveDownloadFile(parts, compile)
-    : Promise.resolve({ file: cleanPath(__dirname + '/../views/index.html') })
+    : Promise.resolve({ file: path.join(__dirname, '/../views/index.html') })
   )
   .then(result => handleResult(result, res))
   .catch(err => handleError(err, res))

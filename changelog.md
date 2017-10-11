@@ -34,3 +34,4 @@
 - Added compression to build package.
 - Added initial robots.txt
 - Removed use of forever.
+- Replaced filesystem function cleanPath with path.join.

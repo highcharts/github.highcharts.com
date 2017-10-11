@@ -102,7 +102,7 @@ const createDirectory = ph => {
 
 const copyFile = (ph, output) => {
   const fs = require('fs')
-  const base = __dirname + '/'
+  const base = path.join(__dirname, '/')
   const outFile = base + output
   createDirectory(folder(outFile))
   fs.createReadStream(base + ph).pipe(fs.createWriteStream(outFile))
@@ -173,17 +173,6 @@ const randomString = (length) => {
   }).join('')
 }
 
-const cleanPath = ph => {
-  let p = ph
-  while (p.indexOf('/./') > -1) {
-    p = p.replace('/./', '/')
-  }
-  while (p.indexOf('/../') > -1) {
-    p = p.replace(/[\\\/]([^\\\/]+[\\\/]\.\.[\\\/])/g, '/')
-  }
-  return p
-}
-
 /**
  * formatDate - Format a date as YYYY-MM-DDTHH-MM-SS.
  * @param {Date} date A Date object to be formatted.
@@ -209,7 +198,6 @@ const formatDate = (date) => {
 }
 
 module.exports = {
-  cleanPath,
   copyFile,
   createDirectory,
   debug,
