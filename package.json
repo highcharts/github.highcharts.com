@@ -5,7 +5,6 @@
   "main": "server.js",
   "dependencies": {
     "express": "^4.14.0",
-    "forever": "^0.15.2",
     "google-closure-compiler-js": "^20160916.0.0",
     "js-beautify": "^1.6.4"
   },
@@ -16,9 +15,6 @@
     "standard": "^10.0.3"
   },
   "scripts": {
-    "start": "node node_modules/forever/bin/forever start -a server.js",
-    "stop": "node node_modules/forever/bin/forever stop server.js",
-    "restart": "node node_modules/forever/bin/forever restart server.js",
     "test": "mocha test/test.js",
     "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "build": "node ./scripts/deploy.js",

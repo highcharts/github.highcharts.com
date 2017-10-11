@@ -33,3 +33,4 @@
 - Extracted file options from getFileOptions.
 - Added compression to build package.
 - Added initial robots.txt
+- Removed use of forever.
