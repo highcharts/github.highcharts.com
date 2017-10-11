@@ -8,7 +8,16 @@ const router = express.Router()
 const config = require('../config.json')
 const D = require('./download.js')
 const I = require('./interpreter.js')
-const U = require('./utilities.js')
+const {
+  cleanPath,
+  debug,
+  exists,
+  formatDate,
+  getFilesInFolder,
+  removeDirectory,
+  removeFile,
+  writeFile
+} = require('./filesystem.js')
 const publicConfig = require('./message.json')
 const response = publicConfig.response
 const build = require('../assembler/build.js').build
@@ -23,12 +32,12 @@ const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
  * @return {undefined}
  */
 const handleError = (err, res) => {
-  const date = U.formatDate(new Date())
+  const date = formatDate(new Date())
   const content = [
     date,
     (typeof err === 'object') ? err.stack : err
   ]
-  U.debug(true, content.join('\n'))
+  debug(true, content.join('\n'))
   res.status(response.error.status).send(response.error.body)
 }
 
@@ -48,7 +57,7 @@ const handleResult = (result, res) => {
       resolve()
     }
   })
-  .then(() => (result.delete && result.file) ? U.removeFile(result.file) : '')
+  .then(() => (result.delete && result.file) ? removeFile(result.file) : '')
 }
 
 /**
@@ -64,7 +73,7 @@ const serveStaticFile = (repositoryURL, requestURL) => {
   const outputFolder = folder + 'output/'
   return new Promise((resolve, reject) => {
     const filePath = repositoryURL + branch + '/js/';
-    (U.exists(outputFolder + file)
+    (exists(outputFolder + file)
       ? Promise.resolve({ status: response.ok.status })
       : D.downloadFile(filePath, file, outputFolder)
     ).then(result => {
@@ -72,7 +81,7 @@ const serveStaticFile = (repositoryURL, requestURL) => {
       const r = (
         result.status === response.ok.status
         ? {
-          file: U.cleanPath(localPath),
+          file: cleanPath(localPath),
           status: response.ok.status,
           message: false
         }
@@ -102,21 +111,21 @@ const serveBuildFile = (repositoryURL, requestURL) => {
   const file = I.getFile(branch, type, requestURL)
   const folder = tmpFolder + branch + '/'
   const outputFolder = folder + 'output/'
-  return (U.exists(folder + 'js/masters/') ? Promise.resolve() : D.downloadJSFolder(folder, repositoryURL, branch))
+  return (exists(folder + 'js/masters/') ? Promise.resolve() : D.downloadJSFolder(folder, repositoryURL, branch))
     .then(() => {
       const localPath = __dirname + '/../' + outputFolder + (type === 'css' ? 'js/' : '') + file
       let obj = {
-        file: U.cleanPath(localPath),
+        file: cleanPath(localPath),
         status: response.ok.status
       }
-      const fileExists = U.exists(outputFolder + (type === 'css' ? 'js/' : '') + file)
-      const mastersExists = U.exists(folder + 'js/masters/' + file)
+      const fileExists = exists(outputFolder + (type === 'css' ? 'js/' : '') + file)
+      const mastersExists = exists(folder + 'js/masters/' + file)
       if (!mastersExists) {
         obj = {
           status: response.notFound.status
         }
       } else if (!fileExists) {
-        const files = U.getFilesInFolder(folder + 'js/masters/')
+        const files = getFilesInFolder(folder + 'js/masters/')
         const fileOptions = I.getFileOptions(files, publicConfig.fileOptions)
         try {
           build({
@@ -156,7 +165,7 @@ const serveDownloadFile = (jsonParts, compile) => {
     const outputFolder = folder + 'output/'
     const LB = '\r\n' // Line break
     const imports = parts.reduce((arr, path) => {
-      if (U.exists(sourceFolder + path)) {
+      if (exists(sourceFolder + path)) {
         arr.push('import \'' + importFolder + path + '\';')
       }
       return arr
@@ -176,7 +185,7 @@ const serveDownloadFile = (jsonParts, compile) => {
     ].join(LB)
     let outputFile = 'custom.src.js'
     let result
-    U.writeFile(folder + outputFile, content)
+    writeFile(folder + outputFile, content)
     try {
       build({
         base: folder,
@@ -193,7 +202,7 @@ const serveDownloadFile = (jsonParts, compile) => {
       })
     }
     if (compile) {
-      if (U.exists(outputFolder + outputFile)) {
+      if (exists(outputFolder + outputFile)) {
         C.compile(outputFolder + outputFile)
         outputFile = 'custom.js'
       } else {
@@ -204,9 +213,9 @@ const serveDownloadFile = (jsonParts, compile) => {
         resolve(result)
       }
     }
-    if (U.exists(outputFolder + outputFile)) {
+    if (exists(outputFolder + outputFile)) {
       result = {
-        file: U.cleanPath(__dirname + '/../' + outputFolder + outputFile),
+        file: cleanPath(__dirname + '/../' + outputFolder + outputFile),
         message: false,
         delete: true
       }
@@ -245,7 +254,7 @@ router.post('/update', (req, res) => {
     const branch = ref.split('/').pop()
     if (branch) {
       path = tmpFolder + branch
-      exists = U.exists(path)
+      exists = exists(path)
       message = exists ? response.cacheDeleted.body : response.noCache.body
       status = exists ? response.cacheDeleted.status : response.noCache.status
     } else {
@@ -257,7 +266,7 @@ router.post('/update', (req, res) => {
     status = response.insecureWebhook.status
   }
 
-  (exists ? U.removeDirectory(path) : Promise.resolve(false))
+  (exists ? removeDirectory(path) : Promise.resolve(false))
   .then(() => ({
     status: status,
     message: message
@@ -272,7 +281,7 @@ router.post('/update', (req, res) => {
  * @todo Use express.static in stead if send file.
  */
 router.get('/favicon.ico', (req, res) => {
-  const pathIndex = U.cleanPath(__dirname + '/../assets/favicon.ico')
+  const pathIndex = cleanPath(__dirname + '/../assets/favicon.ico')
   res.sendFile(pathIndex)
 })
 
@@ -298,7 +307,7 @@ router.get('/', (req, res) => {
   (
     parts
     ? serveDownloadFile(parts, compile)
-    : Promise.resolve({ file: U.cleanPath(__dirname + '/../views/index.html') })
+    : Promise.resolve({ file: cleanPath(__dirname + '/../views/index.html') })
   )
   .then(result => handleResult(result, res))
   .catch(err => handleError(err, res))

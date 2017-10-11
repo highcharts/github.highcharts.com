@@ -4,6 +4,10 @@
  * @todo Add license
  */
 'use strict'
+const {
+  getFile,
+  writeFile
+} = require('./filesystem.js')
 /**
  * Compile a single file.
  * @param {string} path Path to source file
@@ -11,9 +15,8 @@
  */
 const compile = (path) => {
   const closureCompiler = require('google-closure-compiler-js')
-  const U = require('./utilities.js')
   const outputPath = path.replace('.src.js', '.js')
-  const src = U.getFile(path)
+  const src = getFile(path)
   const out = closureCompiler.compile({
     compilationLevel: 'SIMPLE_OPTIMIZATIONS',
     jsCode: [{
@@ -22,7 +25,7 @@ const compile = (path) => {
     languageIn: 'ES5',
     languageOut: 'ES5'
   })
-  U.writeFile(outputPath, out.compiledCode)
+  writeFile(outputPath, out.compiledCode)
 }
 
 module.exports = {

@@ -5,6 +5,11 @@
  */
 'use strict'
 const https = require('https')
+const {
+  createDirectory,
+  folder
+} = require('./filesystem.js')
+
 /**
  * Check if a url returns 200.
  * @param  {string} url Url to check
@@ -22,12 +27,11 @@ const urlExists = url => new Promise(resolve => {
  * @return {Promise} Returns a promise when resolved contains the status code and path to the file.
  */
 const downloadFile = (base, path, output) => {
-  const U = require('./utilities.js')
   return new Promise((resolve) => {
     const fs = require('fs')
     let url = base + '/' + path
     let outputPath = output + path
-    U.createDirectory(U.folder(outputPath))
+    createDirectory(folder(outputPath))
     https.get(url, response => {
       if (response.statusCode === 200) {
         let file = fs.createWriteStream(outputPath)

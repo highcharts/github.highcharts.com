@@ -5,10 +5,12 @@
  * @todo Add license
  */
 'use strict'
-const U = require('./utilities')
-const isObject = U.isObject
-const isArray = U.isArray
-const isString = U.isString
+const {
+  isArray,
+  isObject,
+  isString
+} = require('./utilities')
+
 /**
  * Returns fileOptions for the build script
  * @return {Object} Object containing all fileOptions
