@@ -39,22 +39,22 @@
   },
   "fileOptions": {
     "modules": {
-      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "exclude": "parts[\\\\/][^\\\\/]+\\.js$",
       "umd": false
     },
     "themes": {
-      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "exclude": "parts[\\\\/][^\\\\/]+\\.js$",
       "umd": false
     },
     "modules/solid-gauge.src.js": {
-      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$|GaugeSeries\\.js$"
+      "exclude": "parts[\\\\/][^\\\\/]+\\.js$|GaugeSeries\\.js$"
     },
     "highcharts-more.src.js": {
-      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "exclude": "parts[\\\\/][^\\\\/]+\\.js$",
       "umd": false
     },
     "highcharts-3d.src.js": {
-      "exclude": "parts[\\\\\\\/][^\\\\\\\/]+\\.js$",
+      "exclude": "parts[\\\\/][^\\\\/]+\\.js$",
       "umd": false
     }
   }
