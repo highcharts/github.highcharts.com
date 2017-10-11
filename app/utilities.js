@@ -23,11 +23,26 @@ const isDate = (x) => (
   !isNaN(x.getDay())
 )
 
+/**
+ * @todo Add type checking
+ * @todo Check length of char
+ * @todo Add tests
+ */
+const padStart = (str, length, char) => {
+  const rep = length - str.length
+  let padding = ''
+  if (rep > 0) {
+    padding = char.repeat(rep)
+  }
+  return padding + str
+}
+
 module.exports = {
   isArray,
   isBool,
   isDate,
   isObject,
   isString,
-  isUndefined
+  isUndefined,
+  padStart
 }

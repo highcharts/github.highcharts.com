@@ -11,7 +11,8 @@ const {
   isBool,
   isDate,
   isString,
-  isUndefined
+  isUndefined,
+  padStart
 } = require('./utilities.js')
 
 const fsStat = p => {
@@ -184,14 +185,14 @@ const formatDate = (date) => {
   if (isDate(date)) {
     const day = [
       date.getUTCFullYear(),
-      date.getUTCMonth(),
+      date.getUTCMonth() + 1,
       date.getUTCDate()
-    ].join('-')
+    ].map((x, i) => padStart(('' + x), (i > 0 ? 2 : 4), '0')).join('-')
     const time = 'T' + [
       date.getUTCHours(),
       date.getUTCMinutes(),
       date.getUTCSeconds()
-    ].join('-')
+    ].map(x => padStart(('' + x), 2, '0')).join('-')
     result = day + time
   }
   return result
