@@ -1,4 +1,5 @@
 # github.highcharts.com
+[![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.
 
 ## Code documentation
@@ -10,12 +11,10 @@ Clone repository and put the repository folder in the same folder which the High
 Open a CLI and run the command: `npm install`
 
 ## Run the application
-Open a CLI and run the command: `npm run start`
+Open a CLI and run the command: `npm start`
 
 Open `http://localhost:80` in a browser and you should see the index page of the app.
 You can edit which port the application listens to, by setting the attribute `port` in `config.json`.
-
-To stop the application from running, open a CLI and run `npm run stop`.
 
 ## Update the Highcharts version used in the Download Builder
 Open a CLI and run the following command:
@@ -71,12 +70,6 @@ All the files of the Highcharts assembler, copied directly from the Highcharts r
 #### assets
 Contains assets like CSS, images, etc.
 
-#### logs
-Temporary folder where error logs are written to.
-
-Important: Shall not be committed to Github, nor deployed.
-
-`@todo` Write log files to `tmp` folder, in stead of `logs`.
 #### node_modules
 Where the Node modules are installed.
 
