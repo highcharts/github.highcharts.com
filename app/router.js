@@ -247,16 +247,16 @@ router.post('/update', (req, res) => {
   const hook = W.validateWebHook(req)
   let status
   let message
-  let exists = false
+  let ex = false
   let path = ''
   if (hook.valid) {
     const ref = body.ref
     const branch = ref.split('/').pop()
     if (branch) {
       path = tmpFolder + branch
-      exists = exists(path)
-      message = exists ? response.cacheDeleted.body : response.noCache.body
-      status = exists ? response.cacheDeleted.status : response.noCache.status
+      ex = exists(path)
+      message = ex ? response.cacheDeleted.body : response.noCache.body
+      status = ex ? response.cacheDeleted.status : response.noCache.status
     } else {
       status = response.invalidBranch.status
       message = response.invalidBranch.body
@@ -266,7 +266,7 @@ router.post('/update', (req, res) => {
     status = response.insecureWebhook.status
   }
 
-  (exists ? removeDirectory(path) : Promise.resolve(false))
+  (ex ? removeDirectory(path) : Promise.resolve(false))
   .then(() => ({
     status: status,
     message: message
