@@ -11,7 +11,9 @@ const isBool = x => (typeof x === 'boolean')
 
 const isArray = x => Array.isArray(x)
 
-const isObject = x => ((typeof x === 'object') && !isArray(x))
+const isNull = x => x === null
+
+const isObject = x => ((typeof x === 'object') && !isArray(x) && !isNull(x))
 
 /**
  * isDate - Checks wether the input is a valid Date object.
@@ -29,18 +31,24 @@ const isDate = (x) => (
  * @todo Add tests
  */
 const padStart = (str, length, char) => {
-  const rep = length - str.length
-  let padding = ''
-  if (rep > 0) {
-    padding = char.repeat(rep)
+  let result = false
+  if (isString(str)) {
+    const paddingLength = length - str.length
+    let padding = ''
+    if (paddingLength > 0) {
+      let c = isString(char) ? char : ' '
+      padding = c.repeat(paddingLength).slice(0, paddingLength)
+    }
+    result = padding + str
   }
-  return padding + str
+  return result
 }
 
 module.exports = {
   isArray,
   isBool,
   isDate,
+  isNull,
   isObject,
   isString,
   isUndefined,

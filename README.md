@@ -1,5 +1,6 @@
 # github.highcharts.com
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
+
 Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.
 
 ## Code documentation
