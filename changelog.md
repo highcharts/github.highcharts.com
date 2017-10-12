@@ -16,7 +16,7 @@
 - Updated assembler files.
 - Updated source files used in download builder to v5.0.2.
 
-## 1.3.0 [WIP]
+## 1.3.0
 - Fixed issue with validation of Github Webhook.
 - Fixed issue with custom body parser.
 - Updated source files used in download builder to v6.0.0.
@@ -35,3 +35,5 @@
 - Added initial robots.txt
 - Removed use of forever.
 - Replaced filesystem function cleanPath with path.join.
+
+## 1.4.0 [WIP]
