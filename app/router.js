@@ -71,6 +71,11 @@ const serveStaticFile = (repositoryURL, requestURL) => {
   const file = I.getFile(branch, 'classic', requestURL)
   const folder = tmpFolder + branch + '/'
   const outputFolder = folder + 'output/'
+  if (file === false) {
+    return {
+      status: response.notFound.status
+    }
+  }
   return new Promise((resolve, reject) => {
     const filePath = repositoryURL + branch + '/js/';
     (exists(outputFolder + file)
@@ -111,41 +116,49 @@ const serveBuildFile = (repositoryURL, requestURL) => {
   const file = I.getFile(branch, type, requestURL)
   const folder = tmpFolder + branch + '/'
   const outputFolder = folder + 'output/'
-  return (exists(folder + 'js/masters/') ? Promise.resolve() : D.downloadJSFolder(folder, repositoryURL, branch))
-    .then(() => {
-      const localPath = path.join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
-      let obj = {
-        file: localPath,
-        status: response.ok.status
+  if (file === false) {
+    return {
+      status: response.notFound.status
+    }
+  }
+  return (
+    exists(folder + 'js/masters/')
+    ? Promise.resolve()
+    : D.downloadJSFolder(folder, repositoryURL, branch)
+  ).then(() => {
+    const localPath = path.join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
+    let obj = {
+      file: localPath,
+      status: response.ok.status
+    }
+    const fileExists = exists(outputFolder + (type === 'css' ? 'js/' : '') + file)
+    const mastersExists = exists(folder + 'js/masters/' + file)
+    if (!mastersExists) {
+      obj = {
+        status: response.notFound.status
       }
-      const fileExists = exists(outputFolder + (type === 'css' ? 'js/' : '') + file)
-      const mastersExists = exists(folder + 'js/masters/' + file)
-      if (!mastersExists) {
+    } else if (!fileExists) {
+      const files = getFilesInFolder(folder + 'js/masters/')
+      const fileOptions = I.getFileOptions(files, publicConfig.fileOptions)
+      try {
+        build({
+          base: folder + 'js/masters/',
+          output: outputFolder,
+          files: [file],
+          pretty: false,
+          type: type,
+          version: branch,
+          fileOptions: fileOptions
+        })
+      } catch (e) {
         obj = {
-          status: response.notFound.status
-        }
-      } else if (!fileExists) {
-        const files = getFilesInFolder(folder + 'js/masters/')
-        const fileOptions = I.getFileOptions(files, publicConfig.fileOptions)
-        try {
-          build({
-            base: folder + 'js/masters/',
-            output: outputFolder,
-            files: [file],
-            pretty: false,
-            type: type,
-            version: branch,
-            fileOptions: fileOptions
-          })
-        } catch (e) {
-          obj = {
-            message: response.invalidBuild.body,
-            status: response.invalidBuild.status
-          }
+          message: response.invalidBuild.body,
+          status: response.invalidBuild.status
         }
       }
-      return obj
-    }).catch(err => Promise.reject(err))
+    }
+    return obj
+  }).catch(err => Promise.reject(err))
 }
 
 /**
