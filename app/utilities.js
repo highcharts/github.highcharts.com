@@ -25,6 +25,17 @@ const isDate = (x) => (
   !isNaN(x.getDay())
 )
 
+const isJSON = x => {
+  let result = false
+  if (isString(x)) {
+    try {
+      JSON.parse(x)
+      result = true
+    } catch (e) {}
+  }
+  return result
+}
+
 /**
  * @todo Add type checking
  * @todo Check length of char
@@ -48,6 +59,7 @@ module.exports = {
   isArray,
   isBool,
   isDate,
+  isJSON,
   isNull,
   isObject,
   isString,

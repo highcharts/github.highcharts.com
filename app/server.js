@@ -9,18 +9,26 @@
 const express = require('express')
 const router = require('./router.js')
 const config = require('../config.json')
+const {
+  isJSON
+} = require('./utilities.js')
 const app = express()
 const port = process.env.PORT || config.port || 80
-console.log('Listening to port: ' + port)
-app.use((req, res, next) => {
-  req.rawBody = ''
+
+const bodyJSONParser = (req, res, next) => {
+  let rawBody = ''
   req.on('data', chunk => {
-    req.rawBody += chunk
+    rawBody += chunk
   })
   req.on('end', () => {
-    req.body = req.rawBody !== '' ? JSON.parse(req.rawBody) : {}
+    if (isJSON(rawBody)) {
+      req.body = JSON.parse(rawBody)
+    }
     next()
   })
-})
+}
+
+console.log('Listening to port: ' + port)
+app.use(bodyJSONParser)
 app.use('/', router) // Register router
 app.listen(port) // Start server

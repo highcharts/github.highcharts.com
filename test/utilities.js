@@ -10,6 +10,7 @@ describe('utilities.js', () => {
       'isArray',
       'isBool',
       'isDate',
+      'isJSON',
       'isNull',
       'isObject',
       'isString',
@@ -112,6 +113,21 @@ describe('utilities.js', () => {
     })
     it('should return false when function', () => {
       expect(isDate(function () {})).to.equal(false)
+    })
+  })
+  describe('isJSON', () => {
+    const isJSON = defaults.isJSON
+    it('should return false when undefined', () => {
+      expect(isJSON('{}')).to.equal(true)
+    })
+    it('should return false when undefined', () => {
+      expect(isJSON(undefined)).to.equal(false)
+    })
+    it('should return false when not a string', () => {
+      expect(isJSON({})).to.equal(false)
+    })
+    it('should return false when invalid JSON', () => {
+      expect(isJSON('{ message: m }')).to.equal(false)
     })
   })
   describe('isNull', () => {
