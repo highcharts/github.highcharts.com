@@ -24,6 +24,10 @@ const build = require('../assembler/build.js').build
 const tmpFolder = './tmp/'
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
+const setConnectionAborted = (req) => () => {
+  req.connectionAborted = true
+}
+
 /**
  * Handle any errors that is catched in the routers.
  * Respond with a proper message to the requester.
@@ -31,14 +35,16 @@ const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
  * @param  {object} res Express response object.
  * @return {undefined}
  */
-const handleError = (err, res) => {
+const handleError = (err, res, req) => {
   const date = formatDate(new Date())
   const content = [
     date,
     (typeof err === 'object') ? err.stack : err
   ]
   debug(true, content.join('\n'))
-  res.status(response.error.status).send(response.error.body)
+  if (!req.connectionAborted) {
+    res.status(response.error.status).send(response.error.body)
+  }
 }
 
 /**
@@ -48,12 +54,16 @@ const handleError = (err, res) => {
  * @param  {object} res Express response object.
  * @return {Promise} Returns a promise which resolves after response is sent, and temp folder is deleted.
  */
-const handleResult = (result, res) => {
+const handleResult = (result, res, req) => {
   return new Promise((resolve, reject) => {
     if (result.file) {
-      res.sendFile(result.file, (err) => (err ? reject(err) : resolve()))
+      if (!req.connectionAborted) {
+        res.sendFile(result.file, (err) => (err ? reject(err) : resolve()))
+      }
     } else {
-      res.status(result.status).send(result.message)
+      if (!req.connectionAborted) {
+        res.status(result.status).send(result.message)
+      }
       resolve()
     }
   })
@@ -246,7 +256,10 @@ const serveDownloadFile = (jsonParts, compile) => {
  * Health check url
  */
 router.get('/health', (req, res) => {
-  res.sendStatus(response.ok.status)
+  req.on('close', setConnectionAborted(req))
+  if (!req.connectionAborted) {
+    res.sendStatus(response.ok.status)
+  }
 })
 
 /**
@@ -262,6 +275,7 @@ router.post('/update', (req, res) => {
   let message
   let ex = false
   let path = ''
+  req.on('close', setConnectionAborted(req))
   if (hook.valid) {
     const ref = body.ref
     const branch = ref.split('/').pop()
@@ -284,8 +298,8 @@ router.post('/update', (req, res) => {
     status: status,
     message: message
   }))
-  .then(result => handleResult(result, res))
-  .catch(err => handleError(err, res))
+  .then(result => handleResult(result, res, req))
+  .catch(err => handleError(err, res, req))
 })
 
 /**
@@ -295,7 +309,10 @@ router.post('/update', (req, res) => {
  */
 router.get('/favicon.ico', (req, res) => {
   const pathIndex = path.join(__dirname, '/../assets/favicon.ico')
-  res.sendFile(pathIndex)
+  req.on('close', setConnectionAborted(req))
+  if (!req.connectionAborted) {
+    res.sendFile(pathIndex)
+  }
 })
 
 /**
@@ -306,7 +323,10 @@ router.get('/favicon.ico', (req, res) => {
 router.get('/robots.txt', (req, res) => {
   const path = require('path')
   const location = path.join(__dirname, '../assets/robots.txt')
-  res.sendFile(location)
+  req.on('close', setConnectionAborted(req))
+  if (!req.connectionAborted) {
+    res.sendFile(location)
+  }
 })
 
 /**
@@ -316,14 +336,17 @@ router.get('/robots.txt', (req, res) => {
  */
 router.get('/', (req, res) => {
   const parts = req.query.parts
-  const compile = req.query.compile === 'true';
-  (
+  const compile = req.query.compile === 'true'
+  req.on('close', setConnectionAborted(req))
+  const promise = (
     parts
     ? serveDownloadFile(parts, compile)
     : Promise.resolve({ file: path.join(__dirname, '/../views/index.html') })
   )
-  .then(result => handleResult(result, res))
-  .catch(err => handleError(err, res))
+
+  return promise
+  .then(result => handleResult(result, res, req))
+  .catch(err => handleError(err, res, req))
 })
 
 /**
@@ -332,10 +355,11 @@ router.get('/', (req, res) => {
  */
 router.get('*', (req, res) => {
   const branch = I.getBranch(req.url)
-  D.urlExists(downloadURL + branch + '/assembler/build.js')
+  req.on('close', setConnectionAborted(req))
+  return D.urlExists(downloadURL + branch + '/assembler/build.js')
     .then(result => result ? serveBuildFile(downloadURL, req.url) : serveStaticFile(downloadURL, req.url))
-    .then(result => handleResult(result, res))
-    .catch(err => handleError(err, res))
+    .then(result => handleResult(result, res, req))
+    .catch(err => handleError(err, res, req))
 })
 
 module.exports = router
