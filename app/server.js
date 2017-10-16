@@ -10,19 +10,22 @@ const express = require('express')
 const router = require('./router.js')
 const config = require('../config.json')
 const {
-  isJSON
+  isJSON,
+  isString
 } = require('./utilities.js')
 const app = express()
 const port = process.env.PORT || config.port || 80
 
 const bodyJSONParser = (req, res, next) => {
-  let rawBody = ''
+  req.rawBody = ''
   req.on('data', chunk => {
-    rawBody += chunk
+    if (isString(chunk)) {
+      req.rawBody += chunk
+    }
   })
   req.on('end', () => {
-    if (isJSON(rawBody)) {
-      req.body = JSON.parse(rawBody)
+    if (isJSON(req.rawBody)) {
+      req.body = JSON.parse(req.rawBody)
     }
     next()
   })

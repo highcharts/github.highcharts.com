@@ -6,7 +6,14 @@
 const express = require('express')
 const path = require('path')
 const router = express.Router()
-const config = require('../config.json')
+const {
+  secureToken,
+  version
+} = require('../config.json')
+const {
+  validateWebHook
+} = require('./webhook.js')
+
 const D = require('./download.js')
 const I = require('./interpreter.js')
 const {
@@ -183,7 +190,6 @@ const serveDownloadFile = (jsonParts, compile) => {
     const parts = JSON.parse(jsonParts)
     const importFolder = '../../source/download/js/'
     const sourceFolder = './source/download/js/'
-    const version = config.version // @todo Improve logic for versioning.
     const folder = tmpFolder + 'download/'
     const outputFolder = folder + 'output/'
     const LB = '\r\n' // Line break
@@ -268,9 +274,8 @@ router.get('/health', (req, res) => {
  * The removed source files will get a fresh download next time they are requested.
  */
 router.post('/update', (req, res) => {
-  const W = require('./webhook.js')
   const body = req.body
-  const hook = W.validateWebHook(req)
+  const hook = validateWebHook(req, secureToken)
   let status
   let message
   let ex = false

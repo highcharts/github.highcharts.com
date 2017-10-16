@@ -37,3 +37,4 @@
 - Replaced filesystem function cleanPath with path.join.
 
 ## 1.4.0 [WIP]
+- Added tests for webhook.js
