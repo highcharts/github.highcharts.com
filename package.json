@@ -1,6 +1,6 @@
 {
   "name": "github.highcharts.com",
-  "version": "1.3.6",
+  "version": "1.3.7",
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
   "dependencies": {
@@ -25,7 +25,6 @@
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "unit-tests": "mocha test/test.js",
-    "update-assembler": "node ./scripts/update-assembler.js",
     "update-download-source": "node ./scripts/update-download-source.js"
   },
   "repository": {

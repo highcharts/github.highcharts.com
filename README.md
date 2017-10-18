@@ -28,35 +28,30 @@ Do deployment of new version.
 
 `@todo` Publish the part files as ES6 modules on NPM and then require them. This way it will always be up to date.
 ## Update the Highcharts assembler
-Open a CLI and run the following command:
+Open a CLI and run the following command to install an updated version of the assembler:
 ```
-npm run update-assembler
+npm install highcharts/highcharts-assembler#<tag>
 ```
-Commit the changes to Github.
-
-Do deployment of new version.
-
-`@todo` Publish the assembler on NPM and then require it. This way it will always be up to date.
+Then update the version number in package.json, as normal when there is an important change.
+Commit the changes to Github, and continue on to deployment.
 
 ## Deployment
 Before deploying a new application, please ensure the following requirements are met.
 ### Requirements
-1. Any updates must be committed to ensure the running application is tracked.
-2. `config.json` is configured according to guide. (Contents of config.json stored in 1password)
+1. Version number in `package.json` must have been updated since last deployment.
+2. Any updates must be committed to ensure the running application is tracked.
+3. `config.json` is configured according to guide. (Contents of config.json stored in 1password)
 
 ### Packaging
 Open a CLI and run the following command:
 `npm run build`
-The application will be packed into an archive named `github.highcharts.com.zip`. The zip is ready to be uploaded and unpacked on your server.
+The application will be packed into an archive named `github.highcharts-<version>.zip`. The zip is ready to be uploaded and unpacked on your server.
 
 ## File Structure
 ### Folders
 ```
 - app
-- assembler
 - assets
-- logs
-- node_modules
 - source
 - tmp
 - views
@@ -70,11 +65,6 @@ All the files of the Highcharts assembler, copied directly from the Highcharts r
 
 #### assets
 Contains assets like CSS, images, etc.
-
-#### node_modules
-Where the Node modules are installed.
-
-Important: Shall not be committed to Github, nor deployed.
 
 #### source
 Where the source files of the Download Builder is located.
