@@ -38,3 +38,4 @@
 
 ## 1.4.0 [WIP]
 - Added tests for webhook.js
+- Loading assembler through npm, in stead of local installment.

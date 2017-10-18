@@ -27,7 +27,9 @@ const {
 } = require('./filesystem.js')
 const publicConfig = require('./message.json')
 const response = publicConfig.response
-const build = require('../assembler/build.js').build
+const {
+  build
+} = require('highcharts-assembler')
 const tmpFolder = './tmp/'
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
@@ -361,8 +363,13 @@ router.get('/', (req, res) => {
 router.get('*', (req, res) => {
   const branch = I.getBranch(req.url)
   req.on('close', setConnectionAborted(req))
-  return D.urlExists(downloadURL + branch + '/assembler/build.js')
-    .then(result => result ? serveBuildFile(downloadURL, req.url) : serveStaticFile(downloadURL, req.url))
+  // If a master file exist, then create dist file using highcharts-assembler.
+  return D.urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
+    .then(result => (
+      result
+      ? serveBuildFile(downloadURL, req.url)
+      : serveStaticFile(downloadURL, req.url)
+    ))
     .then(result => handleResult(result, res, req))
     .catch(err => handleError(err, res, req))
 })
