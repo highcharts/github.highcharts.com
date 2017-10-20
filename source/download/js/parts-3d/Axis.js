@@ -27,7 +27,6 @@ var ZAxis,
 	wrap = H.wrap;
 
 /**
- * Options to render axis in 3 dimensions. 
  * @optionparent xAxis
  */
 var extendedOptions = {
@@ -121,7 +120,7 @@ merge(true, Axis.prototype.defaultOptions, extendedOptions);
 wrap(Axis.prototype, 'setOptions', function (proceed, userOptions) {
 	var options;
 	proceed.call(this, userOptions);
-	if (this.chart.is3d() && this.coll !== 'colorAxis') {
+	if (this.chart.is3d && this.chart.is3d() && this.coll !== 'colorAxis') {
 		options = this.options;
 		options.tickWidth = pick(options.tickWidth, 0);
 		options.gridLineWidth = pick(options.gridLineWidth, 1);

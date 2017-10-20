@@ -18,7 +18,7 @@ import H from './Globals.js';
  * @namespace Highcharts
  */
 
-var timers = [];
+H.timers = [];
 
 var charts = H.charts,
 	doc = H.doc,
@@ -154,6 +154,7 @@ H.Fx.prototype = {
 	 */
 	run: function (from, to, unit) {
 		var self = this,
+			options = self.options,
 			timer = function (gotoEnd) {
 				return timer.stopped ? false : self.step(gotoEnd);
 			},
@@ -163,20 +164,20 @@ H.Fx.prototype = {
 					setTimeout(step, 13);
 				},
 			step = function () {
-				var i;
-				for (i = 0; i < timers.length; i++) {
-					if (!timers[i]()) {
-						timers.splice(i--, 1);
-					}
-				}
+				H.timers = H.grep(H.timers, function (timer) {
+					return timer();
+				});
 
-				if (timers.length) {
+				if (H.timers.length) {
 					requestAnimationFrame(step);
 				}
 			};
 
 		if (from === to) {
-			delete this.options.curAnim[this.prop];
+			delete options.curAnim[this.prop];
+			if (options.complete && H.keys(options.curAnim).length === 0) {
+				options.complete();
+			}
 		} else { // #7166
 			this.startTime = +new Date();
 			this.start = from;
@@ -188,7 +189,7 @@ H.Fx.prototype = {
 			timer.elem = this.elem;
 			timer.prop = this.prop;
 
-			if (timer() && timers.push(timer) === 1) {
+			if (timer() && H.timers.push(timer) === 1) {
 				requestAnimationFrame(step);
 			}
 		}
@@ -212,7 +213,7 @@ H.Fx.prototype = {
 			complete = options.complete,
 			duration = options.duration,
 			curAnim = options.curAnim;
-		
+
 		if (elem.attr && !elem.element) { // #2616, element is destroyed
 			ret = false;
 
@@ -1555,9 +1556,21 @@ H.grep = function (arr, callback) {
  *        condition.
  * @returns {Mixed} - The value of the element.
  */
-H.find = function (arr, callback) {
-	return (H.findPolyfill || Array.prototype.find).call(arr, callback);
-};
+H.find = Array.prototype.find ?
+	function (arr, callback) {
+		return arr.find(callback);
+	} :
+	// Legacy implementation. PhantomJS, IE <= 11 etc. #7223.
+	function (arr, fn) {
+		var i,
+			length = arr.length;
+
+		for (i = 0; i < length; i++) {
+			if (fn(arr[i], i)) {
+				return arr[i];
+			}
+		}
+	};
 
 /**
  * Map an array by a callback.
@@ -1579,6 +1592,18 @@ H.map = function (arr, fn) {
 	}
 
 	return results;
+};
+
+/**
+ * Returns an array of a given object's own properties.
+ *
+ * @function #keys
+ * @memberOf highcharts
+ * @param {Object} obj - The object of which the properties are to be returned.
+ * @returns {Array} - An array of strings that represents all the properties.
+ */
+H.keys = function (obj) {
+	return (H.keysPolyfill || Object.keys).call(undefined, obj);
 };
 
 /**
@@ -1612,7 +1637,9 @@ H.reduce = function (arr, func, initialValue) {
  */
 H.offset = function (el) {
 	var docElem = doc.documentElement,
-		box = el.getBoundingClientRect();
+		box = el.parentElement ? // IE11 throws Unspecified error in test suite
+			el.getBoundingClientRect() :
+			{ top: 0, left: 0 };
 
 	return {
 		top: box.top  + (win.pageYOffset || docElem.scrollTop) -
@@ -1640,12 +1667,12 @@ H.offset = function (el) {
  */
 H.stop = function (el, prop) {
 
-	var i = timers.length;
+	var i = H.timers.length;
 
 	// Remove timers related to this element (#4519)
 	while (i--) {
-		if (timers[i].elem === el && (!prop || prop === timers[i].prop)) {
-			timers[i].stopped = true; // #4667
+		if (H.timers[i].elem === el && (!prop || prop === H.timers[i].prop)) {
+			H.timers[i].stopped = true; // #4667
 		}
 	}
 };

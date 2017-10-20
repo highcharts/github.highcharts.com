@@ -140,18 +140,20 @@ if (!Array.prototype.filter) {
 	};
 }
 
-if (!Array.prototype.find) {
-	H.findPolyfill = function (fn) {
-		var i,
-			length = this.length;
-
-		for (i = 0; i < length; i++) {
-			if (fn(this[i], i)) {
-				return this[i];
+if (!Object.prototype.keys) {
+	H.keysPolyfill = function (obj) {
+		var result = [],
+			hasOwnProperty = Object.prototype.hasOwnProperty,
+			prop;
+		for (prop in obj) {
+			if (hasOwnProperty.call(obj, prop)) {
+				result.push(prop);
 			}
 		}
+		return result;
 	};
 }
+
 
 if (!Array.prototype.reduce) {
 	H.reducePolyfill = function (func, initialValue) {

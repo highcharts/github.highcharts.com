@@ -13,6 +13,7 @@ import drawPoint from '../mixins/draw-point.js';
 import '../parts/Series.js';
 var each = H.each,
 	extend = H.extend,
+	isArray = H.isArray,
 	isNumber = H.isNumber,
 	isObject = H.isObject,
 	Series = H.Series;
@@ -71,15 +72,97 @@ var intersectsAnyWord = function intersectsAnyWord(point, points) {
 /**
  * archimedeanSpiral - Gives a set of cordinates for an Archimedian Spiral.
  *
- * @param  {type} t How far along the spiral we have traversed.
- * @return {object} Resulting coordinates, x and y.
+ * @param {number} attempt How far along the spiral we have traversed.
+ * @param {object} params Additional parameters.
+ * @param {object} params.field Size of field.
+ * @return {boolean|object} Resulting coordinates, x and y. False if the word
+ * should be dropped from the visualization.
  */
-var archimedeanSpiral = function archimedeanSpiral(t) {
-	t *= 0.1;
-	return {
-		x: t * Math.cos(t),
-		y: t * Math.sin(t)
-	};
+var archimedeanSpiral = function archimedeanSpiral(attempt, params) {
+	var field = params.field,
+		result = false,
+		maxDelta = (field.width * field.width) + (field.height * field.height),
+		t = attempt * 0.2;
+	// Emergency brake. TODO make spiralling logic more foolproof.
+	if (attempt <= 10000) {
+		result = {
+			x: t * Math.cos(t),
+			y: t * Math.sin(t)
+		};
+		if (!(Math.min(Math.abs(result.x), Math.abs(result.y)) < maxDelta)) {
+			result = false;
+		}
+	}
+	return result;
+};
+
+/**
+ * squareSpiral - Gives a set of cordinates for an rectangular spiral.
+ *
+ * @param {number} attempt How far along the spiral we have traversed.
+ * @param {object} params Additional parameters.
+ * @return {boolean|object} Resulting coordinates, x and y. False if the word
+ * should be dropped from the visualization.
+ */
+var squareSpiral = function squareSpiral(attempt) {
+	var k = Math.ceil((Math.sqrt(attempt) - 1) / 2),
+		t = 2 * k + 1,
+		m = Math.pow(t, 2),
+		isBoolean = function (x) {
+			return typeof x === 'boolean';
+		},
+		result = false;
+	t -= 1;
+	if (attempt <= 10000) {
+		if (isBoolean(result) && attempt >= m - t) {
+			result = {
+				x: k - (m - attempt),
+				y: -k
+			};
+		}
+		m -= t;
+		if (isBoolean(result) && attempt >= m - t) {
+			result = {
+				x: -k,
+				y: -k + (m - attempt)
+			};
+		}
+		
+		m -= t;
+		if (isBoolean(result)) {
+			if (attempt >= m - t) {
+				result = {
+					x: -k + (m - attempt),
+					y: k
+				};
+			} else {
+				result =  {
+					x: k,
+					y: k - (m - attempt - t)
+				};
+			}
+		}
+		result.x *= 5;
+		result.y *= 5;
+	}
+	return result;
+};
+
+/**
+ * rectangularSpiral - Gives a set of cordinates for an rectangular spiral.
+ *
+ * @param {number} attempt How far along the spiral we have traversed.
+ * @param {object} params Additional parameters.
+ * @return {boolean|object} Resulting coordinates, x and y. False if the word
+ * should be dropped from the visualization.
+ */
+var rectangularSpiral = function rectangularSpiral(attempt, params) {
+	var result = squareSpiral(attempt, params),
+		field = params.field;
+	if (result) {
+		result.x *= field.ratio;
+	}
+	return result;
 };
 
 /**
@@ -124,7 +207,8 @@ var getPlayingField = function getPlayingField(targetWidth, targetHeight) {
 	var ratio = targetWidth / targetHeight;
 	return {
 		width: 256 * ratio,
-		height: 256
+		height: 256,
+		ratio: ratio
 	};
 };
 
@@ -184,9 +268,7 @@ var intersectionTesting = function intersectionTesting(point, options) {
 		field = options.field,
 		clientRect = options.clientRect,
 		spiral = options.spiral,
-		maxDelta = options.maxDelta,
-		spiralIsSmallish = true,
-		attempt = 0,
+		attempt = 1,
 		delta = {
 			x: 0,
 			y: 0
@@ -203,25 +285,19 @@ var intersectionTesting = function intersectionTesting(point, options) {
 		(
 			intersectsAnyWord(point, placed) ||
 			outsidePlayingField(element, field)
-		) && spiralIsSmallish
+		) && delta !== false
 	) {
-		delta = spiral(attempt);
-		// Update the DOMRect with new positions.
-		rect.left = clientRect.left + delta.x;
-		rect.right = rect.left + rect.width;
-		rect.top = clientRect.top + delta.y;
-		rect.bottom = rect.top + rect.height;
-		spiralIsSmallish = (
-			Math.min(Math.abs(delta.x), Math.abs(delta.y)) < maxDelta
-		);
-		attempt++;
-		// Emergency brake. TODO make spiralling logic more foolproof.
-		if (attempt > 1000) {
-			spiralIsSmallish = false;
+		delta = spiral(attempt, {
+			field: field
+		});
+		if (isObject(delta)) {
+			// Update the DOMRect with new positions.
+			rect.left = clientRect.left + delta.x;
+			rect.right = rect.left + rect.width;
+			rect.top = clientRect.top + delta.y;
+			rect.bottom = rect.top + rect.height;
 		}
-	}
-	if (!spiralIsSmallish) {
-		delta = false;
+		attempt++;
 	}
 	return delta;
 };
@@ -292,9 +368,9 @@ var wordCloudOptions = {
 	 * for use in word cloud. Read more about it in our
 	 * [documentation](https://www.highcharts.com/docs/chart-and-series-types/word-cloud-series#custom-placement-strategies)
 	 *
-	 * @validvalue: ["random"]
+	 * @validvalue: ["center", "random"]
 	 */
-	placementStrategy: 'random',
+	placementStrategy: 'center',
 	/**
 	 * Rotation options for the words in the wordcloud.
 	 * @sample highcharts/plotoptions/wordcloud-rotation
@@ -323,9 +399,9 @@ var wordCloudOptions = {
 	 * for use in word cloud. Read more about it in our
 	 * [documentation](https://www.highcharts.com/docs/chart-and-series-types/word-cloud-series#custom-spiralling-algorithm)
 	 *
-	 * @validvalue: ["archimedean"]
+	 * @validvalue: ["archimedean", "rectangular", "square"]
 	 */
-	spiral: 'archimedean',
+	spiral: 'rectangular',
 	/**
 	 * CSS styles for the words.
 	 *
@@ -394,7 +470,6 @@ var wordCloudSeries = {
 				}),
 			maxWeight = Math.max.apply(null, weights),
 			field = getPlayingField(xAxis.len, yAxis.len),
-			maxDelta = (field.width * field.width) + (field.height * field.height),
 			data = series.points
 				.sort(function (a, b) {
 					return b.weight - a.weight; // Sort descending
@@ -431,7 +506,6 @@ var wordCloudSeries = {
 				clientRect: clientRect,
 				element: testElement,
 				field: field,
-				maxDelta: maxDelta,
 				placed: placed,
 				spiral: spiral
 			});
@@ -495,6 +569,15 @@ var wordCloudSeries = {
 			scaleY: scale
 		});
 	},
+	hasData: function () {
+		var series = this;
+		return (
+			isObject(series) &&
+			series.visible === true &&
+			isArray(series.points) &&
+			series.points.length > 0
+		);
+	},
 	/**
 	 * Strategies used for deciding rotation and initial position of a word.
 	 * To implement a custom strategy, have a look at the function
@@ -509,6 +592,14 @@ var wordCloudSeries = {
 				y: getRandomPosition(field.height) - (field.height / 2),
 				rotation: getRotation(r.orientations, r.from, r.to)
 			};
+		},
+		center: function centerPlacement(point, options) {
+			var r = options.rotation;
+			return {
+				x: 0,
+				y: 0,
+				rotation: getRotation(r.orientations, r.from, r.to)
+			};
 		}
 	},
 	pointArrayMap: ['weight'],
@@ -519,7 +610,9 @@ var wordCloudSeries = {
 	 *    example.
 	 */
 	spirals: {
-		'archimedean': archimedeanSpiral
+		'archimedean': archimedeanSpiral,
+		'rectangular': rectangularSpiral,
+		'square': squareSpiral
 	},
 	getPlotBox: function () {
 		var series = this,

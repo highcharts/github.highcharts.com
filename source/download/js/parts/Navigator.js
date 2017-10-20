@@ -146,7 +146,7 @@ extend(defaultOptions, {
 			/**
 			 * Width for handles.
 			 *
-			 * @type {umber}
+			 * @type {Number}
 			 * @default 7
 			 * @product highstock
 			 * @sample {highstock} stock/navigator/styled-handles/
@@ -1774,14 +1774,14 @@ Navigator.prototype = {
 
 		each(baseSeries, function (base) {
 			// Link base series show/hide to navigator series visibility
-			addEvent(base, 'show', function () {
+			addEvent(base, 'show', function (e) {
 				if (this.navigatorSeries) {
-					this.navigatorSeries.show();
+					this.navigatorSeries.setVisible(true, e.redraw);
 				}
 			});
-			addEvent(base, 'hide', function () {
+			addEvent(base, 'hide', function (e) {
 				if (this.navigatorSeries) {
-					this.navigatorSeries.hide();
+					this.navigatorSeries.setVisible(false, e.redraw);
 				}
 			});
 
