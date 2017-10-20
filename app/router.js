@@ -27,9 +27,7 @@ const {
 } = require('./filesystem.js')
 const publicConfig = require('./message.json')
 const response = publicConfig.response
-const {
-  build
-} = require('highcharts-assembler')
+const build = require('highcharts-assembler')
 const tmpFolder = './tmp/'
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
