@@ -15,6 +15,14 @@ const {
 const app = express()
 const port = process.env.PORT || config.port || 80
 
+const setConnectionAborted = (req, res, next) => {
+  req.on('close', () => {
+    console.log('connectionAborted')
+    req.connectionAborted = true
+  })
+  next()
+}
+
 const bodyJSONParser = (req, res, next) => {
   req.rawBody = ''
   req.on('data', chunk => {
@@ -30,6 +38,7 @@ const bodyJSONParser = (req, res, next) => {
 }
 
 console.log('Listening to port: ' + port)
+app.use(setConnectionAborted)
 app.use(bodyJSONParser)
 app.use('/', router) // Register router
 app.listen(port) // Start server

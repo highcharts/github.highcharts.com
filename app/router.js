@@ -31,10 +31,6 @@ const build = require('highcharts-assembler')
 const tmpFolder = './tmp/'
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
-const setConnectionAborted = (req) => () => {
-  req.connectionAborted = true
-}
-
 /**
  * Handle any errors that is catched in the routers.
  * Respond with a proper message to the requester.
@@ -262,7 +258,6 @@ const serveDownloadFile = (jsonParts, compile) => {
  * Health check url
  */
 router.get('/health', (req, res) => {
-  req.on('close', setConnectionAborted(req))
   if (!req.connectionAborted) {
     res.sendStatus(response.ok.status)
   }
@@ -280,7 +275,6 @@ router.post('/update', (req, res) => {
   let message
   let ex = false
   let path = ''
-  req.on('close', setConnectionAborted(req))
   if (hook.valid) {
     const ref = body.ref
     const branch = ref.split('/').pop()
@@ -314,7 +308,6 @@ router.post('/update', (req, res) => {
  */
 router.get('/favicon.ico', (req, res) => {
   const pathIndex = path.join(__dirname, '/../assets/favicon.ico')
-  req.on('close', setConnectionAborted(req))
   if (!req.connectionAborted) {
     res.sendFile(pathIndex)
   }
@@ -328,7 +321,6 @@ router.get('/favicon.ico', (req, res) => {
 router.get('/robots.txt', (req, res) => {
   const path = require('path')
   const location = path.join(__dirname, '../assets/robots.txt')
-  req.on('close', setConnectionAborted(req))
   if (!req.connectionAborted) {
     res.sendFile(location)
   }
@@ -342,7 +334,6 @@ router.get('/robots.txt', (req, res) => {
 router.get('/', (req, res) => {
   const parts = req.query.parts
   const compile = req.query.compile === 'true'
-  req.on('close', setConnectionAborted(req))
   const promise = (
     parts
     ? serveDownloadFile(parts, compile)
@@ -360,7 +351,6 @@ router.get('/', (req, res) => {
  */
 router.get('*', (req, res) => {
   const branch = I.getBranch(req.url)
-  req.on('close', setConnectionAborted(req))
   // If a master file exist, then create dist file using highcharts-assembler.
   return D.urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
     .then(result => (
