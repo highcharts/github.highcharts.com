@@ -40,3 +40,5 @@
 - Added tests for webhook.js
 - Loading assembler through npm, in stead of local installment.
 - Updated source files used in download builder to v6.0.2.
+- Moved error handling and other middleware to its own file.
+- Added unit tests for middleware.js

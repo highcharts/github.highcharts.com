@@ -17,9 +17,7 @@ const {
 const D = require('./download.js')
 const I = require('./interpreter.js')
 const {
-  debug,
   exists,
-  formatDate,
   getFilesInFolder,
   removeDirectory,
   removeFile,
@@ -30,25 +28,6 @@ const response = publicConfig.response
 const build = require('highcharts-assembler')
 const tmpFolder = './tmp/'
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
-
-/**
- * Handle any errors that is catched in the routers.
- * Respond with a proper message to the requester.
- * @param  {Error|string} err Can either be an Error object
- * @param  {object} res Express response object.
- * @return {undefined}
- */
-const handleError = (err, res, req) => {
-  const date = formatDate(new Date())
-  const content = [
-    date,
-    (typeof err === 'object') ? err.stack : err
-  ]
-  debug(true, content.join('\n'))
-  if (!req.connectionAborted) {
-    res.status(response.error.status).send(response.error.body)
-  }
-}
 
 /**
  * Handle result after processing the request.
@@ -258,9 +237,11 @@ const serveDownloadFile = (jsonParts, compile) => {
  * Health check url
  */
 router.get('/health', (req, res) => {
-  if (!req.connectionAborted) {
-    res.sendStatus(response.ok.status)
+  const result = {
+    status: response.ok.status,
+    message: response.ok.body
   }
+  return handleResult(result, res, req)
 })
 
 /**
@@ -292,13 +273,12 @@ router.post('/update', (req, res) => {
     status = response.insecureWebhook.status
   }
 
-  (ex ? removeDirectory(path) : Promise.resolve(false))
+  return (ex ? removeDirectory(path) : Promise.resolve(false))
   .then(() => ({
     status: status,
     message: message
   }))
   .then(result => handleResult(result, res, req))
-  .catch(err => handleError(err, res, req))
 })
 
 /**
@@ -307,10 +287,11 @@ router.post('/update', (req, res) => {
  * @todo Use express.static in stead if send file.
  */
 router.get('/favicon.ico', (req, res) => {
-  const pathIndex = path.join(__dirname, '/../assets/favicon.ico')
-  if (!req.connectionAborted) {
-    res.sendFile(pathIndex)
+  const location = path.join(__dirname, '/../assets/favicon.ico')
+  const result = {
+    file: location
   }
+  return handleResult(result, res, req)
 })
 
 /**
@@ -319,11 +300,11 @@ router.get('/favicon.ico', (req, res) => {
  * TODO Use express.static in stead if send file.
  */
 router.get('/robots.txt', (req, res) => {
-  const path = require('path')
   const location = path.join(__dirname, '../assets/robots.txt')
-  if (!req.connectionAborted) {
-    res.sendFile(location)
+  const result = {
+    file: location
   }
+  return handleResult(result, res, req)
 })
 
 /**
@@ -342,7 +323,6 @@ router.get('/', (req, res) => {
 
   return promise
   .then(result => handleResult(result, res, req))
-  .catch(err => handleError(err, res, req))
 })
 
 /**
@@ -359,7 +339,6 @@ router.get('*', (req, res) => {
       : serveStaticFile(downloadURL, req.url)
     ))
     .then(result => handleResult(result, res, req))
-    .catch(err => handleError(err, res, req))
 })
 
 module.exports = router

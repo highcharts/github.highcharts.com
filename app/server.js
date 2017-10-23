@@ -10,35 +10,28 @@ const express = require('express')
 const router = require('./router.js')
 const config = require('../config.json')
 const {
-  isJSON
-} = require('./utilities.js')
+  formatDate
+} = require('./filesystem.js')
+const {
+  bodyJSONParser,
+  clientErrorHandler,
+  logErrors,
+  setConnectionAborted
+} = require('./middleware.js')
 const app = express()
 const port = process.env.PORT || config.port || 80
+const date = formatDate(new Date())
+const content = [
+  'Starting server',
+  'Port: ' + port,
+  'Date: ' + date,
+  ''
+]
+console.log(content.join('\n'))
 
-const setConnectionAborted = (req, res, next) => {
-  req.on('close', () => {
-    console.log('connectionAborted')
-    req.connectionAborted = true
-  })
-  next()
-}
-
-const bodyJSONParser = (req, res, next) => {
-  req.rawBody = ''
-  req.on('data', chunk => {
-    // chunk is a buffer, but is converted to a string in the assignment.
-    req.rawBody += chunk
-  })
-  req.on('end', () => {
-    if (isJSON(req.rawBody)) {
-      req.body = JSON.parse(req.rawBody)
-    }
-    next()
-  })
-}
-
-console.log('Listening to port: ' + port)
 app.use(setConnectionAborted)
-app.use(bodyJSONParser)
 app.use('/', router) // Register router
+app.use(bodyJSONParser)
+app.use(clientErrorHandler)
+app.use(logErrors)
 app.listen(port) // Start server
