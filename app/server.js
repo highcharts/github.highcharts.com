@@ -29,9 +29,26 @@ const content = [
 ]
 console.log(content.join('\n'))
 
+/**
+ * Register middleware for ExpressJS application
+ *
+ * Important! The sequence of registering the middleware is crucial when it
+ * comes to how it executes. First come first served.
+ * 1. Listen for aborted connections
+ * 2. Parse request body.
+ * 3. Do application routing
+ * 4. If an error occurs above, the clientErrorHandler will give the client
+ *    a proper response, and pass the error to the next middleware.
+ * 5. If an error occurs above the logErrors will log it to the console, with
+ *    additional information. It will not pass the error to the next middleware.
+ */
 app.use(setConnectionAborted)
-app.use('/', router) // Register router
 app.use(bodyJSONParser)
+app.use(router)
 app.use(clientErrorHandler)
 app.use(logErrors)
-app.listen(port) // Start server
+
+/**
+ * Start the server
+ */
+app.listen(port)
