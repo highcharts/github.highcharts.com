@@ -30,6 +30,17 @@ const tmpFolder = './tmp/'
 const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
 /**
+ * catchAsyncErrors - Catch errors in async requests and pass them to the next
+ * middleware to handle the error.
+ *
+ * @param {function} asyncFn The async function to listen for errors on.
+ * @return {Promise} returns a promise function with a rejection handler.
+ */
+const catchAsyncErrors = (asyncFn) => {
+  return (req, res, next) => asyncFn(req, res, next).catch(err => next(err))
+}
+
+/**
  * Handle result after processing the request.
  * Respond with a proper message to the requester.
  * @param  {object} result Object containing information of the result of the request.
@@ -236,20 +247,80 @@ const serveDownloadFile = (jsonParts, compile) => {
 /**
  * Health check url
  */
-router.get('/health', (req, res) => {
+const handlerHealth = (req, res) => {
   const result = {
     status: response.ok.status,
     message: response.ok.body
   }
   return handleResult(result, res, req)
-})
+}
+
+/**
+ * Requests to /favicon.ico
+ * Always returns the icon file.
+ * @todo Use express.static in stead if send file.
+ */
+const handlerIcon = (req, res) => {
+  const location = path.join(__dirname, '/../assets/favicon.ico')
+  const result = {
+    file: location
+  }
+  return handleResult(result, res, req)
+}
+
+/**
+ * Requests to /robots.txt
+ * Always returns the robots file.
+ * TODO Use express.static in stead if send file.
+ */
+const handlerRobots = (req, res) => {
+  const location = path.join(__dirname, '../assets/robots.txt')
+  const result = {
+    file: location
+  }
+  return handleResult(result, res, req)
+}
+
+/**
+ * Requests to /
+ * When the parameter parts is sent, then it is a request from the Download Builder.
+ * Otherwise respond with the homepage.
+ */
+const handlerIndex = (req, res) => {
+  const parts = req.query.parts
+  const compile = req.query.compile === 'true'
+  const promise = (
+    parts
+    ? serveDownloadFile(parts, compile)
+    : Promise.resolve({ file: path.join(__dirname, '/../views/index.html') })
+  )
+
+  return promise
+  .then(result => handleResult(result, res, req))
+}
+
+/**
+ * Everything not matching the previous routers.
+ * Requests for distribution file, built with part files from github.
+ */
+const handlerDefault = (req, res) => {
+  const branch = I.getBranch(req.url)
+  // If a master file exist, then create dist file using highcharts-assembler.
+  return D.urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
+    .then(result => (
+      result
+      ? serveBuildFile(downloadURL, req.url)
+      : serveStaticFile(downloadURL, req.url)
+    ))
+    .then(result => handleResult(result, res, req))
+}
 
 /**
  * Listens to push events from a Github Webhook.
  * Validates if the payload is secure, then removes the cached source files which needs an update.
  * The removed source files will get a fresh download next time they are requested.
  */
-router.post('/update', (req, res) => {
+const handlerUpdate = (req, res) => {
   const body = req.body
   const hook = validateWebHook(req, secureToken)
   let status
@@ -279,66 +350,13 @@ router.post('/update', (req, res) => {
     message: message
   }))
   .then(result => handleResult(result, res, req))
-})
+}
 
-/**
- * Requests to /favicon.ico
- * Always returns the icon file.
- * @todo Use express.static in stead if send file.
- */
-router.get('/favicon.ico', (req, res) => {
-  const location = path.join(__dirname, '/../assets/favicon.ico')
-  const result = {
-    file: location
-  }
-  return handleResult(result, res, req)
-})
-
-/**
- * Requests to /robots.txt
- * Always returns the robots file.
- * TODO Use express.static in stead if send file.
- */
-router.get('/robots.txt', (req, res) => {
-  const location = path.join(__dirname, '../assets/robots.txt')
-  const result = {
-    file: location
-  }
-  return handleResult(result, res, req)
-})
-
-/**
- * Requests to /
- * When the parameter parts is sent, then it is a request from the Download Builder.
- * Otherwise respond with the homepage.
- */
-router.get('/', (req, res) => {
-  const parts = req.query.parts
-  const compile = req.query.compile === 'true'
-  const promise = (
-    parts
-    ? serveDownloadFile(parts, compile)
-    : Promise.resolve({ file: path.join(__dirname, '/../views/index.html') })
-  )
-
-  return promise
-  .then(result => handleResult(result, res, req))
-})
-
-/**
- * Everything not matching the previous routers.
- * Requests for distribution file, built with part files from github.
- */
-router.get('*', (req, res) => {
-  const branch = I.getBranch(req.url)
-  // If a master file exist, then create dist file using highcharts-assembler.
-  return D.urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
-    .then(result => (
-      result
-      ? serveBuildFile(downloadURL, req.url)
-      : serveStaticFile(downloadURL, req.url)
-    ))
-    .then(result => handleResult(result, res, req))
-})
+router.get('/health', catchAsyncErrors(handlerHealth))
+router.post('/update', catchAsyncErrors(handlerUpdate))
+router.get('/favicon.ico', catchAsyncErrors(handlerIcon))
+router.get('/robots.txt', catchAsyncErrors(handlerRobots))
+router.get('/', catchAsyncErrors(handlerIndex))
+router.get('*', catchAsyncErrors(handlerDefault))
 
 module.exports = router

@@ -43,3 +43,4 @@
 - Moved error handling and other middleware to its own file.
 - Added unit tests for middleware.js
 - Modified index file to use relative url's.
+- Systematic catching of errors in request handlers.
