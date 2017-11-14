@@ -291,17 +291,15 @@ seriesType('column', 'line', {
 			 * @default 0.1
 			 * @product highcharts highstock
 			 */
-			brightness: 0.1,
+			brightness: 0.1
 
-			shadow: false
 			/*= } =*/
 		},
 		/*= if (build.classic) { =*/
 
 		select: {
 			color: '${palette.neutralColor20}',
-			borderColor: '${palette.neutralColor100}',
-			shadow: false
+			borderColor: '${palette.neutralColor100}'
 		}
 		/*= } =*/
 	},
@@ -596,7 +594,11 @@ seriesType('column', 'line', {
 
 				// Reverse zeros if there's no positive value in the series
 				// in visible range (#7046)
-				if (point.y === 0 && series.dataMax <= 0) {
+				if (
+					point.y === threshold &&
+					series.dataMax <= threshold &&
+					yAxis.min < threshold // and if there's room for it (#7311)
+				) {
 					up = !up;
 				}
 
@@ -861,7 +863,7 @@ seriesType('column', 'line', {
  *
  * @type {Object}
  * @extends series,plotOptions.column
- * @excluding dataParser,dataURL
+ * @excluding dataParser,dataURL,marker
  * @product highcharts highstock
  * @apioption series.column
  */

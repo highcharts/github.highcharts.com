@@ -24,7 +24,7 @@ var addEvent = H.addEvent,
 
 /* eslint max-len: ["warn", 80, 4] */
 /**
- * Generatl distribution algorithm for distributing labels of differing size
+ * General distribution algorithm for distributing labels of differing size
  * along a confined length in two dimensions. The algorithm takes an array of
  * objects containing a size, a target and a rank. It will place the labels as
  * close as possible to their targets, skipping the lowest ranked labels if
@@ -74,7 +74,8 @@ H.distribute = function (boxes, len) {
 	boxes = map(boxes, function (box) {
 		return {
 			size: box.size,
-			targets: [box.target]
+			targets: [box.target],
+			align: pick(box.align, 0.5)
 		};
 	});
 	
@@ -84,10 +85,12 @@ H.distribute = function (boxes, len) {
 		while (i--) {
 			box = boxes[i];
 			// Composite box, average of targets
-			target = (Math.min.apply(0, box.targets) +
-				Math.max.apply(0, box.targets)) / 2;
+			target = (
+				Math.min.apply(0, box.targets) +
+				Math.max.apply(0, box.targets)
+			) / 2;
 			box.pos = Math.min(
-				Math.max(0, target - box.size / 2),
+				Math.max(0, target - box.size * box.align),
 				len - box.size
 			);
 		}
@@ -103,6 +106,7 @@ H.distribute = function (boxes, len) {
 				boxes[i - 1].targets = boxes[i - 1]
 					.targets
 					.concat(boxes[i].targets);
+				boxes[i - 1].align = 0.5;
 				
 				// Overlapping right, push left
 				if (boxes[i - 1].pos + boxes[i - 1].size > len) {
@@ -147,6 +151,33 @@ Series.prototype.drawDataLabels = function () {
 		dataLabelsGroup,
 		defer = pick(options.defer, !!seriesOptions.animation),
 		renderer = series.chart.renderer;
+
+	/*
+	 * Handle the dataLabels.filter option.
+	 */
+	function applyFilter(point, options) {
+		var filter = options.filter,
+			op,
+			prop,
+			val;
+		if (filter) {
+			op = filter.operator;
+			prop = point[filter.property];
+			val = filter.value;
+			if (
+				(op === '>' && prop > val) ||
+				(op === '<' && prop < val) ||
+				(op === '>=' && prop >= val) ||
+				(op === '<=' && prop <= val) ||
+				(op === '==' && prop == val) || // eslint-disable-line eqeqeq
+				(op === '===' && prop === val)
+			) {
+				return true;
+			}
+			return false;
+		}
+		return true;
+	}
 
 	if (options.enabled || series._hasPointLabels) {
 
@@ -199,6 +230,10 @@ Series.prototype.drawDataLabels = function () {
 				pointOptions && pointOptions.enabled,
 				generalOptions.enabled
 			) && !point.isNull; // #2282, #4641, #7112
+
+			if (enabled) {
+				enabled = applyFilter(point, pointOptions || options) === true;
+			}
 
 			if (enabled) {
 				// Create individual options structure that can be extended
@@ -323,7 +358,7 @@ Series.prototype.alignDataLabel = function (
 ) {
 	var chart = this.chart,
 		inverted = chart.inverted,
-		plotX = pick(point.plotX, -9999),
+		plotX = pick(point.dlBox && point.dlBox.centerX, point.plotX, -9999),
 		plotY = pick(point.plotY, -9999),
 		bBox = dataLabel.getBBox(),
 		fontSize,

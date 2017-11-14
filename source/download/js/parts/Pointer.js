@@ -22,7 +22,6 @@ var H = Highcharts,
 	isObject = H.isObject,
 	offset = H.offset,
 	pick = H.pick,
-	removeEvent = H.removeEvent,
 	splat = H.splat,
 	Tooltip = H.Tooltip;
 
@@ -231,14 +230,15 @@ Highcharts.Pointer.prototype = {
 	getChartCoordinatesFromPoint: function (point, inverted) {
 		var series = point.series,
 			xAxis = series.xAxis,
-			yAxis = series.yAxis;
+			yAxis = series.yAxis,
+			plotX = pick(point.clientX, point.plotX);
 
 		if (xAxis && yAxis) {
 			return inverted ? {
-				chartX: xAxis.len + xAxis.pos - point.clientX,
+				chartX: xAxis.len + xAxis.pos - plotX,
 				chartY: yAxis.len + yAxis.pos - point.plotY
 			} : {
-				chartX: point.clientX + xAxis.pos,
+				chartX: plotX + xAxis.pos,
 				chartY: point.plotY + yAxis.pos
 			};
 		}
@@ -934,9 +934,13 @@ Highcharts.Pointer.prototype = {
 		container.onclick = function (e) {
 			pointer.onContainerClick(e);
 		};
-		addEvent(container, 'mouseleave', pointer.onContainerMouseLeave);
-		if (H.chartCount === 1) {
-			addEvent(
+		this.unbindContainerMouseLeave = addEvent(
+			container,
+			'mouseleave',
+			pointer.onContainerMouseLeave
+		);
+		if (!H.unbindDocumentMouseUp) {
+			H.unbindDocumentMouseUp = addEvent(
 				ownerDoc,
 				'mouseup',
 				pointer.onDocumentMouseUp
@@ -949,8 +953,8 @@ Highcharts.Pointer.prototype = {
 			container.ontouchmove = function (e) {
 				pointer.onContainerTouchMove(e);
 			};
-			if (H.chartCount === 1) {
-				addEvent(
+			if (!H.unbindDocumentTouchEnd) {
+				H.unbindDocumentTouchEnd = addEvent(
 					ownerDoc,
 					'touchend',
 					pointer.onDocumentTouchEnd
@@ -964,22 +968,20 @@ Highcharts.Pointer.prototype = {
 	 * Destroys the Pointer object and disconnects DOM events.
 	 */
 	destroy: function () {
-		var pointer = this,
-			ownerDoc = this.chart.container.ownerDocument;
+		var pointer = this;
 
 		if (pointer.unDocMouseMove) {
 			pointer.unDocMouseMove();
 		}
 
-		removeEvent(
-			pointer.chart.container,
-			'mouseleave',
-			pointer.onContainerMouseLeave
-		);
+		this.unbindContainerMouseLeave();
+		
 		if (!H.chartCount) {
-			removeEvent(ownerDoc, 'mouseup', pointer.onDocumentMouseUp);
-			if (H.hasTouch) {
-				removeEvent(ownerDoc, 'touchend', pointer.onDocumentTouchEnd);
+			if (H.unbindDocumentMouseUp) {
+				H.unbindDocumentMouseUp = H.unbindDocumentMouseUp();
+			}
+			if (H.unbindDocumentTouchEnd) {
+				H.unbindDocumentTouchEnd = H.unbindDocumentTouchEnd();
 			}
 		}
 
