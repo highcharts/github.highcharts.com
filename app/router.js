@@ -143,22 +143,15 @@ const serveBuildFile = (repositoryURL, requestURL) => {
     } else if (!fileExists) {
       const files = getFilesInFolder(folder + 'js/masters/')
       const fileOptions = I.getFileOptions(files, publicConfig.fileOptions)
-      try {
-        build({
-          base: folder + 'js/masters/',
-          output: outputFolder,
-          files: [file],
-          pretty: false,
-          type: type,
-          version: branch,
-          fileOptions: fileOptions
-        })
-      } catch (e) {
-        obj = {
-          message: response.invalidBuild.body,
-          status: response.invalidBuild.status
-        }
-      }
+      build({
+        base: folder + 'js/masters/',
+        output: outputFolder,
+        files: [file],
+        pretty: false,
+        type: type,
+        version: branch,
+        fileOptions: fileOptions
+      })
     }
     return obj
   }).catch(err => Promise.reject(err))
@@ -201,21 +194,14 @@ const serveDownloadFile = (jsonParts, compile) => {
     let outputFile = 'custom.src.js'
     let result
     writeFile(folder + outputFile, content)
-    try {
-      build({
-        base: folder,
-        jsBase: sourceFolder,
-        output: outputFolder,
-        files: [outputFile],
-        type: 'classic',
-        version: version
-      })
-    } catch (e) {
-      resolve({
-        message: response.invalidBuild.body,
-        status: response.invalidBuild.status
-      })
-    }
+    build({
+      base: folder,
+      jsBase: sourceFolder,
+      output: outputFolder,
+      files: [outputFile],
+      type: 'classic',
+      version: version
+    })
     if (compile) {
       if (exists(outputFolder + outputFile)) {
         C.compile(outputFolder + outputFile)
