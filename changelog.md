@@ -44,3 +44,4 @@
 - Added unit tests for middleware.js
 - Modified index file to use relative url's.
 - Systematic catching of errors in request handlers.
+- Subtracted content logic for custom file into its own function getCustomFileContent.

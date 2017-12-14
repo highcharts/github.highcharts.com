@@ -157,6 +157,30 @@ const serveBuildFile = (repositoryURL, requestURL) => {
   }).catch(err => Promise.reject(err))
 }
 
+const getCustomFileContent = (importFolder, sourceFolder, parts) => {
+  const LB = '\r\n' // Line break
+  const imports = parts.reduce((arr, path) => {
+    if (exists(sourceFolder + path)) {
+      arr.push('import \'' + importFolder + path + '\';')
+    }
+    return arr
+  }, []).join(LB)
+  const content = [
+    '/**',
+    ' * @license @product.name@ JS v@product.version@ (@product.date@)',
+    ' *', ' * (c) 2009-2016 Torstein Honsi',
+    ' *',
+    ' * License: www.highcharts.com/license',
+    ' */',
+    '\'use strict\';',
+    'import Highcharts from \'' + importFolder + 'parts/Globals.js\';',
+    imports,
+    'export default Highcharts;',
+    '' // new line at end of file
+  ].join(LB)
+  return content
+}
+
 /**
  * Used to handle request from the Highcharts Download Builder.
  * @param  {string} jsonParts Requested part files.
@@ -171,26 +195,7 @@ const serveDownloadFile = (jsonParts, compile) => {
     const sourceFolder = './source/download/js/'
     const folder = tmpFolder + 'download/'
     const outputFolder = folder + 'output/'
-    const LB = '\r\n' // Line break
-    const imports = parts.reduce((arr, path) => {
-      if (exists(sourceFolder + path)) {
-        arr.push('import \'' + importFolder + path + '\';')
-      }
-      return arr
-    }, []).join(LB)
-    const content = [
-      '/**',
-      ' * @license @product.name@ JS v@product.version@ (@product.date@)',
-      ' *', ' * (c) 2009-2016 Torstein Honsi',
-      ' *',
-      ' * License: www.highcharts.com/license',
-      ' */',
-      '\'use strict\';',
-      'import Highcharts from \'' + importFolder + 'parts/Globals.js\';',
-      imports,
-      'export default Highcharts;',
-      '' // new line at end of file
-    ].join(LB)
+    const content = getCustomFileContent(importFolder, sourceFolder, parts)
     let outputFile = 'custom.src.js'
     let result
     writeFile(folder + outputFile, content)
