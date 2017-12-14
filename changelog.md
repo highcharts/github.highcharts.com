@@ -45,3 +45,4 @@
 - Modified index file to use relative url's.
 - Systematic catching of errors in request handlers.
 - Subtracted content logic for custom file into its own function getCustomFileContent.
+- Modified serveDownloadFile to expect parts to be a comma seperated string. 

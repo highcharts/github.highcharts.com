@@ -187,10 +187,10 @@ const getCustomFileContent = (importFolder, sourceFolder, parts) => {
  * @param  {boolean} compile Wether or not to run the Closure Compiler on result.
  * @return {Promise} Returns a promise which resolves after file is built.
  */
-const serveDownloadFile = (jsonParts, compile) => {
+const serveDownloadFile = (strParts, compile) => {
   return new Promise((resolve, reject) => {
     const C = require('./compiler.js')
-    const parts = JSON.parse(jsonParts)
+    const parts = isString(strParts) ? strParts.split(',') : []
     const importFolder = '../../source/download/js/'
     const sourceFolder = './source/download/js/'
     const folder = tmpFolder + 'download/'
