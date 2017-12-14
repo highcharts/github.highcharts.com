@@ -16,6 +16,7 @@ const {
 
 const D = require('./download.js')
 const I = require('./interpreter.js')
+const isString = require('./utilities.js').isString
 const {
   exists,
   getFilesInFolder,
@@ -278,16 +279,11 @@ const handlerRobots = (req, res) => {
  * Otherwise respond with the homepage.
  */
 const handlerIndex = (req, res) => {
-  const parts = req.query.parts
-  const compile = req.query.compile === 'true'
-  const promise = (
-    parts
-    ? serveDownloadFile(parts, compile)
-    : Promise.resolve({ file: path.join(__dirname, '/../views/index.html') })
-  )
-
-  return promise
-  .then(result => handleResult(result, res, req))
+  const location = path.join(__dirname, '/../views/index.html')
+  const result = {
+    file: location
+  }
+  return handleResult(result, res, req)
 }
 
 /**
