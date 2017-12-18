@@ -6,8 +6,10 @@
 'use strict'
 const https = require('https')
 const {
-  createDirectory,
-  folder
+  dirname
+} = require('path')
+const {
+  createDirectory
 } = require('./filesystem.js')
 
 /**
@@ -31,7 +33,7 @@ const downloadFile = (base, path, output) => {
     const fs = require('fs')
     let url = base + '/' + path
     let outputPath = output + path
-    createDirectory(folder(outputPath))
+    createDirectory(dirname(outputPath))
     https.get(url, response => {
       if (response.statusCode === 200) {
         let file = fs.createWriteStream(outputPath)
@@ -59,10 +61,8 @@ const downloadFile = (base, path, output) => {
  * @return {Promise} Returns a promise which is resolved when all files are downloaded
  */
 const downloadFiles = (base, filePaths, output) => {
-  return new Promise((resolve) => {
-    let promises = filePaths.map(path => downloadFile(base, path, output))
-    Promise.all(promises).then((values) => resolve(values))
-  })
+  const promises = filePaths.map(path => downloadFile(base, path, output))
+  return Promise.all(promises)
 }
 
 const get = (host, path) => new Promise((resolve, reject) => {
