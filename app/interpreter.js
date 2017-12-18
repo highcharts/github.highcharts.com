@@ -62,6 +62,9 @@ const getBranch = url => {
     folders.indexOf(sections[0]) === -1
   ) {
     branch = sections[0]
+  } else if (!(sections[0].endsWith('.js') || sections[0].endsWith('.css'))) {
+    // If it is not a file, then it is a branch name
+    branch = sections[0]
   }
   return branch
 }
