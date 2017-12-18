@@ -4,19 +4,28 @@
  */
 'use strict'
 const express = require('express')
-const path = require('path')
+const {
+  join,
+  resolve
+} = require('path')
 const router = express.Router()
 const {
-  secureToken,
-  version
+  compile
+} = require('./compiler.js')
+const {
+  secureToken
 } = require('../config.json')
 const {
+  sha1,
   validateWebHook
 } = require('./webhook.js')
 
 const D = require('./download.js')
 const I = require('./interpreter.js')
-const isString = require('./utilities.js').isString
+const {
+  isString,
+  isObject
+} = require('./utilities.js')
 const {
   exists,
   getFilesInFolder,
@@ -86,7 +95,7 @@ const serveStaticFile = (repositoryURL, requestURL) => {
       ? Promise.resolve({ status: response.ok.status })
       : D.downloadFile(filePath, file, outputFolder)
     ).then(result => {
-      const localPath = path.join(__dirname, '/../', outputFolder, file)
+      const localPath = join(__dirname, '/../', outputFolder, file)
       const r = (
         result.status === response.ok.status
         ? {
@@ -130,7 +139,7 @@ const serveBuildFile = (repositoryURL, requestURL) => {
     ? Promise.resolve()
     : D.downloadJSFolder(folder, repositoryURL, branch)
   ).then(() => {
-    const localPath = path.join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
+    const localPath = join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
     let obj = {
       file: localPath,
       status: response.ok.status
@@ -188,51 +197,71 @@ const getCustomFileContent = (importFolder, sourceFolder, parts) => {
  * @param  {boolean} compile Wether or not to run the Closure Compiler on result.
  * @return {Promise} Returns a promise which resolves after file is built.
  */
-const serveDownloadFile = (strParts, compile) => {
-  return new Promise((resolve, reject) => {
-    const C = require('./compiler.js')
-    const parts = isString(strParts) ? strParts.split(',') : []
-    const importFolder = '../../source/download/js/'
-    const sourceFolder = './source/download/js/'
-    const folder = tmpFolder + 'download/'
-    const outputFolder = folder + 'output/'
-    const content = getCustomFileContent(importFolder, sourceFolder, parts)
-    let outputFile = 'custom.src.js'
-    let result
-    writeFile(folder + outputFile, content)
-    build({
-      base: folder,
-      jsBase: sourceFolder,
-      output: outputFolder,
-      files: [outputFile],
-      type: 'classic',
-      version: version
-    })
-    if (compile) {
-      if (exists(outputFolder + outputFile)) {
-        C.compile(outputFolder + outputFile)
-        outputFile = 'custom.js'
-      } else {
-        result = {
-          message: response.missingFile.body + outputFolder + outputFile,
-          status: response.missingFile.status
-        }
-        resolve(result)
-      }
-    }
-    if (exists(outputFolder + outputFile)) {
-      result = {
-        file: path.join(__dirname, '/../', outputFolder, outputFile),
-        message: false,
-        delete: true
-      }
+const serveDownloadFile = (repositoryURL, branchName, strParts, doCompile) => {
+  const branch = isString(branchName) ? branchName : 'master'
+  const parts = isString(strParts) ? strParts.split(',') : []
+  const importFolder = '../js/'
+  const folder = join(tmpFolder, branch, '/')
+  const sourceFolder = join(folder, 'js', '/')
+  const outputFolder = join(folder, 'output/')
+  return Promise.resolve()
+  .then(() => {
+    /**
+     * Download the source files if they are missing.
+     */
+    let promise
+    if (!exists(folder + 'js/masters/')) {
+      promise = D.downloadJSFolder(folder, repositoryURL, branch)
     } else {
-      result = {
-        message: response.missingFile.body + outputFolder + outputFile,
-        status: response.missingFile.status
-      }
+      promise = Promise.resolve()
     }
-    resolve(result)
+    return promise
+  })
+  .then(() => {
+    /**
+     * Create the master file if it does not exist already
+     */
+    const hash = sha1(secureToken, parts.join(','))
+    const customMasterFile = resolve(folder, 'custom', hash + '.src.js')
+    if (!exists(customMasterFile)) {
+      const content = getCustomFileContent(importFolder, sourceFolder, parts)
+      writeFile(customMasterFile, content)
+    }
+    return hash
+  })
+  .then((hash) => {
+    /**
+     * Build the custom file from the master file, if it does not already exist
+     */
+    const customFile = join('custom', hash + '.src.js')
+    const customFilePath = join(outputFolder, customFile)
+    if (!exists(customFilePath)) {
+      build({
+        base: folder,
+        jsBase: sourceFolder,
+        output: outputFolder,
+        files: [customFile],
+        type: 'classic',
+        version: branch + ' custom build'
+      })
+    }
+    return {
+      file: resolve(outputFolder, customFile)
+    }
+  })
+  .then((obj) => {
+    /**
+     * Compile the custom file if needed.
+     */
+    const result = Object.assign({}, obj)
+    if (doCompile && isObject(result)) {
+      const compiledFileName = result.file.replace('.src.js', '.js')
+      if (!exists(compiledFileName)) {
+        compile(result.file)
+      }
+      result.file = compiledFileName
+    }
+    return result
   })
 }
 
@@ -253,7 +282,7 @@ const handlerHealth = (req, res) => {
  * @todo Use express.static in stead if send file.
  */
 const handlerIcon = (req, res) => {
-  const location = path.join(__dirname, '/../assets/favicon.ico')
+  const location = join(__dirname, '/../assets/favicon.ico')
   const result = {
     file: location
   }
@@ -266,7 +295,7 @@ const handlerIcon = (req, res) => {
  * TODO Use express.static in stead if send file.
  */
 const handlerRobots = (req, res) => {
-  const location = path.join(__dirname, '../assets/robots.txt')
+  const location = join(__dirname, '../assets/robots.txt')
   const result = {
     file: location
   }
@@ -279,7 +308,7 @@ const handlerRobots = (req, res) => {
  * Otherwise respond with the homepage.
  */
 const handlerIndex = (req, res) => {
-  const location = path.join(__dirname, '/../views/index.html')
+  const location = join(__dirname, '/../views/index.html')
   const result = {
     file: location
   }
@@ -291,13 +320,19 @@ const handlerIndex = (req, res) => {
  * Requests for distribution file, built with part files from github.
  */
 const handlerDefault = (req, res) => {
-  const branch = I.getBranch(req.url)
+  const branch = I.getBranch(req.path)
+  const doCompile = req.query.compile === 'true'
+  const parts = req.query.parts
   // If a master file exist, then create dist file using highcharts-assembler.
   return D.urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
     .then(result => (
-      result
-      ? serveBuildFile(downloadURL, req.url)
-      : serveStaticFile(downloadURL, req.url)
+      parts
+      ? serveDownloadFile(downloadURL, branch, parts, doCompile)
+      : (
+        result
+        ? serveBuildFile(downloadURL, req.url)
+        : serveStaticFile(downloadURL, req.url)
+      )
     ))
     .then(result => handleResult(result, res, req))
 }
