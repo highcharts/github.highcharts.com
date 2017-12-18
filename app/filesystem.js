@@ -6,7 +6,25 @@
  */
 'use strict'
 const path = require('path')
-const fs = require('fs')
+const {
+  dirname,
+  join,
+  resolve,
+  sep
+} = path
+const {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmdirSync,
+  statSync,
+  unlink,
+  writeFileSync
+} = require('fs')
 const {
   isBool,
   isDate,
@@ -19,7 +37,7 @@ const fsStat = p => {
   let result = false
   if (isString(p)) {
     try {
-      result = fs.lstatSync(p)
+      result = lstatSync(p)
     } catch (err) {}
   }
   return result
@@ -29,15 +47,15 @@ const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
   let result = false
   const sub = isUndefined(subfolder) ? '' : subfolder
   if (isString(folder) && isString(sub)) {
-    const fsFolderPath = path.join(folder, sub)
+    const fsFolderPath = join(folder, sub)
     const f2 = fsStat(fsFolderPath)
     const include = isBool(includeSubfolders) ? includeSubfolders : true
     if (f2 && f2.isDirectory()) {
       result = []
-      fs.readdirSync(fsFolderPath).forEach((filename) => {
-        const fsFilePath = path.join(fsFolderPath, filename)
+      readdirSync(fsFolderPath).forEach((filename) => {
+        const fsFilePath = join(fsFolderPath, filename)
         const file = fsStat(fsFilePath)
-        const relativeFilePath = path.join(sub, filename).split(path.sep).join('/')
+        const relativeFilePath = join(sub, filename).split(sep).join('/')
         if (file && file.isFile()) {
           result.push(relativeFilePath)
         } else if (include && file && file.isDirectory()) {
@@ -53,20 +71,10 @@ const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
   return result
 }
 
-const exists = ph => {
-  const fs = require('fs')
-  let exists = true
-  try {
-    fs.statSync(ph)
-  } catch (err) {
-    exists = false
-  }
-  return exists
-}
+const exists = filePath => existsSync(filePath)
 
 const getFile = ph => {
-  const fs = require('fs')
-  return (exists(ph) ? fs.readFileSync(ph, 'utf8') : null)
+  return (exists(ph) ? readFileSync(ph, 'utf8') : null)
 }
 
 /**
@@ -88,31 +96,27 @@ const folder = ph => {
  * @return {undefined} Returns nothing
  */
 const createDirectory = ph => {
-  const fs = require('fs')
-  const folders = ph.split('/').filter(item => Boolean(item))
+  const pathDir = resolve(ph)
+  const folders = pathDir.split(sep).filter(item => Boolean(item))
   folders.reduce((base, name) => {
-    const ph = base + name
-    try {
-      fs.statSync(ph)
-    } catch (err) {
-      fs.mkdirSync(ph)
+    const ph = isString(base) && base.length > 0 ? join(base, name) : name
+    if (!exists(ph)) {
+      mkdirSync(ph)
     }
-    return ph + '/'
+    return ph
   }, '')
 }
 
 const copyFile = (ph, output) => {
-  const fs = require('fs')
-  const base = path.join(__dirname, '/')
+  const base = join(__dirname, '/')
   const outFile = base + output
   createDirectory(folder(outFile))
-  fs.createReadStream(base + ph).pipe(fs.createWriteStream(outFile))
+  createReadStream(base + ph).pipe(createWriteStream(outFile))
 }
 
 const writeFile = (ph, content) => {
-  const fs = require('fs')
-  createDirectory(folder(ph))
-  fs.writeFileSync(ph, content)
+  createDirectory(dirname(ph))
+  writeFileSync(ph, content)
 }
 
 /**
@@ -123,9 +127,8 @@ const writeFile = (ph, content) => {
  * @returns {Promise} Returns a promise which resolves when the file is deleted.
  */
 const removeFile = ph => new Promise((resolve, reject) => {
-  const fs = require('fs')
   if (exists(ph)) {
-    fs.unlink(ph, () => {
+    unlink(ph, () => {
       resolve(true)
     })
   } else {
@@ -141,14 +144,13 @@ const removeFile = ph => new Promise((resolve, reject) => {
  * @returns {Promise} Returns a promise which resolves when the file is deleted.
  */
 const removeDirectory = ph => new Promise((resolve, reject) => {
-  const fs = require('fs')
   if (exists(ph)) {
-    const files = fs.readdirSync(ph)
+    const files = readdirSync(ph)
     const promises = files.map(file => ph + '/' + file)
-            .map(itemPath => (fs.statSync(itemPath).isDirectory()) ? removeDirectory(itemPath) : removeFile(itemPath))
+            .map(itemPath => (statSync(itemPath).isDirectory()) ? removeDirectory(itemPath) : removeFile(itemPath))
     Promise.all(promises)
       .then(() => {
-        fs.rmdirSync(ph)
+        rmdirSync(ph)
         resolve(true)
       })
       .catch(reject)
