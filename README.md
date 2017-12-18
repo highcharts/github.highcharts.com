@@ -52,7 +52,6 @@ The application will be packed into an archive named `github.highcharts-<version
 ```
 - app
 - assets
-- source
 - tmp
 - views
 ```
@@ -66,13 +65,8 @@ All the files of the Highcharts assembler, copied directly from the Highcharts r
 #### assets
 Contains assets like CSS, images, etc.
 
-#### source
-Where the source files of the Download Builder is located.
-
 #### tmp
-Where the temporary files used in the application is written. The temporary files are deleted by the application after use.
-
-Important: Shall not be committed to Github, nor deployed.
+Where the temporary files used in the application is written.
 
 #### views
 Where the HTML files are located.
