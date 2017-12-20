@@ -29,7 +29,7 @@ const urlExists = url => new Promise(resolve => {
  * @return {Promise} Returns a promise when resolved contains the status code and path to the file.
  */
 const downloadFile = (base, path, output) => {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const fs = require('fs')
     let url = base + '/' + path
     let outputPath = output + path
@@ -37,13 +37,17 @@ const downloadFile = (base, path, output) => {
     https.get(url, response => {
       if (response.statusCode === 200) {
         let file = fs.createWriteStream(outputPath)
-        response.pipe(file)
+        file.on('error', (err) => {
+          file.end()
+          reject(err)
+        })
         file.on('finish', () => {
           resolve({
             status: response.statusCode,
             path: outputPath
           })
         })
+        response.pipe(file)
       } else {
         resolve({
           status: response.statusCode
