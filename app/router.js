@@ -6,6 +6,7 @@
 const express = require('express')
 const {
   join,
+  normalize,
   resolve
 } = require('path')
 const router = express.Router()
@@ -222,7 +223,7 @@ const serveDownloadFile = (repositoryURL, branchName, strParts, doCompile) => {
      * Create the master file if it does not exist already
      */
     const hash = sha1(secureToken, parts.join(','))
-    const customMasterFile = resolve(folder, 'custom', hash + '.src.js')
+    const customMasterFile = normalize(join(folder, 'custom', hash + '.src.js'))
     if (!exists(customMasterFile)) {
       const content = getCustomFileContent(importFolder, sourceFolder, parts)
       writeFile(customMasterFile, content)

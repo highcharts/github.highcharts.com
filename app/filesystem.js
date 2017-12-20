@@ -5,13 +5,12 @@
  * @todo Move debug and randomString to a seperate file.
  */
 'use strict'
-const path = require('path')
 const {
   dirname,
   join,
-  resolve,
+  normalize,
   sep
-} = path
+} = require('path')
 const {
   createReadStream,
   createWriteStream,
@@ -96,7 +95,7 @@ const folder = ph => {
  * @return {undefined} Returns nothing
  */
 const createDirectory = ph => {
-  const pathDir = resolve(ph)
+  const pathDir = normalize(ph)
   const folders = pathDir.split(sep).filter(item => Boolean(item))
   folders.reduce((base, name) => {
     const ph = isString(base) && base.length > 0 ? join(base, name) : name
