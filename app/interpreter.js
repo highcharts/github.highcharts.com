@@ -119,7 +119,7 @@ const getFile = (branch, type, url) => {
     sections.splice(0, 1)
   }
   // Check if it is a .js file
-  if (sections[sections.length - 1].endsWith('.js')) {
+  if (sections.length > 0 && sections[sections.length - 1].endsWith('.js')) {
     filename = sections.join('/')
     // Redirect .js requests to .src.js
     if (!filename.endsWith('.src.js')) {
