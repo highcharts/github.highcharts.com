@@ -48,7 +48,7 @@ const getFileOptions = (files, options) => {
  * @return {string} Returns which branch/tag/commit to look in.
  */
 const getBranch = url => {
-  const folders = ['adapters', 'modules', 'parts-3d', 'parts-map', 'parts-more', 'parts', 'themes']
+  const folders = ['adapters', 'indicators', 'modules', 'parts-3d', 'parts-map', 'parts-more', 'parts', 'themes']
   let branch = 'master'
   let sections = url.substring(1).split('/')
   /**
@@ -59,11 +59,10 @@ const getBranch = url => {
   if (
     sections.length > 1 &&
     ['stock', 'maps'].indexOf(sections[0]) === -1 &&
-    folders.indexOf(sections[0]) === -1
-  ) {
-    branch = sections[0]
-  } else if (!(sections[0].endsWith('.js') || sections[0].endsWith('.css'))) {
+    folders.indexOf(sections[0]) === -1 &&
     // If it is not a file, then it is a branch name
+    !(sections[0].endsWith('.js') || sections[0].endsWith('.css'))
+  ) {
     branch = sections[0]
   }
   return branch

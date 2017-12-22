@@ -17,6 +17,13 @@ describe('interpreter.js', () => {
         .that.is.a('function')
     })
   })
+  describe('getBranch', () => {
+    const getBranch = defaults.getBranch
+    it('should return "master" when url is "/modules/exporting.src.js"', () => {
+      expect(getBranch('/modules/exporting.src.js')).to.equal('master')
+      expect(getBranch('/highcharts.src.js')).to.equal('master')
+    })
+  })
   describe('getFileOptions', () => {
     const getFileOptions = defaults.getFileOptions
     const files = [
