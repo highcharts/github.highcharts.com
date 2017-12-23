@@ -27,7 +27,11 @@ const {
   validateWebHook
 } = require('./webhook.js')
 
-const D = require('./download.js')
+const {
+  downloadFile,
+  downloadJSFolder,
+  urlExists
+} = require('./download.js')
 const {
   isString,
   isObject
@@ -102,7 +106,7 @@ const serveStaticFile = (repositoryURL, requestURL) => {
     if (exists(outputFolder + file)) {
       promise = Promise.resolve({ status: response.ok.status })
     } else {
-      promise = D.downloadFile(filePath, file, outputFolder)
+      promise = downloadFile(filePath, file, outputFolder)
     }
     return promise
   })
@@ -148,7 +152,7 @@ const serveBuildFile = (repositoryURL, requestURL) => {
   return (
     exists(folder + 'js/masters/')
     ? Promise.resolve()
-    : D.downloadJSFolder(folder, repositoryURL, branch)
+    : downloadJSFolder(folder, repositoryURL, branch)
   ).then(() => {
     const localPath = join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
     let obj = {
@@ -222,7 +226,7 @@ const serveDownloadFile = (repositoryURL, branchName, strParts, doCompile) => {
      */
     let promise
     if (!exists(folder + 'js/masters/')) {
-      promise = D.downloadJSFolder(folder, repositoryURL, branch)
+      promise = downloadJSFolder(folder, repositoryURL, branch)
     } else {
       promise = Promise.resolve()
     }
@@ -335,7 +339,7 @@ const handlerDefault = (req, res) => {
   const doCompile = req.query.compile === 'true'
   const parts = req.query.parts
   // If a master file exist, then create dist file using highcharts-assembler.
-  return D.urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
+  return urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
     .then(result => (
       parts
       ? serveDownloadFile(downloadURL, branch, parts, doCompile)
