@@ -8,13 +8,13 @@ const {
   getFile,
   writeFile
 } = require('./filesystem.js')
+const closureCompiler = require('google-closure-compiler-js')
 /**
  * Compile a single file.
  * @param {string} path Path to source file
  * @return {Promise} Returns a promise which resolves when the file is compiled.
  */
 const compile = (path) => {
-  const closureCompiler = require('google-closure-compiler-js')
   const outputPath = path.replace('.src.js', '.js')
   const src = getFile(path)
   const out = closureCompiler.compile({

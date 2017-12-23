@@ -11,6 +11,10 @@ const {
 const {
   createDirectory
 } = require('./filesystem.js')
+const {
+  createWriteStream
+} = require('fs')
+const token = require('../config.json').token
 
 /**
  * Check if a url returns 200.
@@ -30,13 +34,12 @@ const urlExists = url => new Promise(resolve => {
  */
 const downloadFile = (base, path, output) => {
   return new Promise((resolve, reject) => {
-    const fs = require('fs')
     let url = base + '/' + path
     let outputPath = output + path
     createDirectory(dirname(outputPath))
     https.get(url, response => {
       if (response.statusCode === 200) {
-        let file = fs.createWriteStream(outputPath)
+        let file = createWriteStream(outputPath)
         file.on('error', (err) => {
           file.end()
           reject(err)
@@ -92,7 +95,6 @@ const get = (host, path) => new Promise((resolve, reject) => {
 })
 
 const getFilesInFolder = (path, branch) => new Promise((resolve, reject) => {
-  const token = require('../config.json').token
   const host = 'api.github.com'
   const url = `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`
   get(host, url)
