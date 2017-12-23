@@ -17,12 +17,17 @@ const {
   secureToken
 } = require('../config.json')
 const {
+  getBranch,
+  getFile,
+  getFileOptions,
+  getType
+} = require('./interpreter.js')
+const {
   sha1,
   validateWebHook
 } = require('./webhook.js')
 
 const D = require('./download.js')
-const I = require('./interpreter.js')
 const {
   isString,
   isObject
@@ -81,8 +86,8 @@ const handleResult = (result, res, req) => {
  * @return {Promise} Returns a promise which resolves after file is downloaded.
  */
 const serveStaticFile = (repositoryURL, requestURL) => {
-  const branch = I.getBranch(requestURL)
-  const file = I.getFile(branch, 'classic', requestURL)
+  const branch = getBranch(requestURL)
+  const file = getFile(branch, 'classic', requestURL)
   const folder = tmpFolder + branch + '/'
   const outputFolder = folder + 'output/'
   if (file === false) {
@@ -90,29 +95,34 @@ const serveStaticFile = (repositoryURL, requestURL) => {
       status: response.notFound.status
     }
   }
-  return new Promise((resolve, reject) => {
-    const filePath = repositoryURL + branch + '/js/';
-    (exists(outputFolder + file)
-      ? Promise.resolve({ status: response.ok.status })
-      : D.downloadFile(filePath, file, outputFolder)
-    ).then(result => {
-      const localPath = join(__dirname, '/../', outputFolder, file)
-      const r = (
-        result.status === response.ok.status
-        ? {
-          file: localPath,
-          status: response.ok.status,
-          message: false
-        }
-        : {
-          file: false,
-          status: response.notFound.status,
-          message: response.notFound.body
-        }
-      )
-      resolve(r)
-    })
-    .catch(reject)
+  return Promise.resolve()
+  .then(() => {
+    const filePath = repositoryURL + branch + '/js/'
+    let promise
+    if (exists(outputFolder + file)) {
+      promise = Promise.resolve({ status: response.ok.status })
+    } else {
+      promise = D.downloadFile(filePath, file, outputFolder)
+    }
+    return promise
+  })
+  .then(request => {
+    const localPath = join(__dirname, '/../', outputFolder, file)
+    let result
+    if (request.status === response.ok.status) {
+      result = {
+        file: localPath,
+        status: response.ok.status,
+        message: false
+      }
+    } else {
+      result = {
+        file: false,
+        status: response.notFound.status,
+        message: response.notFound.body
+      }
+    }
+    return result
   })
 }
 
@@ -125,9 +135,9 @@ const serveStaticFile = (repositoryURL, requestURL) => {
  * @return {Promise} Returns a promise which resolves after file is built.
  */
 const serveBuildFile = (repositoryURL, requestURL) => {
-  const branch = I.getBranch(requestURL)
-  const type = I.getType(branch, requestURL)
-  const file = I.getFile(branch, type, requestURL)
+  const branch = getBranch(requestURL)
+  const type = getType(branch, requestURL)
+  const file = getFile(branch, type, requestURL)
   const folder = tmpFolder + branch + '/'
   const outputFolder = folder + 'output/'
   if (file === false) {
@@ -153,7 +163,7 @@ const serveBuildFile = (repositoryURL, requestURL) => {
       }
     } else if (!fileExists) {
       const files = getFilesInFolder(folder + 'js/masters/')
-      const fileOptions = I.getFileOptions(files, publicConfig.fileOptions)
+      const fileOptions = getFileOptions(files, publicConfig.fileOptions)
       build({
         base: folder + 'js/masters/',
         output: outputFolder,
@@ -321,7 +331,7 @@ const handlerIndex = (req, res) => {
  * Requests for distribution file, built with part files from github.
  */
 const handlerDefault = (req, res) => {
-  const branch = I.getBranch(req.path)
+  const branch = getBranch(req.path)
   const doCompile = req.query.compile === 'true'
   const parts = req.query.parts
   // If a master file exist, then create dist file using highcharts-assembler.
