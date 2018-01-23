@@ -57,10 +57,15 @@ const getBranch = url => {
    *  then assume first section is a branch/tag/commit
    */
   if (
+    // We have more then one section
     sections.length > 1 &&
+    // Not a type
+    ['css', 'js'].indexOf(sections[0]) === -1 &&
+    // Not a lib type
     ['stock', 'maps'].indexOf(sections[0]) === -1 &&
+    // Not a parts folder
     folders.indexOf(sections[0]) === -1 &&
-    // If it is not a file, then it is a branch name
+    // Not a file
     !(sections[0].endsWith('.js') || sections[0].endsWith('.css'))
   ) {
     branch = sections[0]

@@ -19,9 +19,11 @@ describe('interpreter.js', () => {
   })
   describe('getBranch', () => {
     const getBranch = defaults.getBranch
-    it('should return "master" when url is "/modules/exporting.src.js"', () => {
+    it('should return "master" when first section is either a file, folder or type', () => {
       expect(getBranch('/modules/exporting.src.js')).to.equal('master')
       expect(getBranch('/highcharts.src.js')).to.equal('master')
+      expect(getBranch('/js/highcharts.src.js')).to.equal('master')
+      expect(getBranch('/css/highcharts.css')).to.equal('master')
     })
   })
   describe('getFileOptions', () => {
