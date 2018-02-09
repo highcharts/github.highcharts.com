@@ -19,10 +19,12 @@ const {
   mkdirSync,
   readdirSync,
   readFileSync,
+  readFile,
   rmdirSync,
   statSync,
   unlink,
-  writeFileSync
+  writeFileSync,
+  writeFile
 } = require('fs')
 const {
   isBool,
@@ -76,6 +78,16 @@ const getFile = ph => {
   return (exists(ph) ? readFileSync(ph, 'utf8') : null)
 }
 
+const getFilePromise = (filepath) => new Promise((resolve, reject) => {
+  readFile(filepath, 'utf8', (err, data) => {
+    if (err) {
+      reject(err)
+    } else {
+      resolve(data)
+    }
+  })
+})
+
 /**
  * Gets directory ph from a file ph
  * @param  {string} ph File ph
@@ -113,10 +125,20 @@ const copyFile = (ph, output) => {
   createReadStream(base + ph).pipe(createWriteStream(outFile))
 }
 
-const writeFile = (ph, content) => {
+const writeToFile = (ph, content) => {
   createDirectory(dirname(ph))
   writeFileSync(ph, content)
 }
+
+const writeFilePromise = (filepath, data) => new Promise((resolve, reject) => {
+  writeFile(filepath, data, (err) => {
+    if (err) {
+      reject(err)
+    } else {
+      resolve()
+    }
+  })
+})
 
 /**
  * Removes a file.
@@ -207,9 +229,11 @@ module.exports = {
   folder,
   formatDate,
   getFile,
+  getFilePromise,
   getFilesInFolder,
   randomString,
   removeDirectory,
   removeFile,
-  writeFile
+  writeFile: writeToFile,
+  writeFilePromise
 }

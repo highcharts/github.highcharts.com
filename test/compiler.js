@@ -7,7 +7,9 @@ const it = mocha.it
 describe('compiler.js', () => {
   describe('exported properties', () => {
     const functions = [
-      'compile'
+      'compile',
+      'compileFile',
+      'compileSync'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {
@@ -21,6 +23,12 @@ describe('compiler.js', () => {
     })
   })
   describe('compile', () => {
+    it('is missing tests')
+  })
+  describe('compileFile', () => {
+    it('is missing tests')
+  })
+  describe('compileSync', () => {
     it('is missing tests')
   })
 })

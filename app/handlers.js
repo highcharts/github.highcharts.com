@@ -4,7 +4,7 @@ const {
   resolve
 } = require('path')
 const {
-  compile
+  compileFile
 } = require('./compiler.js')
 const {
   secureToken
@@ -261,15 +261,17 @@ const serveDownloadFile = (repositoryURL, branchName, strParts, doCompile) => {
     /**
      * Compile the custom file if needed.
      */
+    let promise = Promise.resolve()
     const result = Object.assign({}, obj)
     if (doCompile && isObject(result)) {
       const compiledFileName = result.file.replace('.src.js', '.js')
       if (!exists(compiledFileName)) {
-        compile(result.file)
+        promise = compileFile(result.file, compiledFileName)
       }
       result.file = compiledFileName
     }
-    return result
+    return promise
+      .then(() => result)
   })
 }
 
