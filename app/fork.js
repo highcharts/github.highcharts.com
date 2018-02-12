@@ -18,4 +18,5 @@ process.on('message', (obj) => {
     result.error = new Error(`${fnName} is not available in fork.js`)
   }
   process.send(result)
+  process.disconnect()
 })
