@@ -66,10 +66,11 @@ const getBranch = url => {
   // We have more then one section
   if (sections.length > 1) {
     if (branchTypes.includes(sections[0])) {
-      branch = sections[0]
-      if (sections.length > 2 && isValidBranchName(sections[1])) {
-        branch = branch + '/' + sections[1]
-      }
+      branch = (
+        (sections.length > 2 && isValidBranchName(sections[1]))
+        ? sections[0] + '/' + sections[1]
+        : sections[0]
+      )
     /**
      *  If the url has more then 1 section,
      *  and the first section is not indicating one of the js folders,
@@ -90,7 +91,7 @@ const getBranch = url => {
  */
 const getType = (branch, url) => {
   let type = 'classic'
-  let u = (url.startsWith('/') ? url.substring(1) : url)
+  let u = url.substring(1)
   if (u.startsWith(branch)) {
     u = u.replace(branch + '/', '')
   }
@@ -116,7 +117,7 @@ const getType = (branch, url) => {
  */
 const getFile = (branch, type, url) => {
   let filename = false
-  let u = (url.startsWith('/') ? url.substring(1) : url)
+  let u = url.substring(1)
   if (u.startsWith(branch)) {
     u = u.replace(branch + '/', '')
   }
@@ -124,7 +125,7 @@ const getFile = (branch, type, url) => {
   /**
    * If the first section is either stock or maps, then remove it.
    */
-  if (sections[0] === 'stock' || sections[0] === 'maps') {
+  if (['stock', 'maps'].includes(sections[0])) {
     sections.splice(0, 1)
   }
   // Remove branch from path
