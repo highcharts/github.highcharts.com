@@ -17,6 +17,7 @@ describe('interpreter.js', () => {
         .that.is.a('function')
     })
   })
+
   describe('getBranch', () => {
     const getBranch = defaults.getBranch
     it('should return "master" when first section is either a file, folder or type', () => {
@@ -25,7 +26,46 @@ describe('interpreter.js', () => {
       expect(getBranch('/js/highcharts.src.js')).to.equal('master')
       expect(getBranch('/css/highcharts.css')).to.equal('master')
     })
+    it('should support multiple level branch names for bugfix and feature', () => {
+      expect(getBranch('/bugfix/modules/exporting.src.js'))
+        .to.equal('bugfix')
+      expect(getBranch('/bugfix/issue-name/modules/exporting.src.js'))
+        .to.equal('bugfix/issue-name')
+      expect(getBranch('/feature/modules/exporting.src.js'))
+        .to.equal('feature')
+      expect(getBranch('/feature/feature-name/modules/exporting.src.js'))
+        .to.equal('feature/feature-name')
+    })
   })
+
+  describe('getType', () => {
+    const getType = defaults.getType
+    it('should support multiple level branch names for bugfix and feature', () => {
+      expect(getType('bugfix', '/bugfix/modules/exporting.src.js'))
+        .to.equal('classic')
+      expect(getType('bugfix', '/bugfix/js/modules/exporting.src.js'))
+      .to.equal('css')
+      expect(getType('bugfix/issue-name', '/bugfix/issue-name/modules/exporting.src.js'))
+        .to.equal('classic')
+      expect(getType('bugfix/issue-name', '/bugfix/issue-name/js/modules/exporting.src.js'))
+      .to.equal('css')
+    })
+  })
+
+  describe('getFile', () => {
+    const getFile = defaults.getFile
+    it('should support multiple level branch names for bugfix and feature', () => {
+      expect(getFile('bugfix', 'classic', '/bugfix/modules/exporting.src.js'))
+        .to.equal('modules/exporting.src.js')
+      expect(getFile('bugfix', 'css', '/bugfix/js/modules/exporting.src.js'))
+      .to.equal('modules/exporting.src.js')
+      expect(getFile('bugfix/issue-name', 'classic', '/bugfix/issue-name/modules/exporting.src.js'))
+        .to.equal('modules/exporting.src.js')
+      expect(getFile('bugfix/issue-name', 'css', '/bugfix/issue-name/js/modules/exporting.src.js'))
+        .to.equal('modules/exporting.src.js')
+    })
+  })
+
   describe('getFileOptions', () => {
     const getFileOptions = defaults.getFileOptions
     const files = [

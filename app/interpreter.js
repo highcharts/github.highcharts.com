@@ -49,26 +49,35 @@ const getFileOptions = (files, options) => {
  */
 const getBranch = url => {
   const folders = ['adapters', 'indicators', 'modules', 'parts-3d', 'parts-map', 'parts-more', 'parts', 'themes']
+  const branchTypes = ['bugfix', 'feature']
   let branch = 'master'
   let sections = url.substring(1).split('/')
-  /**
-   *  If the url has more then 1 section,
-   *  and the first section is not indicating one of the js folders,
-   *  then assume first section is a branch/tag/commit
-   */
-  if (
-    // We have more then one section
-    sections.length > 1 &&
+  const isValidBranchName = (str) => (
     // Not a type
-    ['css', 'js'].indexOf(sections[0]) === -1 &&
+    !['css', 'js'].includes(str) &&
     // Not a lib type
-    ['stock', 'maps'].indexOf(sections[0]) === -1 &&
+    !['stock', 'maps'].includes(str) &&
     // Not a parts folder
-    folders.indexOf(sections[0]) === -1 &&
+    !folders.includes(str) &&
     // Not a file
-    !(sections[0].endsWith('.js') || sections[0].endsWith('.css'))
-  ) {
-    branch = sections[0]
+    !(str.endsWith('.js') || str.endsWith('.css'))
+  )
+
+  // We have more then one section
+  if (sections.length > 1) {
+    if (branchTypes.includes(sections[0])) {
+      branch = sections[0]
+      if (sections.length > 2 && isValidBranchName(sections[1])) {
+        branch = branch + '/' + sections[1]
+      }
+    /**
+     *  If the url has more then 1 section,
+     *  and the first section is not indicating one of the js folders,
+     *  then assume first section is a branch/tag/commit
+     */
+    } else if (isValidBranchName(sections[0])) {
+      branch = sections[0]
+    }
   }
   return branch
 }
@@ -81,11 +90,11 @@ const getBranch = url => {
  */
 const getType = (branch, url) => {
   let type = 'classic'
-  let sections = url.substring(1).split('/')
-  // Remove branch from path
-  if (sections[0] === branch) {
-    sections.splice(0, 1)
+  let u = (url.startsWith('/') ? url.substring(1) : url)
+  if (u.startsWith(branch)) {
+    u = u.replace(branch + '/', '')
   }
+  let sections = u.split('/')
   /**
    * If the first section is either stock or maps, then remove it.
    */
@@ -107,11 +116,11 @@ const getType = (branch, url) => {
  */
 const getFile = (branch, type, url) => {
   let filename = false
-  let sections = url.substring(1).split('/')
-  // Remove branch from path
-  if (sections[0] === branch) {
-    sections.splice(0, 1)
+  let u = (url.startsWith('/') ? url.substring(1) : url)
+  if (u.startsWith(branch)) {
+    u = u.replace(branch + '/', '')
   }
+  let sections = u.split('/')
   /**
    * If the first section is either stock or maps, then remove it.
    */
