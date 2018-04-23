@@ -36,6 +36,11 @@ describe('interpreter.js', () => {
       expect(getBranch('/feature/feature-name/modules/exporting.src.js'))
         .to.equal('feature/feature-name')
     })
+
+    it('should support custom builds', () => {
+      expect(getBranch('/6.0.7'))
+        .to.equal('6.0.7')
+    })
   })
 
   describe('getType', () => {
@@ -50,6 +55,11 @@ describe('interpreter.js', () => {
       expect(getType('bugfix/issue-name', '/bugfix/issue-name/js/modules/exporting.src.js'))
       .to.equal('css')
     })
+
+    it('should support custom builds', () => {
+      expect(getType('6.0.7', '/6.0.7'))
+        .to.equal('classic')
+    })
   })
 
   describe('getFile', () => {
@@ -63,6 +73,11 @@ describe('interpreter.js', () => {
         .to.equal('modules/exporting.src.js')
       expect(getFile('bugfix/issue-name', 'css', '/bugfix/issue-name/js/modules/exporting.src.js'))
         .to.equal('modules/exporting.src.js')
+    })
+
+    it('should support custom builds', () => {
+      expect(getFile('6.0.7', 'classic', '/6.0.7'))
+        .to.equal(false)
     })
   })
 

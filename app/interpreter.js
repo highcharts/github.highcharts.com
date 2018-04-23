@@ -64,21 +64,19 @@ const getBranch = url => {
   )
 
   // We have more then one section
-  if (sections.length > 1) {
-    if (branchTypes.includes(sections[0])) {
-      branch = (
-        (sections.length > 2 && isValidBranchName(sections[1]))
-        ? sections[0] + '/' + sections[1]
-        : sections[0]
-      )
-    /**
-     *  If the url has more then 1 section,
-     *  and the first section is not indicating one of the js folders,
-     *  then assume first section is a branch/tag/commit
-     */
-    } else if (isValidBranchName(sections[0])) {
-      branch = sections[0]
-    }
+  if (sections.length > 1 && branchTypes.includes(sections[0])) {
+    branch = (
+      (sections.length > 2 && isValidBranchName(sections[1]))
+      ? sections[0] + '/' + sections[1]
+      : sections[0]
+    )
+  /**
+   *  If the url has more then 1 section,
+   *  and the first section is not indicating one of the js folders,
+   *  then assume first section is a branch/tag/commit
+   */
+  } else if (isValidBranchName(sections[0])) {
+    branch = sections[0]
   }
   return branch
 }
