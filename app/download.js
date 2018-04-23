@@ -94,55 +94,51 @@ const get = (host, path) => new Promise((resolve, reject) => {
   })
 })
 
-const getFilesInFolder = (path, branch) => new Promise((resolve, reject) => {
+const getFilesInFolder = (path, branch) => {
   const host = 'api.github.com'
   const url = `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`
-  get(host, url)
-        .then(result => {
-          if (result.status === 200) {
-            let contents = JSON.parse(result.body)
-            let promises = contents.map(obj => new Promise((resolve) => {
-              let name = path + '/' + obj.name
-              let result
-              if (obj.type === 'dir') {
-                result = getFilesInFolder(name, branch)
-              } else {
-                result = [{
-                  download: obj.download_url,
-                  path: name,
-                  size: obj.size,
-                  type: obj.type
-                }]
-              }
-              resolve(result)
-            }))
-            Promise.all(promises)
-                    .then(arr => {
-                      const files = arr.reduce((arr1, arr2) => {
-                        return arr1.concat(arr2)
-                      }, [])
-                      resolve(files)
-                    })
-                    .catch(reject)
-          } else {
-            reject(new Error(result.body))
-          }
-        })
-        .catch(reject)
-})
+  return get(host, url)
+    .then(result => {
+      const {
+        status,
+        body
+      } = result
+      return (
+        (status === 200)
+        ? JSON.parse(body)
+        : Promise.reject(new Error(body))
+      )
+    })
+    .then(contents => {
+      const promises = contents.map(obj => {
+        const name = path + '/' + obj.name
+        return (
+          (obj.type === 'dir')
+          ? getFilesInFolder(name, branch)
+          : [{
+            download: obj.download_url,
+            path: name,
+            size: obj.size,
+            type: obj.type
+          }]
+        )
+      })
+      return Promise.all(promises)
+    })
+    .then(arr => arr.reduce((arr1, arr2) => arr1.concat(arr2), []))
+}
 
-const getDownloadFiles = (branch) => new Promise((resolve, reject) => {
+const getDownloadFiles = (branch) => {
   const promises = ['css', 'js'].map(folder => getFilesInFolder(folder, branch))
-  Promise.all(promises)
-        .then(folders => {
-          const files = folders[0].concat(folders[1])
-          const result = files.filter(file => (file.path.endsWith('.js') || file.path.endsWith('.scss')))
-                .filter(file => file.size > 0)
-                .map(file => file.path)
-          resolve(result)
-        })
-        .catch(reject)
-})
+  return Promise.all(promises)
+    .then(folders => {
+      const files = folders[0].concat(folders[1])
+      const result = files.filter(file => (file.path.endsWith('.js') || file.path.endsWith('.scss')))
+            .filter(file => file.size > 0)
+            .map(file => file.path)
+      return result
+    })
+}
 
 /**
  * Download all the files in the js folder of the repository
@@ -153,7 +149,7 @@ const getDownloadFiles = (branch) => new Promise((resolve, reject) => {
 const downloadJSFolder = (output, repositoryURL, branch) => {
   const url = repositoryURL + branch
   return getDownloadFiles(branch)
-        .then(files => downloadFiles(url, files, output))
+    .then(files => downloadFiles(url, files, output))
 }
 
 module.exports = {
