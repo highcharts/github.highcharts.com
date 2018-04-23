@@ -331,7 +331,8 @@ const handlerIndex = (req, res) => {
  */
 const handlerDefault = (req, res) => {
   const branch = getBranch(req.path)
-  const doCompile = req.query.compile === 'true'
+  // TODO Remove compile code.
+  const doCompile = false
   const parts = req.query.parts
   // If a master file exist, then create dist file using highcharts-assembler.
   return urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
