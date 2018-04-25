@@ -62,6 +62,11 @@ const catchAsyncErrors = (asyncFn) => {
  */
 const handleResult = (result, res, req) => {
   return new Promise((resolve, reject) => {
+    res.header('Access-Control-Allow-Origin', '*')
+    res.header(
+      'Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept'
+    )
     if (result.file) {
       if (!req.connectionAborted) {
         res.sendFile(result.file, (err) => (err ? reject(err) : resolve()))
