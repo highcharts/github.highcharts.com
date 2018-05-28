@@ -5,41 +5,77 @@
  * @todo Add license
  */
 'use strict'
+const replaceAll = (str, search, replace) => str.split(search).join(replace)
 const {
-  isArray,
-  isObject,
-  isString
-} = require('./utilities')
+    getOrderedDependencies
+} = require('highcharts-assembler/src/dependencies.js')
+const {
+  join,
+  sep,
+  relative
+} = require('path')
 
 /**
  * Returns fileOptions for the build script
+ * @todo Move this functionality to the build script.
  * @return {Object} Object containing all fileOptions
  */
-const getFileOptions = (files, options) => {
-  let result = {}
-  if (isArray(files) && isObject(options)) {
-    const keys = Object.keys(options)
-    result = files
-      .reduce((obj, filename) => {
-        keys.forEach(k => {
-          if (filename.indexOf(k) > -1) {
-            const current = obj[filename] || {}
-            const latest = options[k]
-            obj[filename] = Object.assign(current, latest)
+const getFileOptions = (files, pathJS) => {
+  const pathHighcharts = join(pathJS, 'masters/highcharts.src.js')
+  const highchartsFiles = replaceAll(
+        getOrderedDependencies(pathHighcharts)
+        .map((path) => relative(pathJS, path))
+        .join('|'),
+        sep,
+        `\\${sep}`
+    )
+    // Modules should not be standalone, and they should exclude all parts files.
+  const fileOptions = files
+        .reduce((obj, file) => {
+          if (
+              file.indexOf('modules') > -1 ||
+              file.indexOf('themes') > -1 ||
+              file.indexOf('indicators') > -1
+            ) {
+            obj[file] = {
+              exclude: new RegExp(highchartsFiles),
+              umd: false
+            }
           }
-        })
-        return obj
-      }, {})
-    // Converts exclude strings to RegExp
-    Object.keys(result).forEach(filename => {
-      const options = result[filename]
-      const exclude = options.exclude
-      if (isString(exclude)) {
-        options.exclude = new RegExp(exclude)
-      }
-    })
+          return obj
+        }, {})
+
+    /**
+     * Special cases
+     * solid-gauge should also exclude gauge-series
+     * highcharts-more and highcharts-3d is also not standalone.
+     */
+  if (fileOptions['modules/solid-gauge.src.js']) {
+    fileOptions['modules/solid-gauge.src.js'].exclude = new RegExp([highchartsFiles, 'GaugeSeries\\.js$'].join('|'))
   }
-  return result
+  if (fileOptions['modules/map.src.js']) {
+    fileOptions['modules/map.src.js'].product = 'Highmaps'
+  }
+  if (fileOptions['modules/map-parser.src.js']) {
+    fileOptions['modules/map-parser.src.js'].product = 'Highmaps'
+  }
+  Object.assign(fileOptions, {
+    'highcharts-more.src.js': {
+      exclude: new RegExp(highchartsFiles),
+      umd: false
+    },
+    'highcharts-3d.src.js': {
+      exclude: new RegExp(highchartsFiles),
+      umd: false
+    },
+    'highmaps.src.js': {
+      product: 'Highmaps'
+    },
+    'highstock.src.js': {
+      product: 'Highstock'
+    }
+  })
+  return fileOptions
 }
 
 /**

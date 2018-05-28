@@ -165,7 +165,7 @@ const serveBuildFile = (repositoryURL, requestURL) => {
       }
     } else if (!fileExists) {
       const files = getFilesInFolder(folder + 'js/masters/')
-      const fileOptions = getFileOptions(files, publicConfig.fileOptions)
+      const fileOptions = getFileOptions(files, folder + 'js')
       build({
         base: folder + 'js/masters/',
         output: outputFolder,

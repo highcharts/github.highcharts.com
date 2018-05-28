@@ -81,39 +81,39 @@ describe('interpreter.js', () => {
     })
   })
 
-  describe('getFileOptions', () => {
-    const getFileOptions = defaults.getFileOptions
-    const files = [
-      'highcharts.src.js',
-      'modules/data.src.js',
-      'modules/solid-gauge.src.js'
-    ]
-    const options = {
-      'modules': {
-        'exclude': 'parts[\\\\/][^\\\\/]+\\.js$',
-        'umd': false
-      },
-      'modules/solid-gauge.src.js': {
-        'exclude': 'parts[\\\\/][^\\\\/]+\\.js$|GaugeSeries\\.js$'
-      }
-    }
-    it('should return empty object when files is not an array', () => {
-      expect(getFileOptions(undefined, options)).to.deep.equal({})
-    })
-    it('should return empty object when options is not an object', () => {
-      expect(getFileOptions(files, undefined)).to.deep.equal({})
-    })
-    it('should return object containing file options', () => {
-      expect(getFileOptions(files, options)).to.deep.equal({
-        'modules/data.src.js': {
-          exclude: /parts[\\/][^\\/]+\.js$/,
-          umd: false
-        },
-        'modules/solid-gauge.src.js': {
-          exclude: /parts[\\/][^\\/]+\.js$|GaugeSeries\.js$/,
-          umd: false
-        }
-      })
-    })
-  })
+  // describe('getFileOptions', () => {
+  //   const getFileOptions = defaults.getFileOptions
+  //   const files = [
+  //     'highcharts.src.js',
+  //     'modules/data.src.js',
+  //     'modules/solid-gauge.src.js'
+  //   ]
+  //   const options = {
+  //     'modules': {
+  //       'exclude': 'parts[\\\\/][^\\\\/]+\\.js$',
+  //       'umd': false
+  //     },
+  //     'modules/solid-gauge.src.js': {
+  //       'exclude': 'parts[\\\\/][^\\\\/]+\\.js$|GaugeSeries\\.js$'
+  //     }
+  //   }
+  //   it('should return empty object when files is not an array', () => {
+  //     expect(getFileOptions(undefined, options)).to.deep.equal({})
+  //   })
+  //   it('should return empty object when options is not an object', () => {
+  //     expect(getFileOptions(files, undefined)).to.deep.equal({})
+  //   })
+  //   it('should return object containing file options', () => {
+  //     expect(getFileOptions(files, options)).to.deep.equal({
+  //       'modules/data.src.js': {
+  //         exclude: /parts[\\/][^\\/]+\.js$/,
+  //         umd: false
+  //       },
+  //       'modules/solid-gauge.src.js': {
+  //         exclude: /parts[\\/][^\\/]+\.js$|GaugeSeries\.js$/,
+  //         umd: false
+  //       }
+  //     })
+  //   })
+  // })
 })
