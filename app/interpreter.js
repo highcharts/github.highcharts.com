@@ -35,6 +35,7 @@ const getFileOptions = (files, pathJS) => {
           if (
               file.indexOf('modules') > -1 ||
               file.indexOf('themes') > -1 ||
+              file.indexOf('gantt/') > -1 ||
               file.indexOf('indicators') > -1
             ) {
             obj[file] = {
