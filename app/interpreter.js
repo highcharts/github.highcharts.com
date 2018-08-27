@@ -7,7 +7,7 @@
 'use strict'
 const replaceAll = (str, search, replace) => str.split(search).join(replace)
 const {
-    getOrderedDependencies
+  getOrderedDependencies
 } = require('highcharts-assembler/src/dependencies.js')
 const {
   join,
@@ -23,28 +23,28 @@ const {
 const getFileOptions = (files, pathJS) => {
   const pathHighcharts = join(pathJS, 'masters/highcharts.src.js')
   const highchartsFiles = replaceAll(
-        getOrderedDependencies(pathHighcharts)
-        .map((path) => relative(pathJS, path))
-        .join('|'),
-        sep,
-        `\\${sep}`
-    )
-    // Modules should not be standalone, and they should exclude all parts files.
+    getOrderedDependencies(pathHighcharts)
+      .map((path) => relative(pathJS, path))
+      .join('|'),
+    sep,
+    `\\${sep}`
+  )
+  // Modules should not be standalone, and they should exclude all parts files.
   const fileOptions = files
-        .reduce((obj, file) => {
-          if (
-              file.indexOf('modules') > -1 ||
+    .reduce((obj, file) => {
+      if (
+        file.indexOf('modules') > -1 ||
               file.indexOf('themes') > -1 ||
               file.indexOf('gantt/') > -1 ||
               file.indexOf('indicators') > -1
-            ) {
-            obj[file] = {
-              exclude: new RegExp(highchartsFiles),
-              umd: false
-            }
-          }
-          return obj
-        }, {})
+      ) {
+        obj[file] = {
+          exclude: new RegExp(highchartsFiles),
+          umd: false
+        }
+      }
+      return obj
+    }, {})
 
     /**
      * Special cases
@@ -104,8 +104,8 @@ const getBranch = url => {
   if (sections.length > 1 && branchTypes.includes(sections[0])) {
     branch = (
       (sections.length > 2 && isValidBranchName(sections[1]))
-      ? sections[0] + '/' + sections[1]
-      : sections[0]
+        ? sections[0] + '/' + sections[1]
+        : sections[0]
     )
   /**
    *  If the url has more then 1 section,

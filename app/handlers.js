@@ -78,7 +78,7 @@ const handleResult = (result, res, req) => {
       resolve()
     }
   })
-  .then(() => (result.delete && result.file) ? removeFile(result.file) : '')
+    .then(() => (result.delete && result.file) ? removeFile(result.file) : '')
 }
 
 /**
@@ -98,34 +98,34 @@ const serveStaticFile = (repositoryURL, requestURL) => {
     }
   }
   return Promise.resolve()
-  .then(() => {
-    const filePath = repositoryURL + branch + '/js/'
-    let promise
-    if (exists(outputFolder + file)) {
-      promise = Promise.resolve({ status: response.ok.status })
-    } else {
-      promise = downloadFile(filePath, file, outputFolder)
-    }
-    return promise
-  })
-  .then(request => {
-    const localPath = join(__dirname, '/../', outputFolder, file)
-    let result
-    if (request.status === response.ok.status) {
-      result = {
-        file: localPath,
-        status: response.ok.status,
-        message: false
+    .then(() => {
+      const filePath = repositoryURL + branch + '/js/'
+      let promise
+      if (exists(outputFolder + file)) {
+        promise = Promise.resolve({ status: response.ok.status })
+      } else {
+        promise = downloadFile(filePath, file, outputFolder)
       }
-    } else {
-      result = {
-        file: false,
-        status: response.notFound.status,
-        message: response.notFound.body
+      return promise
+    })
+    .then(request => {
+      const localPath = join(__dirname, '/../', outputFolder, file)
+      let result
+      if (request.status === response.ok.status) {
+        result = {
+          file: localPath,
+          status: response.ok.status,
+          message: false
+        }
+      } else {
+        result = {
+          file: false,
+          status: response.notFound.status,
+          message: response.notFound.body
+        }
       }
-    }
-    return result
-  })
+      return result
+    })
 }
 
 /**
@@ -149,8 +149,8 @@ const serveBuildFile = (repositoryURL, requestURL) => {
   }
   return (
     exists(folder + 'js/masters/')
-    ? Promise.resolve()
-    : downloadJSFolder(folder, repositoryURL, branch)
+      ? Promise.resolve()
+      : downloadJSFolder(folder, repositoryURL, branch)
   ).then(() => {
     const localPath = join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
     let obj = {
@@ -218,66 +218,66 @@ const serveDownloadFile = (repositoryURL, branchName, strParts, doCompile) => {
   const sourceFolder = join(folder, 'js', '/')
   const outputFolder = join(folder, 'output/')
   return Promise.resolve()
-  .then(() => {
+    .then(() => {
     /**
      * Download the source files if they are missing.
      */
-    let promise
-    if (!exists(folder + 'js/masters/')) {
-      promise = downloadJSFolder(folder, repositoryURL, branch)
-    } else {
-      promise = Promise.resolve()
-    }
-    return promise
-  })
-  .then(() => {
+      let promise
+      if (!exists(folder + 'js/masters/')) {
+        promise = downloadJSFolder(folder, repositoryURL, branch)
+      } else {
+        promise = Promise.resolve()
+      }
+      return promise
+    })
+    .then(() => {
     /**
      * Create the master file if it does not exist already
      */
-    const hash = sha1(secureToken, parts.join(','))
-    const customMasterFile = normalize(join(folder, 'custom', hash + '.src.js'))
-    if (!exists(customMasterFile)) {
-      const content = getCustomFileContent(importFolder, sourceFolder, parts)
-      writeFile(customMasterFile, content)
-    }
-    return hash
-  })
-  .then((hash) => {
+      const hash = sha1(secureToken, parts.join(','))
+      const customMasterFile = normalize(join(folder, 'custom', hash + '.src.js'))
+      if (!exists(customMasterFile)) {
+        const content = getCustomFileContent(importFolder, sourceFolder, parts)
+        writeFile(customMasterFile, content)
+      }
+      return hash
+    })
+    .then((hash) => {
     /**
      * Build the custom file from the master file, if it does not already exist
      */
-    const customFile = join('custom', hash + '.src.js')
-    const customFilePath = join(outputFolder, customFile)
-    if (!exists(customFilePath)) {
-      build({
-        base: folder,
-        jsBase: sourceFolder,
-        output: outputFolder,
-        files: [customFile],
-        type: 'classic',
-        version: branch + ' custom build'
-      })
-    }
-    return {
-      file: resolve(outputFolder, customFile)
-    }
-  })
-  .then((obj) => {
+      const customFile = join('custom', hash + '.src.js')
+      const customFilePath = join(outputFolder, customFile)
+      if (!exists(customFilePath)) {
+        build({
+          base: folder,
+          jsBase: sourceFolder,
+          output: outputFolder,
+          files: [customFile],
+          type: 'classic',
+          version: branch + ' custom build'
+        })
+      }
+      return {
+        file: resolve(outputFolder, customFile)
+      }
+    })
+    .then((obj) => {
     /**
      * Compile the custom file if needed.
      */
-    let promise = Promise.resolve()
-    const result = Object.assign({}, obj)
-    if (doCompile && isObject(result)) {
-      const compiledFileName = result.file.replace('.src.js', '.js')
-      if (!exists(compiledFileName)) {
-        promise = compileFile(result.file, compiledFileName)
+      let promise = Promise.resolve()
+      const result = Object.assign({}, obj)
+      if (doCompile && isObject(result)) {
+        const compiledFileName = result.file.replace('.src.js', '.js')
+        if (!exists(compiledFileName)) {
+          promise = compileFile(result.file, compiledFileName)
+        }
+        result.file = compiledFileName
       }
-      result.file = compiledFileName
-    }
-    return promise
-      .then(() => result)
-  })
+      return promise
+        .then(() => result)
+    })
 }
 
 /**
@@ -343,12 +343,12 @@ const handlerDefault = (req, res) => {
   return urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
     .then(result => (
       parts
-      ? serveDownloadFile(downloadURL, branch, parts, doCompile)
-      : (
-        result
-        ? serveBuildFile(downloadURL, req.url)
-        : serveStaticFile(downloadURL, req.url)
-      )
+        ? serveDownloadFile(downloadURL, branch, parts, doCompile)
+        : (
+          result
+            ? serveBuildFile(downloadURL, req.url)
+            : serveStaticFile(downloadURL, req.url)
+        )
     ))
     .then(result => handleResult(result, res, req))
 }
@@ -383,11 +383,11 @@ const handlerUpdate = (req, res) => {
   }
 
   return (ex ? removeDirectory(path) : Promise.resolve(false))
-  .then(() => ({
-    status: status,
-    message: message
-  }))
-  .then(result => handleResult(result, res, req))
+    .then(() => ({
+      status: status,
+      message: message
+    }))
+    .then(result => handleResult(result, res, req))
 }
 
 module.exports = {

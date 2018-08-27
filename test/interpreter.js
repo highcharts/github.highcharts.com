@@ -49,11 +49,11 @@ describe('interpreter.js', () => {
       expect(getType('bugfix', '/bugfix/modules/exporting.src.js'))
         .to.equal('classic')
       expect(getType('bugfix', '/bugfix/js/modules/exporting.src.js'))
-      .to.equal('css')
+        .to.equal('css')
       expect(getType('bugfix/issue-name', '/bugfix/issue-name/modules/exporting.src.js'))
         .to.equal('classic')
       expect(getType('bugfix/issue-name', '/bugfix/issue-name/js/modules/exporting.src.js'))
-      .to.equal('css')
+        .to.equal('css')
     })
 
     it('should support custom builds', () => {
@@ -68,7 +68,7 @@ describe('interpreter.js', () => {
       expect(getFile('bugfix', 'classic', '/bugfix/modules/exporting.src.js'))
         .to.equal('modules/exporting.src.js')
       expect(getFile('bugfix', 'css', '/bugfix/js/modules/exporting.src.js'))
-      .to.equal('modules/exporting.src.js')
+        .to.equal('modules/exporting.src.js')
       expect(getFile('bugfix/issue-name', 'classic', '/bugfix/issue-name/modules/exporting.src.js'))
         .to.equal('modules/exporting.src.js')
       expect(getFile('bugfix/issue-name', 'css', '/bugfix/issue-name/js/modules/exporting.src.js'))

@@ -105,8 +105,8 @@ const getFilesInFolder = (path, branch) => {
       } = result
       return (
         (status === 200)
-        ? JSON.parse(body)
-        : Promise.reject(new Error(body))
+          ? JSON.parse(body)
+          : Promise.reject(new Error(body))
       )
     })
     .then(contents => {
@@ -114,13 +114,13 @@ const getFilesInFolder = (path, branch) => {
         const name = path + '/' + obj.name
         return (
           (obj.type === 'dir')
-          ? getFilesInFolder(name, branch)
-          : [{
-            download: obj.download_url,
-            path: name,
-            size: obj.size,
-            type: obj.type
-          }]
+            ? getFilesInFolder(name, branch)
+            : [{
+              download: obj.download_url,
+              path: name,
+              size: obj.size,
+              type: obj.type
+            }]
         )
       })
       return Promise.all(promises)
@@ -134,8 +134,8 @@ const getDownloadFiles = (branch) => {
     .then(folders => {
       const files = folders[0].concat(folders[1])
       const result = files.filter(file => (file.path.endsWith('.js') || file.path.endsWith('.scss')))
-            .filter(file => file.size > 0)
-            .map(file => file.path)
+        .filter(file => file.size > 0)
+        .map(file => file.path)
       return result
     })
 }

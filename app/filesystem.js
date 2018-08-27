@@ -168,7 +168,7 @@ const removeDirectory = ph => new Promise((resolve, reject) => {
   if (exists(ph)) {
     const files = readdirSync(ph)
     const promises = files.map(file => ph + '/' + file)
-            .map(itemPath => (statSync(itemPath).isDirectory()) ? removeDirectory(itemPath) : removeFile(itemPath))
+      .map(itemPath => (statSync(itemPath).isDirectory()) ? removeDirectory(itemPath) : removeFile(itemPath))
     Promise.all(promises)
       .then(() => {
         rmdirSync(ph)
@@ -182,9 +182,9 @@ const removeDirectory = ph => new Promise((resolve, reject) => {
 
 const debug = (d, text) => {
   if (d) {
-        /* eslint-disable no-console */
+    /* eslint-disable no-console */
     console.log(text)
-        /* eslint-enable no-console */
+    /* eslint-enable no-console */
   }
 }
 

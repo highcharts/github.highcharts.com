@@ -79,8 +79,8 @@ describe('middleware.js', () => {
       clientErrorHandler(new Error('myerror'), req, res, next)
       expect(res.status.getCall(0).args[0]).to.equal(400)
       expect(res.send.getCall(0).args[0]).to.equal(
-          'Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.'
-        )
+        'Something went wrong. Please contact <a href="http://www.highcharts.com/support">Highcharts support</a> if this happens repeatedly.'
+      )
       expect(next.called).to.equal(true)
     })
   })

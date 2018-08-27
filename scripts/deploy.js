@@ -29,7 +29,7 @@ archive.pipe(output)
 
 // append a file
 folders.forEach((f) => {
-    // append files from a directory
+  // append files from a directory
   archive.directory(f)
 })
 
