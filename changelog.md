@@ -47,3 +47,4 @@
 - Subtracted content logic for custom file into its own function getCustomFileContent.
 - Modified serveDownloadFile to expect parts to be a comma seperated string. 
 - Updated serveDownloadFile to get source files from GitHub.
+- Updated highcharts-assembler to support AMD.
