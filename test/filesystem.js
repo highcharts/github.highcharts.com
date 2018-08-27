@@ -42,6 +42,7 @@ describe('filesystem.js', () => {
   })
   describe('getFilesInFolder', () => {
     const getFilesInFolder = defaults.getFilesInFolder
+    const throwErr = (err) => { if (err) throw err }
     const cleanFiles = () => {
       [
         'tmp/test-empty',
@@ -68,8 +69,8 @@ describe('filesystem.js', () => {
       fs.mkdirSync('tmp/test-empty')
       fs.mkdirSync('tmp/test-files')
       fs.mkdirSync('tmp/test-files/subfolder')
-      fs.writeFile('tmp/test-files/file.txt', '')
-      fs.writeFile('tmp/test-files/subfolder/file.txt', '')
+      fs.writeFile('tmp/test-files/file.txt', '', throwErr)
+      fs.writeFile('tmp/test-files/subfolder/file.txt', '', throwErr)
     })
     after(cleanFiles)
 
