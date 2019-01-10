@@ -11,6 +11,7 @@ describe('download.js', () => {
       'downloadFiles',
       'downloadJSFolder',
       'getDownloadFiles',
+      'httpsGetPromise',
       'urlExists'
     ]
     it('should have a default export', () => {
@@ -24,6 +25,26 @@ describe('download.js', () => {
       expect(exportedProperties).to.deep.equal(functions)
     })
   })
+
+  describe('httpsGetPromise', () => {
+    const { httpsGetPromise } = defaults
+    const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
+    it('should error if no options is provided', () => {
+      return httpsGetPromise()
+        .then((x) => { throw new Error('Promise resolved unexpectedly.') })
+        .catch(e => {
+          expect(e.message).to.not.equal('Promise resolved unexpectedly.')
+        })
+    })
+    it('should return a response when a url is provided', () => {
+      return httpsGetPromise(downloadURL)
+        .then(({ body, statusCode }) => {
+          expect(statusCode).to.equal(400)
+          expect(body).to.equal('400: Invalid request\n')
+        })
+    })
+  })
+
   describe('downloadFile', () => {
     it('is missing tests')
   })

@@ -26,6 +26,31 @@ const urlExists = url => new Promise(resolve => {
 })
 
 /**
+ * A promise version of https.get. Will resolve with a response object if the
+ * request was successful, or reject if the request errored.
+ * @param {object|string} options Can either be an https request options object,
+ * or an url string.
+ * @returns {Promise} Returns a promise which resolves with the request
+ * response.
+ */
+const httpsGetPromise = (options) => new Promise((resolve, reject) => {
+  const request = https.get(options, response => {
+    const body = []
+    response.on('data', (d) => {
+      body.push(d)
+    })
+    response.on('end', () => resolve({
+      statusCode: response.statusCode,
+      body: body.join('')
+    }))
+  })
+  request.on('error', (e) => {
+    reject(e)
+  })
+  request.end()
+})
+
+/**
  * Download a single file.
  * @param  {string} base   Base url
  * @param  {string} path   Location of file. Url is base + '/' + path
@@ -157,5 +182,6 @@ module.exports = {
   downloadFiles,
   downloadJSFolder,
   getDownloadFiles,
+  httpsGetPromise,
   urlExists
 }
