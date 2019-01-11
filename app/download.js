@@ -9,7 +9,8 @@ const {
   dirname
 } = require('path')
 const {
-  createDirectory
+  createDirectory,
+  writeFilePromise
 } = require('./filesystem.js')
 const {
   createWriteStream
@@ -83,6 +84,31 @@ const downloadFile = (base, path, output) => {
       }
     })
   })
+}
+
+const downloadFilePromise = (url, outputPath) => {
+  return httpsGetPromise(url)
+    .then(({ body, statusCode }) => {
+      let result = {
+        outputPath,
+        statusCode,
+        success: false,
+        url
+      }
+      let promise
+      if (statusCode === 200) {
+        createDirectory(dirname(outputPath))
+        promise = writeFilePromise(outputPath, body)
+          .then(() => {
+            console.log('@writeFilePromsise')
+            result.success = true
+            return result
+          })
+      } else {
+        promise = Promise.resolve(result)
+      }
+      return promise
+    })
 }
 
 /**
@@ -179,6 +205,7 @@ const downloadJSFolder = (output, repositoryURL, branch) => {
 
 module.exports = {
   downloadFile,
+  downloadFilePromise,
   downloadFiles,
   downloadJSFolder,
   getDownloadFiles,
