@@ -22,7 +22,7 @@
     "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "build": "node ./scripts/deploy.js",
     "increment-version": "node ./scripts/increment-version.js",
-    "precommit": "npm test && npm run increment-version && git add package.json",
+    "precommit": "npm test",
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "unit-tests": "mocha test/test.js",
