@@ -363,14 +363,16 @@ const handlerUpdate = (req, res) => {
   const hook = validateWebHook(req, secureToken)
   let status
   let message
-  let ex = false
-  let path = ''
+  let promise = Promise.resolve(false)
   if (hook.valid) {
     const ref = body.ref
-    const branch = ref.split('/').pop()
+    const branch = ref.replace('refs/heads/', '')
     if (branch) {
-      path = tmpFolder + branch
-      ex = exists(path)
+      const path = join(tmpFolder, branch)
+      const ex = exists(path)
+      if (ex) {
+        promise = removeDirectory(path)
+      }
       message = ex ? response.cacheDeleted.body : response.noCache.body
       status = ex ? response.cacheDeleted.status : response.noCache.status
     } else {
@@ -382,7 +384,7 @@ const handlerUpdate = (req, res) => {
     status = response.insecureWebhook.status
   }
 
-  return (ex ? removeDirectory(path) : Promise.resolve(false))
+  return (promise)
     .then(() => ({
       status: status,
       message: message
