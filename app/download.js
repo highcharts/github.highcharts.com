@@ -6,7 +6,9 @@
 'use strict'
 const https = require('https')
 const {
-  dirname
+  dirname,
+  join,
+  sep
 } = require('path')
 const {
   createDirectory,
@@ -100,7 +102,6 @@ const downloadFilePromise = (url, outputPath) => {
         createDirectory(dirname(outputPath))
         promise = writeFilePromise(outputPath, body)
           .then(() => {
-            console.log('@writeFilePromsise')
             result.success = true
             return result
           })
@@ -119,7 +120,8 @@ const downloadFilePromise = (url, outputPath) => {
  * @return {Promise} Returns a promise which is resolved when all files are downloaded
  */
 const downloadFiles = (base, filePaths, output) => {
-  const promises = filePaths.map(path => downloadFile(base, path, output))
+  const promises = filePaths
+    .map(path => downloadFilePromise(join(base, path), join(output, path)))
   return Promise.all(promises)
 }
 
@@ -198,7 +200,7 @@ const getDownloadFiles = (branch) => {
  * @return {Promise} Returns a promise which is resolved when all files are downloaded
  */
 const downloadJSFolder = (output, repositoryURL, branch) => {
-  const url = repositoryURL + branch
+  const url = join(repositoryURL, branch).split(sep).join('/')
   return getDownloadFiles(branch)
     .then(files => downloadFiles(url, files, output))
 }

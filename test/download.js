@@ -108,7 +108,9 @@ describe('download.js', () => {
     it('is missing tests')
   })
   describe('downloadJSFolder', () => {
-    it('is missings tests')
+    /* TODO: pass in a mockup of https to the function to be able to test
+       without an internet connection */
+    it('is missing tests')
   })
   describe('getDownloadFiles', () => {
     it('is missings tests')
