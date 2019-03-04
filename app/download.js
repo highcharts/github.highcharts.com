@@ -7,8 +7,7 @@
 const https = require('https')
 const {
   dirname,
-  join,
-  sep
+  join
 } = require('path')
 const {
   createDirectory,
@@ -202,7 +201,7 @@ const getDownloadFiles = (branch) => {
  * @return {Promise} Returns a promise which is resolved when all files are downloaded
  */
 const downloadJSFolder = (output, repositoryURL, branch) => {
-  const url = join(repositoryURL, branch).split(sep).join('/')
+  const url = `${repositoryURL}${branch}`
   return getDownloadFiles(branch)
     .then(files => downloadFiles(url, files, output))
     .then(responses => {
