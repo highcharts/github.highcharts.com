@@ -122,7 +122,7 @@ const downloadFilePromise = (url, outputPath) => {
  */
 const downloadFiles = (base, filePaths, output) => {
   const promises = filePaths
-    .map(path => downloadFilePromise(join(base, path), join(output, path)))
+    .map(path => downloadFilePromise(`${base}/${path}`, join(output, path)))
   return Promise.all(promises)
 }
 
