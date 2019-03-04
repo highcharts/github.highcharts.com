@@ -42,10 +42,12 @@ const httpsGetPromise = (options) => new Promise((resolve, reject) => {
     response.on('data', (d) => {
       body.push(d)
     })
-    response.on('end', () => resolve({
-      statusCode: response.statusCode,
-      body: body.join('')
-    }))
+    response.on('end', () => {
+      resolve({
+        statusCode: response.statusCode,
+        body: body.join('')
+      })
+    })
   })
   request.on('error', (e) => {
     reject(e)
@@ -203,6 +205,16 @@ const downloadJSFolder = (output, repositoryURL, branch) => {
   const url = join(repositoryURL, branch).split(sep).join('/')
   return getDownloadFiles(branch)
     .then(files => downloadFiles(url, files, output))
+    .then(responses => {
+      const errors = responses
+        .filter(response => response.statusCode !== 200)
+        .map(({ url, statusCode }) => `${statusCode}: ${url}`)
+
+      // Log possible errors
+      if (errors.length) {
+        console.log(`Some files did not download in branch "${branch}"\n${errors.join('\n')}`)
+      }
+    })
 }
 
 module.exports = {
