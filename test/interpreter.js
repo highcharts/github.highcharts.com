@@ -25,6 +25,7 @@ describe('interpreter.js', () => {
       expect(getBranch('/highcharts.src.js')).to.equal('master')
       expect(getBranch('/js/highcharts.src.js')).to.equal('master')
       expect(getBranch('/css/highcharts.css')).to.equal('master')
+      expect(getBranch('/gantt/highcharts.src.js')).to.equal('master')
     })
     it('should support multiple level branch names for bugfix and feature', () => {
       expect(getBranch('/bugfix/modules/exporting.src.js'))
@@ -64,6 +65,12 @@ describe('interpreter.js', () => {
 
   describe('getFile', () => {
     const getFile = defaults.getFile
+
+    it('should support product folders', () => {
+      expect(getFile('master', 'classic', '/gantt/highcharts.src.js'))
+        .to.equal('highcharts.src.js')
+    })
+
     it('should support multiple level branch names for bugfix and feature', () => {
       expect(getFile('bugfix', 'classic', '/bugfix/modules/exporting.src.js'))
         .to.equal('modules/exporting.src.js')

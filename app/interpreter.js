@@ -15,6 +15,8 @@ const {
   relative
 } = require('path')
 
+const products = ['stock', 'maps', 'gantt']
+
 /**
  * Returns fileOptions for the build script
  * @todo Move this functionality to the build script.
@@ -93,7 +95,7 @@ const getBranch = url => {
     // Not a type
     !['css', 'js'].includes(str) &&
     // Not a lib type
-    !['stock', 'maps'].includes(str) &&
+    !products.includes(str) &&
     // Not a parts folder
     !folders.includes(str) &&
     // Not a file
@@ -134,7 +136,7 @@ const getType = (branch, url) => {
   /**
    * If the first section is either stock or maps, then remove it.
    */
-  if (sections[0] === 'stock' || sections[0] === 'maps') {
+  if (products.includes(sections[0])) {
     sections.splice(0, 1)
   }
   // Check if it is a .js file
@@ -160,7 +162,7 @@ const getFile = (branch, type, url) => {
   /**
    * If the first section is either stock or maps, then remove it.
    */
-  if (['stock', 'maps'].includes(sections[0])) {
+  if (products.includes(sections[0])) {
     sections.splice(0, 1)
   }
   // Remove branch from path
