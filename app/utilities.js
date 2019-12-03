@@ -1,31 +1,46 @@
 /**
- * Basic utility functions for type checking.
+ * Utility functions for type checking, and etc.
  * @author Jon Arild Nygard
  * @todo Add license
  */
-const isUndefined = x => (typeof x === 'undefined')
-
-const isString = string => (typeof string === 'string')
-
-const isBool = x => (typeof x === 'boolean')
-
-const isArray = x => Array.isArray(x)
-
-const isNull = x => x === null
-
-const isObject = x => ((typeof x === 'object') && !isArray(x) && !isNull(x))
+'use strict'
 
 /**
- * isDate - Checks wether the input is a valid Date object.
- * @param {Date} x Item to test.
- * @return {bool} true if valid, false if not.
+ * Check if the input value is of type array. Returns true if type is
+ * array, otherwise false.
+ *
+ * @param {*} x The value to check if is array.
  */
-const isDate = (x) => (
-  Object.prototype.toString.call(x) === '[object Date]' &&
-  !isNaN(x.getDay())
-)
+function isArray (x) {
+  return Array.isArray(x)
+}
 
-const isJSON = x => {
+/**
+ * Check if the input value is of type boolean. Returns true if type is
+ * boolean, otherwise false.
+ *
+ * @param {*} x The value to check if is boolean.
+ */
+function isBool (x) {
+  return typeof x === 'boolean'
+}
+
+/**
+ * Check if the input value is a valid Date object. Returns true if valid,
+ * otherwise false.
+ * @param {*} x The value to check if is a valid Date object.
+ */
+function isDate (x) {
+  return Object.prototype.toString.call(x) === '[object Date]' &&
+    !isNaN(x.getDay())
+}
+
+/**
+ * Check if the input value is valid JSON. Returns true if valid,
+ * otherwise false.
+ * @param {*} x The value to check if is valid JSON.
+ */
+function isJSON (x) {
   let result = false
   if (isString(x)) {
     try {
@@ -37,24 +52,53 @@ const isJSON = x => {
 }
 
 /**
- * @todo Add type checking
- * @todo Check length of char
- * @todo Add tests
+ * Check if the input value is of type null. Returns true if type is
+ * null, otherwise false.
+ *
+ * @param {*} x The value to check if is null.
  */
-const padStart = (str, length, char) => {
-  let result = false
-  if (isString(str)) {
-    const paddingLength = length - str.length
-    let padding = ''
-    if (paddingLength > 0) {
-      let c = isString(char) ? char : ' '
-      padding = c.repeat(paddingLength).slice(0, paddingLength)
-    }
-    result = padding + str
-  }
-  return result
+function isNull (x) {
+  return x === null
 }
 
+/**
+ * Check if the input value is of type object. Returns true if type is
+ * object, otherwise false.
+ *
+ * @param {*} x The value to check if is object.
+ */
+function isObject (x) {
+  return (typeof x === 'object') && !isArray(x) && !isNull(x)
+}
+
+/**
+ * Check if the input value is of type string. Returns true if type is
+ * string, otherwise false.
+ *
+ * @param {*} x The value to check if is string.
+ */
+function isString (x) {
+  return typeof x === 'string'
+}
+
+/**
+ * Check if the input value is of type undefined. Returns true if type is
+ * undefinded, otherwise false.
+ *
+ * @param {*} x The value to check if is undefined.
+ */
+function isUndefined (x) {
+  return typeof x === 'undefined'
+}
+
+/**
+ * @todo remove redundant function
+ */
+function padStart (str, length = 0, char) {
+  return isString(str) ? str.padStart(length, char) : false
+}
+
+// Export utility functions
 module.exports = {
   isArray,
   isBool,
