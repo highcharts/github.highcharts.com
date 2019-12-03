@@ -6,8 +6,8 @@
  * @todo Add license
  */
 'use strict'
-const express = require('express')
-const router = require('./router.js')
+
+// Import dependencies, sorted by path name.
 const config = require('../config.json')
 const {
   formatDate
@@ -18,16 +18,20 @@ const {
   logErrors,
   setConnectionAborted
 } = require('./middleware.js')
-const app = express()
-const port = process.env.PORT || config.port || 80
-const date = formatDate(new Date())
-const content = [
-  'Starting server',
-  'Port: ' + port,
-  'Date: ' + date,
-  ''
-]
-console.log(content.join('\n'))
+const router = require('./router.js')
+const express = require('express')
+
+// Constants
+const APP = express()
+const PORT = process.env.PORT || config.port || 80
+const DATE = formatDate(new Date())
+
+// Output status information
+console.log(`
+Starting server
+Port: ${PORT}
+Date: ${DATE}
+`)
 
 /**
  * Register middleware for ExpressJS application
@@ -42,13 +46,13 @@ console.log(content.join('\n'))
  * 5. If an error occurs above the logErrors will log it to the console, with
  *    additional information. It will not pass the error to the next middleware.
  */
-app.use(setConnectionAborted)
-app.use(bodyJSONParser)
-app.use(router)
-app.use(clientErrorHandler)
-app.use(logErrors)
+APP.use(setConnectionAborted)
+APP.use(bodyJSONParser)
+APP.use(router)
+APP.use(clientErrorHandler)
+APP.use(logErrors)
 
 /**
  * Start the server
  */
-app.listen(port)
+APP.listen(PORT)
