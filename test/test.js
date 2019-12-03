@@ -1,4 +1,3 @@
-require('./compiler.js')
 require('./download.js')
 require('./filesystem.js')
 require('./interpreter.js')

@@ -4,9 +4,6 @@ const {
   resolve
 } = require('path')
 const {
-  compileFile
-} = require('./compiler.js')
-const {
   secureToken
 } = require('../config.json')
 const {
@@ -26,8 +23,7 @@ const {
   urlExists
 } = require('./download.js')
 const {
-  isString,
-  isObject
+  isString
 } = require('./utilities.js')
 const {
   exists,
@@ -207,10 +203,9 @@ const getCustomFileContent = (importFolder, sourceFolder, parts) => {
 /**
  * Used to handle request from the Highcharts Download Builder.
  * @param  {string} jsonParts Requested part files.
- * @param  {boolean} compile Wether or not to run the Closure Compiler on result.
  * @return {Promise} Returns a promise which resolves after file is built.
  */
-const serveDownloadFile = (repositoryURL, branchName, strParts, doCompile) => {
+const serveDownloadFile = (repositoryURL, branchName, strParts) => {
   const branch = isString(branchName) ? branchName : 'master'
   const parts = isString(strParts) ? strParts.split(',') : []
   const importFolder = '../js/'
@@ -261,22 +256,6 @@ const serveDownloadFile = (repositoryURL, branchName, strParts, doCompile) => {
       return {
         file: resolve(outputFolder, customFile)
       }
-    })
-    .then((obj) => {
-    /**
-     * Compile the custom file if needed.
-     */
-      let promise = Promise.resolve()
-      const result = Object.assign({}, obj)
-      if (doCompile && isObject(result)) {
-        const compiledFileName = result.file.replace('.src.js', '.js')
-        if (!exists(compiledFileName)) {
-          promise = compileFile(result.file, compiledFileName)
-        }
-        result.file = compiledFileName
-      }
-      return promise
-        .then(() => result)
     })
 }
 
@@ -336,14 +315,12 @@ const handlerIndex = (req, res) => {
  */
 const handlerDefault = (req, res) => {
   const branch = getBranch(req.path)
-  // TODO Remove compile code.
-  const doCompile = false
   const parts = req.query.parts
   // If a master file exist, then create dist file using highcharts-assembler.
   return urlExists(downloadURL + branch + '/js/masters/highcharts.src.js')
     .then(result => (
       parts
-        ? serveDownloadFile(downloadURL, branch, parts, doCompile)
+        ? serveDownloadFile(downloadURL, branch, parts)
         : (
           result
             ? serveBuildFile(downloadURL, req.url)
