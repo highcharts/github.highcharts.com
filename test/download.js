@@ -29,7 +29,8 @@ describe('download.js', () => {
   describe('httpsGetPromise', () => {
     const { httpsGetPromise } = defaults
     const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
-    it('should error if no options is provided', () => {
+    it('should error if no options is provided', function () {
+      this.timeout(5000)
       return httpsGetPromise()
         .then((x) => { throw new Error('Promise resolved unexpectedly.') })
         .catch(e => {
@@ -96,7 +97,8 @@ describe('download.js', () => {
         expect(exists).to.equal(false)
       })
     })
-    it('should reject when request is invalid', () => {
+    it('should reject when request is invalid', function () {
+      this.timeout(5000)
       return downloadFilePromise()
         .then((x) => { throw new Error('Promise resolved unexpectedly.') })
         .catch(e => {
