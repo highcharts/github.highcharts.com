@@ -1,9 +1,12 @@
 /**
- * Setup of url routing, takes care of serving any result, and handling of errors.
+ * Express router.
+ * Takes care of serving any result, and handling of errors.
  * @author Jon Arild Nygard
+ * @todo Add license
  */
 'use strict'
-const router = require('express').Router()
+
+// Import dependencies, sorted by path name.
 const {
   catchAsyncErrors,
   handlerDefault,
@@ -13,12 +16,18 @@ const {
   handlerRobots,
   handlerUpdate
 } = require('./handlers.js')
+const { Router } = require('express')
 
-router.get('/health', catchAsyncErrors(handlerHealth))
-router.post('/update', catchAsyncErrors(handlerUpdate))
-router.get('/favicon.ico', catchAsyncErrors(handlerIcon))
-router.get('/robots.txt', catchAsyncErrors(handlerRobots))
-router.get('/', catchAsyncErrors(handlerIndex))
-router.get('*', catchAsyncErrors(handlerDefault))
+// Constants
+const ROUTER = Router()
 
-module.exports = router
+// Register handlers to the router
+ROUTER.get('/health', catchAsyncErrors(handlerHealth))
+ROUTER.post('/update', catchAsyncErrors(handlerUpdate))
+ROUTER.get('/favicon.ico', catchAsyncErrors(handlerIcon))
+ROUTER.get('/robots.txt', catchAsyncErrors(handlerRobots))
+ROUTER.get('/', catchAsyncErrors(handlerIndex))
+ROUTER.get('*', catchAsyncErrors(handlerDefault))
+
+// Export the router
+module.exports = ROUTER
