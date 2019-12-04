@@ -4,224 +4,186 @@
  * @todo Add license
  */
 'use strict'
-const https = require('https')
-const {
-  dirname,
-  join
-} = require('path')
+
+// Import dependencies, sorted by path.
+const { token } = require('../config.json')
 const {
   createDirectory,
   writeFilePromise
 } = require('./filesystem.js')
 const {
-  createWriteStream
-} = require('fs')
-const token = require('../config.json').token
+  get: httpsGet
+} = require('https')
+const {
+  dirname,
+  join
+} = require('path')
 
 /**
- * Check if a url returns 200.
- * @param  {string} url Url to check
- * @return {Promise} Returns a Promise which resolves when the a response from the url is given. Returns true if statusCode is 200, otherwise false.
+ * Downloads the content of a url and writes it to the given output path.
+ * The Promise is resolved with an object containing information of the result
+ * of the process.
+ *
+ * @param {string} url The URL location to the content to download.
+ * @param {string} outputPath The path to output the content at the URL.
  */
-const urlExists = url => new Promise(resolve => {
-  https.get(url, response => resolve(response.statusCode === 200))
-})
+async function downloadFile (url, outputPath) {
+  const { body, statusCode } = await get(url)
+  const result = {
+    outputPath,
+    statusCode,
+    success: false,
+    url
+  }
+
+  if (statusCode === 200) {
+    createDirectory(dirname(outputPath))
+    await writeFilePromise(outputPath, body)
+    result.success = true
+  }
+
+  return result
+}
 
 /**
- * A promise version of https.get. Will resolve with a response object if the
- * request was successful, or reject if the request errored.
+ * Downloads a list of files relative to the base URL. The baseURL joined with
+ * a subpath points to a URL, the content of the URL will be outputted to the
+ * joined path of the output directory and the subpath.
+ * The Promise is resolved with an array of objects containing information of
+ * their result of the process.
+ *
+ * @param {string} baseURL The base URL for each subpath.
+ * @param {[string]} subpaths List of pathnames relative to the base URL.
+ * @param {string} outputDir The directory to output the content of each URL.
+ */
+function downloadFiles (baseURL, subpaths, outputDir) {
+  const promises = subpaths
+    .map(path => downloadFile(`${baseURL}/${path}`, join(outputDir, path)))
+  return Promise.all(promises)
+}
+
+/**
+ * Download all the files in the css and js folder in the given branch of a
+ * repository.
+ * The Promise resolves when all the files have been downloaded.
+ *
+ * @param {string} outputDir The directory to output the js files.
+ * @param {string} repositoryURL The URL to the repository of files in raw
+ * format.
+ * @param {string} branch The name of the branch the files are located in.
+ */
+async function downloadJSFolder (outputDir, repositoryURL, branch) {
+  const url = `${repositoryURL}${branch}`
+  const files = await getDownloadFiles(branch)
+  const responses = await downloadFiles(url, files, outputDir)
+  const errors = responses
+    .filter(({ statusCode }) => statusCode !== 200)
+    .map(({ url, statusCode }) => `${statusCode}: ${url}`)
+
+  // Log possible errors
+  if (errors.length) {
+    console.log(`Some files did not download in branch "${branch}"\n${
+      errors.join('\n')
+    }`)
+  }
+}
+
+/**
+ * An asynchronous version of https.get, with encoding set to utf8.
+ * The Promise resolves with an object containing the status code and the
+ * response body.
+ *
  * @param {object|string} options Can either be an https request options object,
  * or an url string.
- * @returns {Promise} Returns a promise which resolves with the request
- * response.
  */
-const httpsGetPromise = (options) => new Promise((resolve, reject) => {
-  const request = https.get(options, response => {
-    const body = []
-    response.on('data', (d) => {
-      body.push(d)
-    })
-    response.on('end', () => {
-      resolve({
-        statusCode: response.statusCode,
-        body: body.join('')
-      })
-    })
-  })
-  request.on('error', (e) => {
-    reject(e)
-  })
-  request.end()
-})
-
-/**
- * Download a single file.
- * @param  {string} base   Base url
- * @param  {string} path   Location of file. Url is base + '/' + path
- * @param  {string} output Where to output the file
- * @return {Promise} Returns a promise when resolved contains the status code and path to the file.
- */
-const downloadFile = (base, path, output) => {
+function get (options) {
   return new Promise((resolve, reject) => {
-    let url = base + '/' + path
-    let outputPath = output + path
-    createDirectory(dirname(outputPath))
-    https.get(url, response => {
-      if (response.statusCode === 200) {
-        let file = createWriteStream(outputPath)
-        file.on('error', (err) => {
-          file.end()
-          reject(err)
-        })
-        file.on('finish', () => {
-          resolve({
-            status: response.statusCode,
-            path: outputPath
-          })
-        })
-        response.pipe(file)
-      } else {
-        resolve({
-          status: response.statusCode
-        })
-      }
-    })
-  })
-}
-
-const downloadFilePromise = (url, outputPath) => {
-  return httpsGetPromise(url)
-    .then(({ body, statusCode }) => {
-      let result = {
-        outputPath,
-        statusCode,
-        success: false,
-        url
-      }
-      let promise
-      if (statusCode === 200) {
-        createDirectory(dirname(outputPath))
-        promise = writeFilePromise(outputPath, body)
-          .then(() => {
-            result.success = true
-            return result
-          })
-      } else {
-        promise = Promise.resolve(result)
-      }
-      return promise
-    })
-}
-
-/**
- * Downloads a series of files using the same base url
- * @param  {string} base The base url
- * @param  {[string]} filePaths Array of filepaths.
- * @param  {string} output Where to output the file
- * @return {Promise} Returns a promise which is resolved when all files are downloaded
- */
-const downloadFiles = (base, filePaths, output) => {
-  const promises = filePaths
-    .map(path => downloadFilePromise(`${base}/${path}`, join(output, path)))
-  return Promise.all(promises)
-}
-
-const get = (host, path) => new Promise((resolve, reject) => {
-  const agent = 'github.highcharts.com'
-  https.get({
-    hostname: host,
-    path: path,
-    headers: {
-      'user-agent': agent
-    }
-  }, response => {
-    let body = ''
-    response.setEncoding('utf8')
-    response.on('data', data => (body += data))
-    response.on('end', () => {
-      resolve({
-        status: response.statusCode,
-        body: body
-      })
-    })
-    response.on('error', e => reject(e))
-  })
-})
-
-const getFilesInFolder = (path, branch) => {
-  const host = 'api.github.com'
-  const url = `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`
-  return get(host, url)
-    .then(result => {
-      const {
-        status,
-        body
-      } = result
-      return (
-        (status === 200)
-          ? JSON.parse(body)
-          : Promise.reject(new Error(body))
+    const request = httpsGet(options, response => {
+      const body = []
+      response.setEncoding('utf8')
+      response.on('data', (data) => { body.push(data) })
+      response.on('end', () =>
+        resolve({ statusCode: response.statusCode, body: body.join('') })
       )
     })
-    .then(contents => {
-      const promises = contents.map(obj => {
-        const name = path + '/' + obj.name
-        return (
-          (obj.type === 'dir')
-            ? getFilesInFolder(name, branch)
-            : [{
-              download: obj.download_url,
-              path: name,
-              size: obj.size,
-              type: obj.type
-            }]
-        )
-      })
-      return Promise.all(promises)
-    })
-    .then(arr => arr.reduce((arr1, arr2) => arr1.concat(arr2), []))
-}
-
-const getDownloadFiles = (branch) => {
-  const promises = ['css', 'js'].map(folder => getFilesInFolder(folder, branch))
-  return Promise.all(promises)
-    .then(folders => {
-      const files = folders[0].concat(folders[1])
-      const result = files.filter(file => (file.path.endsWith('.js') || file.path.endsWith('.scss')))
-        .filter(file => file.size > 0)
-        .map(file => file.path)
-      return result
-    })
+    request.on('error', reject)
+    request.end()
+  })
 }
 
 /**
- * Download all the files in the js folder of the repository
- * @param  {string} output Where to output all the files
- * @param  {string} url Url to the repository in raw format
- * @return {Promise} Returns a promise which is resolved when all files are downloaded
+ * Gives a list of all the source files in the given branch in the repository.
+ * The Promise resolves with a list of objects containing information on each
+ * source file.
+ *
+ * @param {string} branch The name of the branch the files are located in.
  */
-const downloadJSFolder = (output, repositoryURL, branch) => {
-  const url = `${repositoryURL}${branch}`
-  return getDownloadFiles(branch)
-    .then(files => downloadFiles(url, files, output))
-    .then(responses => {
-      const errors = responses
-        .filter(response => response.statusCode !== 200)
-        .map(({ url, statusCode }) => `${statusCode}: ${url}`)
-
-      // Log possible errors
-      if (errors.length) {
-        console.log(`Some files did not download in branch "${branch}"\n${errors.join('\n')}`)
-      }
-    })
+async function getDownloadFiles (branch) {
+  const promises = ['css', 'js'].map(folder => getFilesInFolder(folder, branch))
+  const folders = await Promise.all(promises)
+  const files = folders[0].concat(folders[1])
+  const isValidFile = ({ path, size }) =>
+    (path.endsWith('.js') || path.endsWith('.scss')) && size > 0
+  return files.filter(isValidFile).map(({ path }) => path)
 }
 
+/**
+ * Gives a list of all the files in a directory in the given branch in the
+ * repository.
+ * The Promise resolves with a list of objects containing information on each of
+ * the files in the directory.
+ *
+ * @param {string} path The path to the directory.
+ * @param {string} branch The name of the branch the files are located in.
+ */
+async function getFilesInFolder (path, branch) {
+  const { body, statusCode } = await get({
+    hostname: 'api.github.com',
+    path: `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`,
+    headers: { 'user-agent': 'github.highcharts.com' }
+  })
+  if (statusCode !== 200) {
+    throw new Error(body)
+  }
+  const promises = JSON.parse(body).map(obj => {
+    const name = path + '/' + obj.name
+    return (
+      (obj.type === 'dir')
+        ? getFilesInFolder(name, branch)
+        : [{
+          download: obj.download_url,
+          path: name,
+          size: obj.size,
+          type: obj.type
+        }]
+    )
+  })
+  const arr = await Promise.all(promises)
+  return arr.reduce((arr1, arr2) => arr1.concat(arr2), [])
+}
+
+/**
+ * Check if a given URL responds with a status 200.
+ * The Promise resolves with true if the URL responds with status 200, otherwise
+ * false.
+ *
+ * @param  {string} url The URL to check if exists.
+ */
+async function urlExists (url) {
+  try {
+    const response = await get(url)
+    return response.statusCode === 200
+  } catch (e) {
+    return false
+  }
+}
+
+// Export download functions
 module.exports = {
   downloadFile,
-  downloadFilePromise,
   downloadFiles,
   downloadJSFolder,
   getDownloadFiles,
-  httpsGetPromise,
+  httpsGetPromise: get,
   urlExists
 }

@@ -100,7 +100,7 @@ const serveStaticFile = (repositoryURL, requestURL) => {
       if (exists(outputFolder + file)) {
         promise = Promise.resolve({ status: response.ok.status })
       } else {
-        promise = downloadFile(filePath, file, outputFolder)
+        promise = downloadFile(filePath + file, outputFolder + file)
       }
       return promise
     })

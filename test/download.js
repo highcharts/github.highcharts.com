@@ -7,7 +7,6 @@ describe('download.js', () => {
   describe('exported properties', () => {
     const functions = [
       'downloadFile',
-      'downloadFilePromise',
       'downloadFiles',
       'downloadJSFolder',
       'getDownloadFiles',
@@ -47,10 +46,7 @@ describe('download.js', () => {
   })
 
   describe('downloadFile', () => {
-    it('is missing tests')
-  })
-  describe('downloadFilePromise', () => {
-    const { downloadFilePromise } = defaults
+    const { downloadFile } = defaults
     const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
     const cleanFiles = () => {
       [
@@ -71,7 +67,7 @@ describe('download.js', () => {
     after(cleanFiles)
     before(cleanFiles)
     it('should resolve with an informational object, and a newly created file.', () => {
-      return downloadFilePromise(
+      return downloadFile(
         downloadURL + 'master/js/masters/highcharts.src.js',
         './tmp/test/downloaded-file1.js'
       ).then(({ outputPath, statusCode, success, url }) => {
@@ -83,7 +79,7 @@ describe('download.js', () => {
       })
     })
     it('should only create a file if response status is 200', () => {
-      return downloadFilePromise(
+      return downloadFile(
         downloadURL + 'master/i-do-not-exist.js',
         './tmp/test/downloaded-file2.js'
       ).then(({ outputPath, statusCode, success, url }) => {
@@ -99,7 +95,7 @@ describe('download.js', () => {
     })
     it('should reject when request is invalid', function () {
       this.timeout(5000)
-      return downloadFilePromise()
+      return downloadFile()
         .then((x) => { throw new Error('Promise resolved unexpectedly.') })
         .catch(e => {
           expect(e.message).to.not.equal('Promise resolved unexpectedly.')
