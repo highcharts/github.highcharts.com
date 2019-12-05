@@ -25,10 +25,10 @@ const { response } = require('./message.json')
 const { isString } = require('./utilities.js')
 const { sha1, validateWebHook } = require('./webhook.js')
 const build = require('highcharts-assembler')
-const { join, normalize, resolve } = require('path')
+const { join } = require('path')
 
 // Constants
-const PATH_TMP_DIRECTORY = './tmp/'
+const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
 const URL_DOWNLOAD = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
 /**
@@ -47,18 +47,17 @@ function catchAsyncErrors (asyncFn) {
  * Filters out dependencies that does not exist in the source folder.
  * Returns a string with the content of the file.
  *
- * @param {string} importFolder The path to the folder containing the
- * dependencies. Relative to the resulting custom file.
  * @param {string} sourceFolder The path to the folder containing the source
  * files.
  * @param {Array<string>} dependencies The dependencies of the custom file.
  */
-function getCustomFileContent (importFolder, sourceFolder, dependencies) {
+function getCustomFileContent (sourceFolder, dependencies) {
   const LB = '\r\n' // Line break
+  const importFolder = '../js/'
 
   // Create all import statements for the provided dependencies.
   const imports = dependencies.reduce((arr, path) => {
-    if (exists(sourceFolder + path)) {
+    if (exists(join(sourceFolder, path))) {
       arr.push('import \'' + importFolder + path + '\';')
     }
     return arr
@@ -91,6 +90,8 @@ function getCustomFileContent (importFolder, sourceFolder, dependencies) {
 async function handlerDefault (req, res) {
   const branch = getBranch(req.path)
   const parts = req.query.parts
+
+  // Serve a file depending on the request URL.
   const result = parts
     // If request has a query including parts, then create a custom file.
     ? await serveDownloadFile(URL_DOWNLOAD, branch, parts)
@@ -165,19 +166,29 @@ async function handlerRobots (req, res) {
 async function handlerUpdate (req, res) {
   const hook = validateWebHook(req, secureToken)
   let result
+
+  // Check if the webhook is valid
   if (hook.valid) {
     const branch = req.body.ref.replace('refs/heads/', '')
+
+    // Check if branch name is provided
     if (branch) {
-      const path = join(PATH_TMP_DIRECTORY, branch)
-      const doCacheExist = exists(path)
+      const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
+      const doCacheExist = exists(pathCacheDirectory)
+
+      // Remove the cache if it exists
       if (doCacheExist) {
-        await removeDirectory(path)
+        await removeDirectory(pathCacheDirectory)
       }
+
+      // Respond with information of if the cache was deleted
       result = doCacheExist ? response.cacheDeleted : response.noCache
     } else {
+      // Respond with information of invalid branch
       result = response.invalidBranch
     }
   } else {
+    // Respond with information of insecure webhook
     result = {
       body: response.insecureWebhook.body + hook.message,
       status: response.insecureWebhook.status
@@ -233,26 +244,36 @@ async function serveBuildFile (repositoryURL, requestURL) {
   const branch = getBranch(requestURL)
   const type = getType(branch, requestURL)
   const file = getFile(branch, type, requestURL)
-  const folder = PATH_TMP_DIRECTORY + branch + '/'
 
-  // Respond with not found if the interpreter can not find a filename
+  // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
     return response.notFound
   }
-  if (!exists(folder + 'js/masters/')) {
-    await downloadJSFolder(folder, repositoryURL, branch)
+
+  const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
+  const pathMastersDirectory = join(pathCacheDirectory, 'js', 'masters')
+  // Download the source files if they are not found in the cache.
+  if (!exists(pathMastersDirectory)) {
+    await downloadJSFolder(pathCacheDirectory, repositoryURL, branch)
   }
-  if (!exists(folder + 'js/masters/' + file)) {
+
+  // Respond with not found if the master file is not found in the cache.
+  if (!exists(join(pathMastersDirectory, file))) {
     return response.notFound
   }
 
-  const outputFolder = folder + 'output/'
-  if (!exists(outputFolder + (type === 'css' ? 'js/' : '') + file)) {
-    const files = getFilesInFolder(folder + 'js/masters/')
-    const fileOptions = getFileOptions(files, folder + 'js')
+  const pathOutputFolder = join(pathCacheDirectory, 'output')
+  const pathOutputFile = join(
+    pathOutputFolder, (type === 'css' ? 'js' : ''), file
+  )
+  // Build the distribution file if it is not found in cache.
+  if (!exists(pathOutputFile)) {
+    const files = getFilesInFolder(pathMastersDirectory)
+    const fileOptions = getFileOptions(files, join(pathCacheDirectory, 'js'))
     build({
-      base: folder + 'js/masters/',
-      output: outputFolder,
+      // TODO: Remove trailing slash when assembler has fixed path concatenation
+      base: pathMastersDirectory + '/',
+      output: pathOutputFolder,
       files: [file],
       pretty: false,
       type: type,
@@ -260,9 +281,9 @@ async function serveBuildFile (repositoryURL, requestURL) {
       fileOptions: fileOptions
     })
   }
-  return {
-    file: join(__dirname, '/../', outputFolder, (type === 'css' ? 'js/' : ''), file)
-  }
+
+  // Return path to file location in the cache.
+  return { file: pathOutputFile }
 }
 
 /**
@@ -276,23 +297,23 @@ async function serveStaticFile (repositoryURL, requestURL) {
   const branch = getBranch(requestURL)
   const file = getFile(branch, 'classic', requestURL)
 
-  // Respond with not found if the interpreter can not find a filename
+  // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
     return response.notFound
   }
 
-  const outputFolder = `${PATH_TMP_DIRECTORY}${branch}/output/`
+  const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
   // Download the file if it is not already available in cache.
-  if (!exists(outputFolder + file)) {
-    const filePath = `${repositoryURL}${branch}/js/${file}`
-    const download = await downloadFile(filePath, outputFolder + file)
+  if (!exists(pathFile)) {
+    const urlFile = `${repositoryURL}${branch}/js/${file}`
+    const download = await downloadFile(urlFile, pathFile)
     if (download.statusCode !== 200) {
       return response.notFound
     }
   }
 
   // Return path to file location in the cache.
-  return { file: join(__dirname, '/../', outputFolder, file) }
+  return { file: pathFile }
 }
 
 /**
@@ -306,41 +327,39 @@ async function serveStaticFile (repositoryURL, requestURL) {
 async function serveDownloadFile (repositoryURL, branchName, strParts) {
   const branch = isString(branchName) ? branchName : 'master'
   const parts = isString(strParts) ? strParts.split(',') : []
-  const importFolder = '../js/'
-  const folder = join(PATH_TMP_DIRECTORY, branch, '/')
-  const sourceFolder = join(folder, 'js', '/')
-  const outputFolder = join(folder, 'output/')
-  /**
-   * Download the source files if they are missing.
-   */
-  if (!exists(folder + 'js/masters/')) {
-    await downloadJSFolder(folder, repositoryURL, branch)
+  const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
+
+  // Download the source files if not found in the cache.
+  if (!exists(join(pathCacheDirectory, 'js/masters'))) {
+    await downloadJSFolder(pathCacheDirectory, repositoryURL, branch)
   }
-  /**
-   * Create the master file if it does not exist already
-   */
+
+  const pathJSFolder = join(pathCacheDirectory, 'js')
   const hash = sha1(secureToken, parts.join(','))
-  const customMasterFile = normalize(join(folder, 'custom', hash + '.src.js'))
-  if (!exists(customMasterFile)) {
-    const content = getCustomFileContent(importFolder, sourceFolder, parts)
-    writeFile(customMasterFile, content)
+  const filename = join('custom', `${hash}.src.js`)
+  const pathMasterFile = join(pathCacheDirectory, filename)
+  // Create the master file if it not found in the cache.
+  if (!exists(pathMasterFile)) {
+    const content = getCustomFileContent(pathJSFolder, parts)
+    writeFile(pathMasterFile, content)
   }
-  /**
-   * Build the custom file from the master file, if it does not already exist
-   */
-  const customFile = join('custom', hash + '.src.js')
-  const customFilePath = join(outputFolder, customFile)
-  if (!exists(customFilePath)) {
+
+  const pathOutputFolder = join(pathCacheDirectory, 'output')
+  const pathFile = join(pathOutputFolder, filename)
+  // Build the custom file from the master file if it is not found in the cache.
+  if (!exists(pathFile)) {
     build({
-      base: folder,
-      jsBase: sourceFolder,
-      output: outputFolder,
-      files: [customFile],
+      base: pathCacheDirectory,
+      jsBase: pathJSFolder,
+      output: pathOutputFolder,
+      files: [filename],
       type: 'classic',
       version: branch + ' custom build'
     })
   }
-  return { file: resolve(outputFolder, customFile) }
+
+  // Return path to file location in the cache.
+  return { file: pathFile }
 }
 
 // Export handlers
