@@ -22,7 +22,6 @@ const {
   getType
 } = require('./interpreter.js')
 const { response } = require('./message.json')
-const { isString } = require('./utilities.js')
 const { sha1, validateWebHook } = require('./webhook.js')
 const build = require('highcharts-assembler')
 const { join } = require('path')
@@ -32,7 +31,7 @@ const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
 const URL_DOWNLOAD = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
 /**
- * Adds error handler to async middlware functions. When an error is caught the
+ * Adds error handler to async middleware functions. When an error is caught the
  * next callback is called with the error.
  * Returns the async function with an added error handler.
  *
@@ -44,24 +43,18 @@ function catchAsyncErrors (asyncFn) {
 
 /**
  * Creates the content for a custom file with all dependencies included.
- * Filters out dependencies that does not exist in the source folder.
  * Returns a string with the content of the file.
  *
- * @param {string} sourceFolder The path to the folder containing the source
- * files.
  * @param {Array<string>} dependencies The dependencies of the custom file.
  */
-function getCustomFileContent (sourceFolder, dependencies) {
+function getCustomFileContent (dependencies) {
   const LB = '\r\n' // Line break
   const importFolder = '../js/'
 
   // Create all import statements for the provided dependencies.
-  const imports = dependencies.reduce((arr, path) => {
-    if (exists(join(sourceFolder, path))) {
-      arr.push('import \'' + importFolder + path + '\';')
-    }
-    return arr
-  }, []).join(LB)
+  const imports = dependencies
+    .map(path => 'import \'' + importFolder + path + '\';')
+    .join(LB)
 
   // Return the file content
   return [
@@ -321,12 +314,10 @@ async function serveStaticFile (repositoryURL, requestURL) {
  * The Promise resolves with an object containing information on the response.
  *
  * @param {string} repositoryURL Url to download the source files.
- * @param {string} branchName The name of the branch the files are located in.
- * @param {Array<string>} strParts The list of dependencies for the custom file.
+ * @param {string} [branch] The name of the branch the files are located in.
+ * @param {string} [strParts] The list of dependencies for the custom file.
  */
-async function serveDownloadFile (repositoryURL, branchName, strParts) {
-  const branch = isString(branchName) ? branchName : 'master'
-  const parts = isString(strParts) ? strParts.split(',') : []
+async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '') {
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
 
   // Download the source files if not found in the cache.
@@ -334,13 +325,19 @@ async function serveDownloadFile (repositoryURL, branchName, strParts) {
     await downloadJSFolder(pathCacheDirectory, repositoryURL, branch)
   }
 
+  // Filter out filenames that is not existing in the source directory.
   const pathJSFolder = join(pathCacheDirectory, 'js')
+  const parts = strParts.split(',')
+    .filter(filename => exists(join(pathJSFolder, filename)))
+
+  // Create a unique name for the file based on the content.
   const hash = sha1(secureToken, parts.join(','))
   const filename = join('custom', `${hash}.src.js`)
-  const pathMasterFile = join(pathCacheDirectory, filename)
+
   // Create the master file if it not found in the cache.
+  const pathMasterFile = join(pathCacheDirectory, filename)
   if (!exists(pathMasterFile)) {
-    const content = getCustomFileContent(pathJSFolder, parts)
+    const content = getCustomFileContent(parts)
     writeFile(pathMasterFile, content)
   }
 
@@ -349,8 +346,8 @@ async function serveDownloadFile (repositoryURL, branchName, strParts) {
   // Build the custom file from the master file if it is not found in the cache.
   if (!exists(pathFile)) {
     build({
-      base: pathCacheDirectory,
-      jsBase: pathJSFolder,
+      base: pathCacheDirectory + '/',
+      jsBase: pathJSFolder + '/',
       output: pathOutputFolder,
       files: [filename],
       type: 'classic',
