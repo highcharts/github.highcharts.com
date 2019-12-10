@@ -16,7 +16,6 @@ describe('filesystem.js', () => {
       'formatDate',
       'getFilesInFolder',
       'removeDirectory',
-      'removeFile',
       'writeFile'
     ]
     functions.forEach((name) => {

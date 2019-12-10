@@ -17,10 +17,10 @@ const {
   mkdirSync,
   readdirSync,
   statSync,
-  unlink,
   promises: {
     readdir,
     rmdir,
+    unlink,
     writeFile
   }
 } = require('fs')
@@ -95,23 +95,6 @@ async function writeFilePromise (filepath, data) {
 }
 
 /**
- * Removes a file.
- * Creates a promise which resolves when the file is deleted.
- * Promise is rejected if the file does not exist.
- * @param  {string} ph Path to file
- * @returns {Promise} Returns a promise which resolves when the file is deleted.
- */
-const removeFile = ph => new Promise((resolve, reject) => {
-  if (exists(ph)) {
-    unlink(ph, () => {
-      resolve(true)
-    })
-  } else {
-    reject(new Error('File does not exist: ' + ph))
-  }
-})
-
-/**
  * Remove a directory and all its content recursively.
  * The Promise resolves when the directory is deleted. The Promise is rejected
  * if the directory is not found.
@@ -125,7 +108,7 @@ async function removeDirectory (path) {
       const itemPath = join(path, file)
       return statSync(itemPath).isDirectory()
         ? removeDirectory(itemPath)
-        : removeFile(itemPath)
+        : unlink(itemPath)
     })
     await Promise.all(deleteContents)
 
@@ -175,6 +158,5 @@ module.exports = {
   formatDate,
   getFilesInFolder,
   removeDirectory,
-  removeFile,
   writeFile: writeFilePromise
 }
