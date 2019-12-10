@@ -7,17 +7,9 @@
 
 // Import dependencies, sorted by path.
 const { token } = require('../config.json')
-const {
-  createDirectory,
-  writeFilePromise
-} = require('./filesystem.js')
-const {
-  get: httpsGet
-} = require('https')
-const {
-  dirname,
-  join
-} = require('path')
+const { writeFile } = require('./filesystem.js')
+const { get: httpsGet } = require('https')
+const { join } = require('path')
 
 /**
  * Downloads the content of a url and writes it to the given output path.
@@ -37,8 +29,7 @@ async function downloadFile (url, outputPath) {
   }
 
   if (statusCode === 200) {
-    createDirectory(dirname(outputPath))
-    await writeFilePromise(outputPath, body)
+    await writeFile(outputPath, body)
     result.success = true
   }
 

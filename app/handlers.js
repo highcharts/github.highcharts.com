@@ -338,7 +338,7 @@ async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '
   const pathMasterFile = join(pathCacheDirectory, filename)
   if (!exists(pathMasterFile)) {
     const content = getCustomFileContent(parts)
-    writeFile(pathMasterFile, content)
+    await writeFile(pathMasterFile, content)
   }
 
   const pathOutputFolder = join(pathCacheDirectory, 'output')

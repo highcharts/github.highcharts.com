@@ -22,8 +22,9 @@ const {
   rmdirSync,
   statSync,
   unlink,
-  writeFileSync,
-  writeFile
+  promises: {
+    writeFile
+  }
 } = require('fs')
 const {
   isBool,
@@ -120,20 +121,10 @@ const copyFile = (ph, output) => {
   createReadStream(base + ph).pipe(createWriteStream(outFile))
 }
 
-const writeToFile = (ph, content) => {
-  createDirectory(dirname(ph))
-  writeFileSync(ph, content)
+async function writeFilePromise (filepath, data) {
+  createDirectory(dirname(filepath))
+  return writeFile(filepath, data)
 }
-
-const writeFilePromise = (filepath, data) => new Promise((resolve, reject) => {
-  writeFile(filepath, data, (err) => {
-    if (err) {
-      reject(err)
-    } else {
-      resolve()
-    }
-  })
-})
 
 /**
  * Removes a file.
@@ -218,6 +209,5 @@ module.exports = {
   getFilesInFolder,
   removeDirectory,
   removeFile,
-  writeFile: writeToFile,
-  writeFilePromise
+  writeFile: writeFilePromise
 }
