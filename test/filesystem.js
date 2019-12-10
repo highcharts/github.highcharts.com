@@ -16,7 +16,6 @@ describe('filesystem.js', () => {
       'exists',
       'folder',
       'formatDate',
-      'getFile',
       'getFilesInFolder',
       'removeDirectory',
       'removeFile',

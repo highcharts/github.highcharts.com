@@ -18,7 +18,6 @@ const {
   lstatSync,
   mkdirSync,
   readdirSync,
-  readFileSync,
   readFile,
   rmdirSync,
   statSync,
@@ -73,10 +72,6 @@ const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
 }
 
 const exists = filePath => existsSync(filePath)
-
-const getFile = ph => {
-  return (exists(ph) ? readFileSync(ph, 'utf8') : null)
-}
 
 const getFilePromise = (filepath) => new Promise((resolve, reject) => {
   readFile(filepath, 'utf8', (err, data) => {
@@ -219,7 +214,6 @@ module.exports = {
   exists,
   folder,
   formatDate,
-  getFile,
   getFilePromise,
   getFilesInFolder,
   removeDirectory,
