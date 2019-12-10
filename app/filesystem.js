@@ -85,19 +85,6 @@ const getFilePromise = (filepath) => new Promise((resolve, reject) => {
 })
 
 /**
- * Gets directory ph from a file ph
- * @param  {string} ph File ph
- * @return {string} Path to directory where the file is located
- */
-const folder = ph => {
-  let folderPath = '.'
-  if (ph !== '') {
-    folderPath = ph.substring(0, ph.lastIndexOf('/'))
-  }
-  return folderPath + '/'
-}
-
-/**
  * Takes a folder ph and creates all the missing folders
  * @param  {string} ph Path to directory
  * @return {undefined} Returns nothing
@@ -117,7 +104,7 @@ const createDirectory = ph => {
 const copyFile = (ph, output) => {
   const base = join(__dirname, '/')
   const outFile = base + output
-  createDirectory(folder(outFile))
+  createDirectory(dirname(outFile))
   createReadStream(base + ph).pipe(createWriteStream(outFile))
 }
 
@@ -203,7 +190,6 @@ module.exports = {
   createDirectory,
   debug,
   exists,
-  folder,
   formatDate,
   getFilePromise,
   getFilesInFolder,

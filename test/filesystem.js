@@ -14,7 +14,6 @@ describe('filesystem.js', () => {
       'createDirectory',
       'debug',
       'exists',
-      'folder',
       'formatDate',
       'getFilesInFolder',
       'removeDirectory',
