@@ -18,7 +18,6 @@ const {
   lstatSync,
   mkdirSync,
   readdirSync,
-  readFile,
   rmdirSync,
   statSync,
   unlink,
@@ -73,16 +72,6 @@ const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
 }
 
 const exists = filePath => existsSync(filePath)
-
-const getFilePromise = (filepath) => new Promise((resolve, reject) => {
-  readFile(filepath, 'utf8', (err, data) => {
-    if (err) {
-      reject(err)
-    } else {
-      resolve(data)
-    }
-  })
-})
 
 /**
  * Takes a folder ph and creates all the missing folders
@@ -191,7 +180,6 @@ module.exports = {
   debug,
   exists,
   formatDate,
-  getFilePromise,
   getFilesInFolder,
   removeDirectory,
   removeFile,
