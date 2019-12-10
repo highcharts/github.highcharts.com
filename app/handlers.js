@@ -11,7 +11,7 @@ const { secureToken } = require('../config.json')
 const { downloadFile, downloadJSFolder, urlExists } = require('./download.js')
 const {
   exists,
-  getFilesInFolder,
+  getFileNamesInDirectory,
   removeDirectory,
   writeFile
 } = require('./filesystem.js')
@@ -261,7 +261,7 @@ async function serveBuildFile (repositoryURL, requestURL) {
   )
   // Build the distribution file if it is not found in cache.
   if (!exists(pathOutputFile)) {
-    const files = getFilesInFolder(pathMastersDirectory)
+    const files = await getFileNamesInDirectory(pathMastersDirectory)
     const fileOptions = getFileOptions(files, join(pathCacheDirectory, 'js'))
     build({
       // TODO: Remove trailing slash when assembler has fixed path concatenation

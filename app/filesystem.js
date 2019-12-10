@@ -15,7 +15,6 @@ const {
   existsSync,
   lstatSync,
   mkdirSync,
-  readdirSync,
   statSync,
   promises: {
     readdir,
@@ -25,10 +24,8 @@ const {
   }
 } = require('fs')
 const {
-  isBool,
   isDate,
   isString,
-  isUndefined,
   padStart
 } = require('./utilities.js')
 
@@ -42,32 +39,35 @@ const fsStat = p => {
   return result
 }
 
-const getFilesInFolder = (folder, includeSubfolders, subfolder) => {
-  let result = false
-  const sub = isUndefined(subfolder) ? '' : subfolder
-  if (isString(folder) && isString(sub)) {
-    const fsFolderPath = join(folder, sub)
-    const f2 = fsStat(fsFolderPath)
-    const include = isBool(includeSubfolders) ? includeSubfolders : true
-    if (f2 && f2.isDirectory()) {
-      result = []
-      readdirSync(fsFolderPath).forEach((filename) => {
-        const fsFilePath = join(fsFolderPath, filename)
-        const file = fsStat(fsFilePath)
-        const relativeFilePath = join(sub, filename).split(sep).join('/')
-        if (file && file.isFile()) {
-          result.push(relativeFilePath)
-        } else if (include && file && file.isDirectory()) {
-          result = result.concat(getFilesInFolder(
-            folder,
-            include,
-            relativeFilePath
-          ))
-        }
-      })
-    }
+/**
+ * Returns a list of all the filenames in a given directory. Returns false if
+ * the directory is not found.
+ * The Promise resolves when all the filenames are found.
+ *
+ * @param {string} path The path to the directory.
+ * @param {boolean} [recursive=true] Wether or not to include subdirectories.
+ */
+async function getFileNamesInDirectory (path, recursive = true) {
+  // Return false if path is not a directory
+  const stat = fsStat(path)
+  if (!(stat && stat.isDirectory())) {
+    return false
   }
-  return result
+
+  const files = await readdir(path)
+  return files.reduce(async (filenames, filename) => {
+    const subPath = join(path, filename)
+    const stat = fsStat(subPath)
+    if (stat.isDirectory() && recursive) {
+      filenames = (await filenames).concat(
+        (await getFileNamesInDirectory(subPath, true))
+          .map(x => join(filename, x).split(sep).join('/'))
+      )
+    } else if (stat.isFile()) {
+      (await filenames).push(filename)
+    }
+    return filenames
+  }, Promise.resolve([]))
 }
 
 const exists = filePath => existsSync(filePath)
@@ -156,7 +156,7 @@ module.exports = {
   debug,
   exists,
   formatDate,
-  getFilesInFolder,
+  getFileNamesInDirectory,
   removeDirectory,
   writeFile: writeFilePromise
 }

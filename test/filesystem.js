@@ -14,7 +14,7 @@ describe('filesystem.js', () => {
       'debug',
       'exists',
       'formatDate',
-      'getFilesInFolder',
+      'getFileNamesInDirectory',
       'removeDirectory',
       'writeFile'
     ]
@@ -35,8 +35,8 @@ describe('filesystem.js', () => {
       expect(formatDate(undefined)).to.equal(false)
     })
   })
-  describe('getFilesInFolder', () => {
-    const getFilesInFolder = defaults.getFilesInFolder
+  describe('getFileNamesInDirectory', () => {
+    const getFileNamesInDirectory = defaults.getFileNamesInDirectory
     const throwErr = (err) => { if (err) throw err }
     const cleanFiles = () => {
       [
@@ -69,20 +69,20 @@ describe('filesystem.js', () => {
     })
     after(cleanFiles)
 
-    it('should return false when path is invalid', () => {
-      expect(getFilesInFolder(undefined)).to.equal(false)
+    it('should return false when path is invalid', async () => {
+      expect(await getFileNamesInDirectory(undefined)).to.equal(false)
     })
-    it('should return false when path is not a directory', () => {
-      expect(getFilesInFolder('tmp/test-not-existing')).to.equal(false)
+    it('should return false when path is not a directory', async () => {
+      expect(await getFileNamesInDirectory('tmp/test-not-existing')).to.equal(false)
     })
-    it('should return empty array when folder is empty', () => {
-      expect(getFilesInFolder('tmp/test-empty')).to.deep.equal([])
+    it('should return empty array when folder is empty', async () => {
+      expect(await getFileNamesInDirectory('tmp/test-empty')).to.deep.equal([])
     })
-    it('should return files in subfolders by default', () => {
-      expect(getFilesInFolder('tmp/test-files')).to.deep.equal(['file.txt', 'subfolder/file.txt'])
+    it('should return files in subfolders by default', async () => {
+      expect(await getFileNamesInDirectory('tmp/test-files')).to.deep.equal(['file.txt', 'subfolder/file.txt'])
     })
-    it('should not include subfolders when includeSubfolders is false', () => {
-      expect(getFilesInFolder('tmp/test-files', false)).to.deep.equal(['file.txt'])
+    it('should not include subfolders when includeSubfolders is false', async () => {
+      expect(await getFileNamesInDirectory('tmp/test-files', false)).to.deep.equal(['file.txt'])
     })
   })
 })
