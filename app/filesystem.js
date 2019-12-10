@@ -16,10 +16,11 @@ const {
   lstatSync,
   mkdirSync,
   readdirSync,
-  rmdirSync,
   statSync,
   unlink,
   promises: {
+    readdir,
+    rmdir,
     writeFile
   }
 } = require('fs')
@@ -111,27 +112,29 @@ const removeFile = ph => new Promise((resolve, reject) => {
 })
 
 /**
- * Removes a directory.
- * Creates a promise which resolves when the directory is deleted.
- * Promise is rejected if the file does not exist.
- * @param  {string} ph Path to file
- * @returns {Promise} Returns a promise which resolves when the file is deleted.
+ * Remove a directory and all its content recursively.
+ * The Promise resolves when the directory is deleted. The Promise is rejected
+ * if the directory is not found.
+ * @param  {string} path The path to the directory.
  */
-const removeDirectory = ph => new Promise((resolve, reject) => {
-  if (exists(ph)) {
-    const files = readdirSync(ph)
-    const promises = files.map(file => ph + '/' + file)
-      .map(itemPath => (statSync(itemPath).isDirectory()) ? removeDirectory(itemPath) : removeFile(itemPath))
-    Promise.all(promises)
-      .then(() => {
-        rmdirSync(ph)
-        resolve(true)
-      })
-      .catch(reject)
+async function removeDirectory (path) {
+  if (exists(path)) {
+    // Delete the contents of the directory
+    const files = await readdir(path)
+    const deleteContents = files.map(file => {
+      const itemPath = join(path, file)
+      return statSync(itemPath).isDirectory()
+        ? removeDirectory(itemPath)
+        : removeFile(itemPath)
+    })
+    await Promise.all(deleteContents)
+
+    // Finally remove the directory itself
+    await rmdir(path)
   } else {
-    reject(new Error('Directory does not exist: ' + ph))
+    throw new Error(`Directory does not exist: ${path}`)
   }
-})
+}
 
 const debug = (d, text) => {
   if (d) {

@@ -55,4 +55,4 @@ APP.use(logErrors)
 /**
  * Start the server
  */
-APP.listen(PORT)
+// APP.listen(PORT)
