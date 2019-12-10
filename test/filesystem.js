@@ -18,7 +18,6 @@ describe('filesystem.js', () => {
       'formatDate',
       'getFile',
       'getFilesInFolder',
-      'randomString',
       'removeDirectory',
       'removeFile',
       'writeFile'

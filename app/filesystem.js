@@ -2,7 +2,7 @@
  * Utility script to help interacting with the file system on the server.
  * @author Jon Arild Nygard
  * @todo Add license
- * @todo Move debug and randomString to a seperate file.
+ * @todo Move debug and to a seperate file.
  */
 'use strict'
 const {
@@ -188,15 +188,6 @@ const debug = (d, text) => {
   }
 }
 
-const randomString = (length) => {
-  const possible = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  const arr = Array.from({ length: length })
-  return arr.map(() => {
-    const index = Math.floor(Math.random() * possible.length)
-    return possible.charAt(index)
-  }).join('')
-}
-
 /**
  * formatDate - Format a date as YYYY-MM-DDTHH-MM-SS.
  * @param {Date} date A Date object to be formatted.
@@ -231,7 +222,6 @@ module.exports = {
   getFile,
   getFilePromise,
   getFilesInFolder,
-  randomString,
   removeDirectory,
   removeFile,
   writeFile: writeToFile,
