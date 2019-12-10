@@ -1,28 +1,94 @@
 /**
- * Handles all procedures with interpreting a request from the user.
- * Looks at the request url and finds out which version of and file from the Highcharts library to return.
+ * Interprets a request URL from the client, finds which version, and file from
+ * the Highcharts library to return to the client.
  * @author Jon Arild Nygard
  * @todo Add license
  */
 'use strict'
-const replaceAll = (str, search, replace) => str.split(search).join(replace)
+
+// Import dependencies, sorted by path name.
 const {
   getOrderedDependencies
 } = require('highcharts-assembler/src/dependencies.js')
-const {
-  join,
-  sep,
-  relative
-} = require('path')
+const { join, sep, relative } = require('path')
 
-const products = ['stock', 'maps', 'gantt']
+// Constants
+const BRANCH_TYPES = ['bugfix', 'feature']
+const PRODUCTS = ['stock', 'maps', 'gantt']
+const replaceAll = (str, search, replace) => str.split(search).join(replace)
 
 /**
- * Returns fileOptions for the build script
- * @todo Move this functionality to the build script.
- * @return {Object} Object containing all fileOptions
+ * Finds which branch, tag, or commit that is requested by the client. Defaults
+ * to master. Returns a string with the resulting reference.
+ *
+ * @param  {string} url The request URL.
  */
-const getFileOptions = (files, pathJS) => {
+function getBranch (url) {
+  const folders = ['adapters', 'indicators', 'modules', 'parts-3d', 'parts-map',
+    'parts-more', 'parts', 'themes']
+  const isValidBranchName = (str) => (
+    !['css', 'js'].includes(str) && // Not a type
+    !PRODUCTS.includes(str) && // Not a lib type
+    !folders.includes(str) && // Not a parts folder
+    !(str.endsWith('.js') || str.endsWith('.css')) // Not a file
+  )
+
+  let branch = 'master'
+  const sections = url.substring(1).split('/')
+  // We have more than one section
+  if (sections.length > 1 && BRANCH_TYPES.includes(sections[0])) {
+    branch = (
+      (sections.length > 2 && isValidBranchName(sections[1]))
+        ? sections[0] + '/' + sections[1]
+        : sections[0]
+    )
+  /**
+   * If the url has more then 1 section, and the first section is not indicating
+   * one of the js folders, then assume first section is a branch/tag/commit
+   */
+  } else if (isValidBranchName(sections[0])) {
+    branch = sections[0]
+  }
+  return branch
+}
+
+/**
+ * Finds the requested filename. Returns a string with the filename, or false if
+ * it is not a js file.
+ *
+ * @param  {string} branch The requested branch.
+ * @param  {string} branch The requested mode.
+ * @param  {string} url The request URL.
+ */
+function getFile (branch, type, url) {
+  const sections = [
+    x => x === branch.split('/')[0], // Remove first section of branch name
+    x => x === branch.split('/')[1], // Remove second section of branch name
+    x => PRODUCTS.includes(x), // Remove product folder.
+    x => type === 'css' && x === 'js' // Remove js folder in styled mode.
+  ].reduce((sections, filter) => {
+    if (filter(sections[0])) {
+      sections.splice(0, 1)
+    }
+    return sections
+  }, url.substring(1).split('/'))
+
+  let filename = sections.join('/')
+  // Redirect .js requests to .src.js
+  if (!filename.endsWith('.src.js')) {
+    filename = filename.replace('.js', '.src.js')
+  }
+
+  // Return the resulting filename.
+  return filename.endsWith('.js') ? filename : false
+}
+
+/**
+ * Get fileOptions used in the build script for the assembler. Returns an object
+ * with the resulting file options.
+ * @todo Move this functionality to the build script.
+ */
+function getFileOptions (files, pathJS) {
   const pathHighcharts = join(pathJS, 'masters/highcharts.src.js')
   const highchartsFiles = replaceAll(
     getOrderedDependencies(pathHighcharts)
@@ -35,10 +101,10 @@ const getFileOptions = (files, pathJS) => {
   const fileOptions = files
     .reduce((obj, file) => {
       if (
-        file.indexOf('modules') > -1 ||
-              file.indexOf('themes') > -1 ||
-              file.indexOf('gantt/') > -1 ||
-              file.indexOf('indicators') > -1
+        file.includes('modules') ||
+        file.includes('themes') ||
+        file.includes('gantt/') ||
+        file.includes('indicators')
       ) {
         obj[file] = {
           exclude: new RegExp(highchartsFiles),
@@ -48,13 +114,14 @@ const getFileOptions = (files, pathJS) => {
       return obj
     }, {})
 
-    /**
-     * Special cases
-     * solid-gauge should also exclude gauge-series
-     * highcharts-more and highcharts-3d is also not standalone.
-     */
+  /**
+   * Special cases
+   * solid-gauge should also exclude gauge-series
+   * highcharts-more and highcharts-3d is also not standalone.
+   */
   if (fileOptions['modules/solid-gauge.src.js']) {
-    fileOptions['modules/solid-gauge.src.js'].exclude = new RegExp([highchartsFiles, 'GaugeSeries\\.js$'].join('|'))
+    fileOptions['modules/solid-gauge.src.js'].exclude =
+      new RegExp([highchartsFiles, 'GaugeSeries\\.js$'].join('|'))
   }
   if (fileOptions['modules/map.src.js']) {
     fileOptions['modules/map.src.js'].product = 'Highmaps'
@@ -82,104 +149,27 @@ const getFileOptions = (files, pathJS) => {
 }
 
 /**
- * Return which branch/tag/commit to gather the file from. Defaults to master.
- * @param  {string} url Request url
- * @return {string} Returns which branch/tag/commit to look in.
- */
-const getBranch = url => {
-  const folders = ['adapters', 'indicators', 'modules', 'parts-3d', 'parts-map', 'parts-more', 'parts', 'themes']
-  const branchTypes = ['bugfix', 'feature']
-  let branch = 'master'
-  let sections = url.substring(1).split('/')
-  const isValidBranchName = (str) => (
-    // Not a type
-    !['css', 'js'].includes(str) &&
-    // Not a lib type
-    !products.includes(str) &&
-    // Not a parts folder
-    !folders.includes(str) &&
-    // Not a file
-    !(str.endsWith('.js') || str.endsWith('.css'))
-  )
-
-  // We have more then one section
-  if (sections.length > 1 && branchTypes.includes(sections[0])) {
-    branch = (
-      (sections.length > 2 && isValidBranchName(sections[1]))
-        ? sections[0] + '/' + sections[1]
-        : sections[0]
-    )
-  /**
-   *  If the url has more then 1 section,
-   *  and the first section is not indicating one of the js folders,
-   *  then assume first section is a branch/tag/commit
-   */
-  } else if (isValidBranchName(sections[0])) {
-    branch = sections[0]
-  }
-  return branch
-}
-
-/**
- * Returns which type of Highcharts build to serve. Can either be classic or css. Defaults to classic.
- * @param  {string} branch Branch to look in
- * @param  {string} url Request url
- * @returns {string} Returns which type to build
+ * Finds the requested type. Returns a string with the resultign type, can be
+ * either classic or css.
+ * @param  {string} branch The requested branch.
+ * @param  {string} url The request URL.
  */
 const getType = (branch, url) => {
-  let type = 'classic'
-  let u = url.substring(1)
-  if (u.startsWith(branch)) {
-    u = u.replace(branch + '/', '')
-  }
-  let sections = u.split('/')
-  /**
-   * If the first section is either stock or maps, then remove it.
-   */
-  if (products.includes(sections[0])) {
-    sections.splice(0, 1)
-  }
-  // Check if it is a .js file
-  if (sections[0] === 'js') {
-    type = 'css'
-  }
-  return type
-}
-
-/**
- * Returns the filename, or false if it is not a js file.
- * @param  {string} branch Branch to look in
- * @param  {string} url Request url
- * @return {boolean|string} Returns false if not a js file. Otherwise returns filename.
- */
-const getFile = (branch, type, url) => {
-  let filename = false
-  let u = url.substring(1)
-  if (u.startsWith(branch)) {
-    u = u.replace(branch + '/', '')
-  }
-  let sections = u.split('/')
-  /**
-   * If the first section is either stock or maps, then remove it.
-   */
-  if (products.includes(sections[0])) {
-    sections.splice(0, 1)
-  }
-  // Remove branch from path
-  if (type === 'css' && sections[0] === 'js') {
-    sections.splice(0, 1)
-  }
-  // Check if it is a .js file
-  if (sections.length > 0 && sections[sections.length - 1].endsWith('.js')) {
-    filename = sections.join('/')
-    // Redirect .js requests to .src.js
-    if (!filename.endsWith('.src.js')) {
-      filename = filename.replace('.js', '.src.js')
+  const sections = [
+    x => x === branch.split('/')[0], // Remove first section of branch name
+    x => x === branch.split('/')[1], // Remove second section of branch name
+    x => PRODUCTS.includes(x) // Remove product folder.
+  ].reduce((sections, filter) => {
+    if (filter(sections[0])) {
+      sections.splice(0, 1)
     }
-  }
-  return filename
+    return sections
+  }, url.substring(1).split('/'))
+
+  return sections[0] === 'js' ? 'css' : 'classic'
 }
 
+// Export interpreter functionality
 module.exports = {
   getBranch,
   getFile,
