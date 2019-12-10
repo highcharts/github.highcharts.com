@@ -10,7 +10,6 @@ const after = mocha.after
 describe('filesystem.js', () => {
   it('should have a default export', () => {
     const functions = [
-      'copyFile',
       'createDirectory',
       'debug',
       'exists',

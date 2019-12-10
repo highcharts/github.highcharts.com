@@ -12,8 +12,6 @@ const {
   sep
 } = require('path')
 const {
-  createReadStream,
-  createWriteStream,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -88,13 +86,6 @@ const createDirectory = ph => {
     }
     return ph
   }, '')
-}
-
-const copyFile = (ph, output) => {
-  const base = join(__dirname, '/')
-  const outFile = base + output
-  createDirectory(dirname(outFile))
-  createReadStream(base + ph).pipe(createWriteStream(outFile))
 }
 
 async function writeFilePromise (filepath, data) {
@@ -175,7 +166,6 @@ const formatDate = (date) => {
 }
 
 module.exports = {
-  copyFile,
   createDirectory,
   debug,
   exists,

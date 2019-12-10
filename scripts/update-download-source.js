@@ -5,8 +5,18 @@
  * @todo Cache multiple Highcharts versions, then use the cached version in stead of a manually updated library.
  */
 'use strict'
-const U = require('../app/filesystem.js')
-let files = U.getFilesInFolder('../highcharts/', true, 'js').concat(U.getFilesInFolder('../highcharts/', true, 'css'))
+const { createDirectory, getFilesInFolder } = require('../app/filesystem.js')
+const { createReadStream, createWriteStream } = require('fs')
+const { dirname, join } = require('path')
+
+function copyFile (ph, output) {
+  const inputPath = join(__dirname, ph)
+  const outputPath = join(__dirname, output)
+  createDirectory(dirname(outputPath))
+  createReadStream(inputPath).pipe(createWriteStream(outputPath))
+}
+
+let files = getFilesInFolder('../highcharts/', true, 'js').concat(getFilesInFolder('../highcharts/', true, 'css'))
 files.filter(file => (file.endsWith('.js') || file.endsWith('.scss'))).forEach(file => {
-  U.copyFile('../../highcharts/' + file, '../source/download/' + file)
+  copyFile('../../highcharts/' + file, '../source/download/' + file)
 })
