@@ -4,12 +4,8 @@
  * @todo Add license
  */
 'use strict'
-const {
-  dirname,
-  join,
-  normalize,
-  sep
-} = require('path')
+
+// Import dependencies, sorted by path.
 const {
   existsSync,
   promises: {
@@ -21,6 +17,34 @@ const {
     writeFile
   }
 } = require('fs')
+const { dirname, join, normalize, sep } = require('path')
+
+/**
+ * Recursively creates all missing directiories in a given path.
+ * The Promise resolves when the directories are created.
+ *
+ * @param  {string} path Path to directory.
+ */
+async function createDirectory (path) {
+  const folders = normalize(path).split(sep)
+  await folders.reduce(async (base, name) => {
+    const subPath = join(await base, name)
+    if (!existsSync(subPath)) {
+      await mkdir(subPath)
+    }
+    return subPath
+  })
+}
+
+/**
+ * Test synchronously if a file exists for a given path. Returns true if it
+ * exists, or false if not.
+ *
+ * @param {string} filePath The path to test.
+ */
+function exists (filePath) {
+  return existsSync(filePath)
+}
 
 /**
  * Get information about a file at a given path.
@@ -68,34 +92,11 @@ async function getFileNamesInDirectory (path, recursive = true) {
   }, Promise.resolve([]))
 }
 
-const exists = filePath => existsSync(filePath)
-
-/**
- * Recursively creates all missing directiories in a given path.
- * The Promise resolves when the directories are created.
- *
- * @param  {string} path Path to directory.
- */
-async function createDirectory (path) {
-  const folders = normalize(path).split(sep)
-  await folders.reduce(async (base, name) => {
-    const subPath = join(await base, name)
-    if (!existsSync(subPath)) {
-      await mkdir(subPath)
-    }
-    return subPath
-  })
-}
-
-async function writeFilePromise (filepath, data) {
-  await createDirectory(dirname(filepath))
-  return writeFile(filepath, data)
-}
-
 /**
  * Remove a directory and all its content recursively.
  * The Promise resolves when the directory is deleted. The Promise is rejected
  * if the directory is not found.
+ *
  * @param  {string} path The path to the directory.
  */
 async function removeDirectory (path) {
@@ -115,6 +116,18 @@ async function removeDirectory (path) {
   } else {
     throw new Error(`Directory does not exist: ${path}`)
   }
+}
+
+/**
+ * Writes data to a file. Creates missing parent directories on beforehand.
+ * The Promise resolves when the data is written to the file.
+ *
+ * @param {string} filepath The path to the file.
+ * @param {string} data The data to write to file.
+ */
+async function writeFilePromise (filepath, data) {
+  await createDirectory(dirname(filepath))
+  return writeFile(filepath, data)
 }
 
 module.exports = {
