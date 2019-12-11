@@ -13,8 +13,8 @@ const {
 } = require('path')
 const {
   existsSync,
-  mkdirSync,
   promises: {
+    mkdir,
     readdir,
     rmdir,
     stat,
@@ -24,7 +24,6 @@ const {
 } = require('fs')
 const {
   isDate,
-  isString,
   padStart
 } = require('./utilities.js')
 
@@ -77,24 +76,24 @@ async function getFileNamesInDirectory (path, recursive = true) {
 const exists = filePath => existsSync(filePath)
 
 /**
- * Takes a folder ph and creates all the missing folders
- * @param  {string} ph Path to directory
- * @return {undefined} Returns nothing
+ * Recursively creates all missing directiories in a given path.
+ * The Promise resolves when the directories are created.
+ *
+ * @param  {string} path Path to directory.
  */
-const createDirectory = ph => {
-  const pathDir = normalize(ph)
-  const folders = pathDir.split(sep).filter(item => Boolean(item))
-  folders.reduce((base, name) => {
-    const ph = isString(base) && base.length > 0 ? join(base, name) : name
-    if (!exists(ph)) {
-      mkdirSync(ph)
+async function createDirectory (path) {
+  const folders = normalize(path).split(sep)
+  await folders.reduce(async (base, name) => {
+    const subPath = join(await base, name)
+    if (!existsSync(subPath)) {
+      await mkdir(subPath)
     }
-    return ph
-  }, '')
+    return subPath
+  })
 }
 
 async function writeFilePromise (filepath, data) {
-  createDirectory(dirname(filepath))
+  await createDirectory(dirname(filepath))
   return writeFile(filepath, data)
 }
 
