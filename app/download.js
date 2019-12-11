@@ -8,6 +8,7 @@
 // Import dependencies, sorted by path.
 const { token } = require('../config.json')
 const { writeFile } = require('./filesystem.js')
+const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
 
@@ -73,7 +74,7 @@ async function downloadJSFolder (outputDir, repositoryURL, branch) {
 
   // Log possible errors
   if (errors.length) {
-    console.log(`Some files did not download in branch "${branch}"\n${
+    log(2, `Some files did not download in branch "${branch}"\n${
       errors.join('\n')
     }`)
   }

@@ -2,7 +2,6 @@
  * Utility script to help interacting with the file system on the server.
  * @author Jon Arild Nygard
  * @todo Add license
- * @todo Move debug and to a seperate file.
  */
 'use strict'
 const {
@@ -118,17 +117,8 @@ async function removeDirectory (path) {
   }
 }
 
-const debug = (d, text) => {
-  if (d) {
-    /* eslint-disable no-console */
-    console.log(text)
-    /* eslint-enable no-console */
-  }
-}
-
 module.exports = {
   createDirectory,
-  debug,
   exists,
   getFileNamesInDirectory,
   removeDirectory,

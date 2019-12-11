@@ -11,7 +11,6 @@ describe('filesystem.js', () => {
   it('should have a default export', () => {
     const functions = [
       'createDirectory',
-      'debug',
       'exists',
       'getFileNamesInDirectory',
       'removeDirectory',

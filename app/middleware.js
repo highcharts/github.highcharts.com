@@ -7,9 +7,8 @@
 'use strict'
 
 // Import dependencies, sorted by path name.
-const { debug } = require('./filesystem.js')
 const { response } = require('./message.json')
-const { formatDate, isJSON } = require('./utilities.js')
+const { formatDate, isJSON, log } = require('./utilities.js')
 
 /**
  * If the request body is valid JSON, the it is parsed and the result is set as
@@ -63,7 +62,7 @@ function logErrors (err, req, res, next) {
     err.stack,
     ''
   ]
-  debug(true, content.join('\n'))
+  log(2, content.join('\n'))
   next()
 }
 

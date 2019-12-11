@@ -16,7 +16,7 @@ const {
   setConnectionAborted
 } = require('./middleware.js')
 const router = require('./router.js')
-const { formatDate } = require('./utilities.js')
+const { formatDate, log } = require('./utilities.js')
 const express = require('express')
 
 // Constants
@@ -25,7 +25,7 @@ const PORT = process.env.PORT || config.port || 80
 const DATE = formatDate(new Date())
 
 // Output status information
-console.log(`
+log(2, `
 Starting server
 Port: ${PORT}
 Date: ${DATE}

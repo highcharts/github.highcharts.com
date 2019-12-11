@@ -16,6 +16,7 @@ describe('utilities.js', () => {
       'isObject',
       'isString',
       'isUndefined',
+      'log',
       'padStart'
     ]
     it('should have a default export', () => {

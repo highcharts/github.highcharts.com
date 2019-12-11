@@ -5,6 +5,13 @@
  */
 'use strict'
 
+// Import dependencies, sorted by path.
+const config = require('../config.json')
+
+// Constants
+const INFORMATION_LEVEL = typeof config.INFORMATION_LEVEL === 'number'
+  ? config.INFORMATION_LEVEL : 2
+
 /**
  * Format a date as YYYY-MM-DDTHH-MM-SS. Returns a string with date formatted
  * as YYYY-MM-DDTHH-MM-SS, or false if input is not a valid date.
@@ -116,6 +123,20 @@ function isUndefined (x) {
 }
 
 /**
+ * Output a message, depending on its severity, and the requested level of
+ * information.
+ *
+ * @param {number} severity The severity of the message. Use 0 for info,
+ * 1 for warning, 2 for errors.
+ * @param {string} text The message to output.
+ */
+function log (severity, text) {
+  if (severity >= INFORMATION_LEVEL) {
+    console.log(text) // eslint-disable-line no-console
+  }
+}
+
+/**
  * @todo remove redundant function
  */
 function padStart (str, length = 0, char) {
@@ -133,5 +154,6 @@ module.exports = {
   isObject,
   isString,
   isUndefined,
+  log,
   padStart
 }
