@@ -13,12 +13,11 @@ const {
 } = require('path')
 const {
   existsSync,
-  lstatSync,
   mkdirSync,
-  statSync,
   promises: {
     readdir,
     rmdir,
+    stat,
     unlink,
     writeFile
   }
@@ -29,14 +28,19 @@ const {
   padStart
 } = require('./utilities.js')
 
-const fsStat = p => {
-  let result = false
-  if (isString(p)) {
-    try {
-      result = lstatSync(p)
-    } catch (err) {}
+/**
+ * Get information about a file at a given path.
+ * The Promise is resolved with the fs.Stats object for the given path, or with
+ * false if the path is not existing.
+ *
+ * @param {string} path The path to the file.
+ */
+async function fsStat (path) {
+  try {
+    return await stat(path)
+  } catch (e) {
+    return false
   }
-  return result
 }
 
 /**
@@ -49,7 +53,7 @@ const fsStat = p => {
  */
 async function getFileNamesInDirectory (path, recursive = true) {
   // Return false if path is not a directory
-  const stat = fsStat(path)
+  const stat = await fsStat(path)
   if (!(stat && stat.isDirectory())) {
     return false
   }
@@ -57,7 +61,7 @@ async function getFileNamesInDirectory (path, recursive = true) {
   const files = await readdir(path)
   return files.reduce(async (filenames, filename) => {
     const subPath = join(path, filename)
-    const stat = fsStat(subPath)
+    const stat = await fsStat(subPath)
     if (stat.isDirectory() && recursive) {
       filenames = (await filenames).concat(
         (await getFileNamesInDirectory(subPath, true))
@@ -104,9 +108,9 @@ async function removeDirectory (path) {
   if (exists(path)) {
     // Delete the contents of the directory
     const files = await readdir(path)
-    const deleteContents = files.map(file => {
+    const deleteContents = files.map(async file => {
       const itemPath = join(path, file)
-      return statSync(itemPath).isDirectory()
+      return (await fsStat(itemPath).isDirectory())
         ? removeDirectory(itemPath)
         : unlink(itemPath)
     })
