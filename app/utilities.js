@@ -6,6 +6,30 @@
 'use strict'
 
 /**
+ * Format a date as YYYY-MM-DDTHH-MM-SS. Returns a string with date formatted
+ * as YYYY-MM-DDTHH-MM-SS, or false if input is not a valid date.
+ *
+ * @param {Date} date A Date object to be formatted.
+ */
+function formatDate (date) {
+  let result = false
+  if (isDate(date)) {
+    const day = [
+      date.getUTCFullYear(),
+      date.getUTCMonth() + 1,
+      date.getUTCDate()
+    ].map((x, i) => padStart(('' + x), (i > 0 ? 2 : 4), '0')).join('-')
+    const time = 'T' + [
+      date.getUTCHours(),
+      date.getUTCMinutes(),
+      date.getUTCSeconds()
+    ].map(x => padStart(('' + x), 2, '0')).join('-')
+    result = day + time
+  }
+  return result
+}
+
+/**
  * Check if the input value is of type array. Returns true if type is
  * array, otherwise false.
  *
@@ -100,6 +124,7 @@ function padStart (str, length = 0, char) {
 
 // Export utility functions
 module.exports = {
+  formatDate,
   isArray,
   isBool,
   isDate,

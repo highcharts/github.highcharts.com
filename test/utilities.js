@@ -7,6 +7,7 @@ const it = mocha.it
 describe('utilities.js', () => {
   describe('exported properties', () => {
     const functions = [
+      'formatDate',
       'isArray',
       'isBool',
       'isDate',
@@ -28,6 +29,20 @@ describe('utilities.js', () => {
       expect(exportedProperties).to.deep.equal(functions)
     })
   })
+
+  describe('formatDate', () => {
+    const { formatDate } = defaults
+    it('should return date formatted as YYYY-MM-DDTHH-MM-SS', () => {
+      let date = new Date(1503341243862)
+      expect(formatDate(date)).to.equal('2017-08-21T18-47-23')
+      date = new Date(1499411227000)
+      expect(formatDate(date)).to.equal('2017-07-07T07-07-07')
+    })
+    it('should return false when input is not a date', () => {
+      expect(formatDate(undefined)).to.equal(false)
+    })
+  })
+
   describe('isArray', () => {
     const isArray = defaults.isArray
     it('should return true when array', () => {

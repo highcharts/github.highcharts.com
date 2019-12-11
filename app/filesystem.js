@@ -22,10 +22,6 @@ const {
     writeFile
   }
 } = require('fs')
-const {
-  isDate,
-  padStart
-} = require('./utilities.js')
 
 /**
  * Get information about a file at a given path.
@@ -130,35 +126,10 @@ const debug = (d, text) => {
   }
 }
 
-/**
- * formatDate - Format a date as YYYY-MM-DDTHH-MM-SS.
- * @param {Date} date A Date object to be formatted.
- * @return {bool|string} Returns false if input is not a valid date. Returns a
- *     string with date formatted as YYYY-MM-DDTHH-MM-SS.
- */
-const formatDate = (date) => {
-  let result = false
-  if (isDate(date)) {
-    const day = [
-      date.getUTCFullYear(),
-      date.getUTCMonth() + 1,
-      date.getUTCDate()
-    ].map((x, i) => padStart(('' + x), (i > 0 ? 2 : 4), '0')).join('-')
-    const time = 'T' + [
-      date.getUTCHours(),
-      date.getUTCMinutes(),
-      date.getUTCSeconds()
-    ].map(x => padStart(('' + x), 2, '0')).join('-')
-    result = day + time
-  }
-  return result
-}
-
 module.exports = {
   createDirectory,
   debug,
   exists,
-  formatDate,
   getFileNamesInDirectory,
   removeDirectory,
   writeFile: writeFilePromise

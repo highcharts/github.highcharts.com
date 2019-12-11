@@ -7,16 +7,9 @@
 'use strict'
 
 // Import dependencies, sorted by path name.
-const {
-  debug,
-  formatDate
-} = require('./filesystem.js')
-const {
-  response
-} = require('./message.json')
-const {
-  isJSON
-} = require('./utilities.js')
+const { debug } = require('./filesystem.js')
+const { response } = require('./message.json')
+const { formatDate, isJSON } = require('./utilities.js')
 
 /**
  * If the request body is valid JSON, the it is parsed and the result is set as

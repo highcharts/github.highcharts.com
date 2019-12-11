@@ -10,15 +10,13 @@
 // Import dependencies, sorted by path name.
 const config = require('../config.json')
 const {
-  formatDate
-} = require('./filesystem.js')
-const {
   bodyJSONParser,
   clientErrorHandler,
   logErrors,
   setConnectionAborted
 } = require('./middleware.js')
 const router = require('./router.js')
+const { formatDate } = require('./utilities.js')
 const express = require('express')
 
 // Constants
