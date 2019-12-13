@@ -9,8 +9,8 @@
 const config = require('../config.json')
 
 // Constants
-const INFORMATION_LEVEL = typeof config.INFORMATION_LEVEL === 'number'
-  ? config.INFORMATION_LEVEL : 2
+const INFORMATION_LEVEL = typeof config.informationLevel === 'number'
+  ? config.informationLevel : 2
 
 /**
  * Format a date as YYYY-MM-DDTHH-MM-SS. Returns a string with date formatted
