@@ -26,8 +26,10 @@ The application requires a configuration file `./config.json` to be able to run.
 Example config file:
 ```json
 {
-    port: 90,
-    informationLevel: 0
+    "informationLevel": 0,
+    "port": 90,
+    "token": "token",
+    "secureToken": "secureToken"
 }
 ```
 
