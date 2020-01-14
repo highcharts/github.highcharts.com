@@ -48,9 +48,8 @@ describe('filesystem.js', () => {
     // Set up preconditions and cleaning
     before(() => {
       cleanFiles()
-      fs.mkdirSync('tmp/test-empty')
-      fs.mkdirSync('tmp/test-files')
-      fs.mkdirSync('tmp/test-files/subfolder')
+      fs.mkdirSync('tmp/test-empty', { recursive: true })
+      fs.mkdirSync('tmp/test-files/subfolder', { recursive: true })
       fs.writeFile('tmp/test-files/file.txt', '', throwErr)
       fs.writeFile('tmp/test-files/subfolder/file.txt', '', throwErr)
     })

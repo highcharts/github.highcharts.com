@@ -1,6 +1,6 @@
 const defaults = require('../app/download.js')
 const { expect } = require('chai')
-const { lstatSync, rmdirSync, unlinkSync } = require('fs')
+const fs = require('fs')
 const { after, before, describe, it } = require('mocha')
 
 describe('download.js', () => {
@@ -31,7 +31,7 @@ describe('download.js', () => {
     it('should error if no options is provided', function () {
       this.timeout(5000)
       return httpsGetPromise()
-        .then((x) => { throw new Error('Promise resolved unexpectedly.') })
+        .then(() => { throw new Error('Promise resolved unexpectedly.') })
         .catch(e => {
           expect(e.message).to.not.equal('Promise resolved unexpectedly.')
         })
@@ -55,17 +55,19 @@ describe('download.js', () => {
         'tmp/test'
       ].forEach(p => {
         try {
-          const stat = lstatSync(p)
+          const stat = fs.lstatSync(p)
           if (stat.isFile()) {
-            unlinkSync(p)
+            fs.unlinkSync(p)
           } else if (stat.isDirectory()) {
-            rmdirSync(p)
+            fs.rmdirSync(p)
           }
         } catch (err) {}
       })
     }
     after(cleanFiles)
-    before(cleanFiles)
+    before(() => {
+      fs.mkdirSync('tmp/test', { recursive: true })
+    })
     it('should resolve with an informational object, and a newly created file.', () => {
       return downloadFile(
         downloadURL + 'master/js/masters/highcharts.src.js',
@@ -75,7 +77,7 @@ describe('download.js', () => {
         expect(statusCode).to.equal(200)
         expect(success).to.equal(true)
         expect(url).to.equal(downloadURL + 'master/js/masters/highcharts.src.js')
-        expect(lstatSync('./tmp/test/downloaded-file1.js').size).to.be.greaterThan(0)
+        expect(fs.lstatSync('./tmp/test/downloaded-file1.js').size).to.be.greaterThan(0)
       })
     })
     it('should only create a file if response status is 200', () => {
@@ -85,7 +87,7 @@ describe('download.js', () => {
       ).then(({ outputPath, statusCode, success, url }) => {
         var exists = true
         try {
-          lstatSync('./tmp/test/downloaded-file2.js')
+          fs.lstatSync('./tmp/test/downloaded-file2.js')
         } catch (e) {
           exists = false
         }
@@ -96,7 +98,7 @@ describe('download.js', () => {
     it('should reject when request is invalid', function () {
       this.timeout(5000)
       return downloadFile()
-        .then((x) => { throw new Error('Promise resolved unexpectedly.') })
+        .then(() => { throw new Error('Promise resolved unexpectedly.') })
         .catch(e => {
           expect(e.message).to.not.equal('Promise resolved unexpectedly.')
         })
