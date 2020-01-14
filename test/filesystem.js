@@ -31,7 +31,8 @@ describe('filesystem.js', () => {
         'tmp/test-files/file.txt',
         'tmp/test-files/subfolder/file.txt',
         'tmp/test-files/subfolder',
-        'tmp/test-files'
+        'tmp/test-files',
+        'tmp'
       ].forEach(p => {
         let stat = false
         try {
