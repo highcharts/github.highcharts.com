@@ -13,6 +13,7 @@
     "husky": "^0.14.3",
     "mocha": "^5.2.0",
     "nyc": "^14.1.1",
+    "rimraf": "^3.0.0",
     "sinon": "^4.0.1",
     "standard": "^11.0.1"
   },
@@ -21,6 +22,7 @@
     "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "build": "node ./scripts/deploy.js",
     "precommit": "npm test",
+    "pretest": "rimraf tmp/",
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "unit-tests": "mocha test/test.js"
