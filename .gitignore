@@ -2,6 +2,7 @@
 tmp
 config.json
 .ebextensions
+.idea
 
 # Logs
 *.log
