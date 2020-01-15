@@ -11,6 +11,7 @@ const { writeFile } = require('./filesystem.js')
 const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
+const childProcess = require('child_process')
 
 /**
  * Downloads the content of a url and writes it to the given output path.
@@ -55,7 +56,7 @@ function downloadFiles (baseURL, subpaths, outputDir) {
 }
 
 /**
- * Download all the files in the css and js folder in the given branch of a
+ * Download all the files in the css and js/ts folder in the given branch of a
  * repository.
  * The Promise resolves when all the files have been downloaded.
  *
@@ -64,7 +65,7 @@ function downloadFiles (baseURL, subpaths, outputDir) {
  * format.
  * @param {string} branch The name of the branch the files are located in.
  */
-async function downloadJSFolder (outputDir, repositoryURL, branch) {
+async function downloadSourceFolder (outputDir, repositoryURL, branch) {
   const url = `${repositoryURL}${branch}`
   const files = await getDownloadFiles(branch)
   const responses = await downloadFiles(url, files, outputDir)
@@ -72,6 +73,14 @@ async function downloadJSFolder (outputDir, repositoryURL, branch) {
     .filter(({ statusCode }) => statusCode !== 200)
     .map(({ url, statusCode }) => `${statusCode}: ${url}`)
 
+  if (files.some(file => file.includes('tsconfig.json'))) {
+    console.log(`tsconfig.json file found for ${branch}. Compiling TypeScript..`)
+    try {
+      childProcess.execSync(`npm run ts-compile -- -p tmp/${branch}/ts/tsconfig.json`)
+    } catch (err) {
+      errors.push(`500: Typescript compilation failed`)
+    }
+  }
   // Log possible errors
   if (errors.length) {
     log(2, `Some files did not download in branch "${branch}"\n${
@@ -111,11 +120,11 @@ function get (options) {
  * @param {string} branch The name of the branch the files are located in.
  */
 async function getDownloadFiles (branch) {
-  const promises = ['css', 'js'].map(folder => getFilesInFolder(folder, branch))
+  const promises = ['css', 'ts', 'js'].map(folder => getFilesInFolder(folder, branch))
   const folders = await Promise.all(promises)
-  const files = folders[0].concat(folders[1])
+  const files = [].concat.apply([], folders)
   const isValidFile = ({ path, size }) =>
-    (path.endsWith('.js') || path.endsWith('.scss')) && size > 0
+    (path.endsWith('.js') || path.endsWith('.ts') || path.endsWith('.scss') || path.endsWith('.json')) && size > 0
   return files.filter(isValidFile).map(({ path }) => path)
 }
 
@@ -134,22 +143,27 @@ async function getFilesInFolder (path, branch) {
     path: `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`,
     headers: { 'user-agent': 'github.highcharts.com' }
   })
+
   if (statusCode !== 200) {
-    throw new Error(body)
+    console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}.`)
   }
-  const promises = JSON.parse(body).map(obj => {
-    const name = path + '/' + obj.name
-    return (
-      (obj.type === 'dir')
-        ? getFilesInFolder(name, branch)
-        : [{
-          download: obj.download_url,
-          path: name,
-          size: obj.size,
-          type: obj.type
-        }]
-    )
-  })
+
+  let promises = []
+  if (statusCode === 200) {
+    promises = JSON.parse(body).map(obj => {
+      const name = path + '/' + obj.name
+      return (
+        (obj.type === 'dir')
+          ? getFilesInFolder(name, branch)
+          : [{
+            download: obj.download_url,
+            path: name,
+            size: obj.size,
+            type: obj.type
+          }]
+      )
+    })
+  }
   const arr = await Promise.all(promises)
   return arr.reduce((arr1, arr2) => arr1.concat(arr2), [])
 }
@@ -174,7 +188,7 @@ async function urlExists (url) {
 module.exports = {
   downloadFile,
   downloadFiles,
-  downloadJSFolder,
+  downloadSourceFolder,
   getDownloadFiles,
   httpsGetPromise: get,
   urlExists
