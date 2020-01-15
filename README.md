@@ -1,7 +1,7 @@
 # github.highcharts.com
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
-Node.js server which runs a RESTful application to serve requested Highcharts distribution files for a given version. Used for testing purposes only.
+Node.js server which runs a RESTful application to serve requested Highcharts distribution files for a given version. Used for testing purposes only. 
 
 ## Install
 Open a CLI and navigate to where you would like to install the application.
@@ -77,3 +77,13 @@ Then run `git push && git push --tags` to publish the new version to the GitHub 
 Open a CLI and run the following command:
 `npm run build`
 The application will be packed into an archive named `github.highcharts-<version>.zip`. The zip is ready to be uploaded and unpacked on your server.
+
+## Nice to know
+The files are downloaded via GitHub Contents API and stored in a local folder per branch/tag/ref the first time a particular branch/tag/ref is requested. For every subseqent request the local version will be used, which, means that the state of a particular branch won't be updated unless the application is redeployed.
+
+When fetching newer version the downloaded contents are checked for the presence of a ts config - and if found it will run an additional step for compiling the files to Javascript.
+
+For bundling master files, or custom files the `highcharts-assembler` is used.  
+
+### Troubleshooting
+The temporary folder `tmp/` folder may become bloated or have a partial state if something goes wrong. This may cause unexpected behaviour. If you experience something similar then try to delete everything in the  `tmp/` folder and retry your request.  

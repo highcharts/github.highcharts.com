@@ -8,7 +8,7 @@
 
 // Import dependencies, sorted by path name.
 const { secureToken } = require('../config.json')
-const { downloadFile, downloadJSFolder, urlExists } = require('./download.js')
+const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
 const {
   exists,
   getFileNamesInDirectory,
@@ -77,8 +77,8 @@ function getCustomFileContent (dependencies) {
  * GitHub, prepares and serves the resulting distribution file.
  * The Promise resolves when a response is sent to client.
  *
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {Response} res Express response object.
+ * @param {Request} req Express request object.
  */
 async function handlerDefault (req, res) {
   const branch = getBranch(req.path)
@@ -102,8 +102,8 @@ async function handlerDefault (req, res) {
  * Handle requests to health checker.
  * The Promise resolves when a response is sent to client.
  *
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {Response} res Express response object.
+ * @param {Request} req Express request object.
  */
 async function handlerHealth (req, res) {
   return respondToClient(response.ok, res, req)
@@ -114,8 +114,8 @@ async function handlerHealth (req, res) {
  * The Promise resolves when a response is sent to client.
  *
  * @todo Use express.static in stead if send file.
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {Response} res Express response object.
+ * @param {Request} req Express request object.
  */
 async function handlerIcon (req, res) {
   const result = { file: join(__dirname, '/../assets/favicon.ico') }
@@ -127,8 +127,8 @@ async function handlerIcon (req, res) {
  * The Promise resolves when a response is sent to client.
  *
  * @todo Use express.static in stead of send file.
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {Response} res Express response object.
+ * @param {Request} req Express request object.
  */
 async function handlerIndex (req, res) {
   const result = { file: join(__dirname, '/../views/index.html') }
@@ -140,8 +140,8 @@ async function handlerIndex (req, res) {
  * The Promise resolves when a response is sent to client.
  *
  * @todo Use express.static in stead of send file.
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {Response} res Express response object.
+ * @param {Request} req Express request object.
  */
 async function handlerRobots (req, res) {
   const result = { file: join(__dirname, '../assets/robots.txt') }
@@ -153,8 +153,8 @@ async function handlerRobots (req, res) {
  * cached source files that have been updated.
  * The Promise resolves when a response is sent to client.
  *
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {Response} res Express response object.
+ * @param {Request} req Express request object.
  */
 async function handlerUpdate (req, res) {
   const hook = validateWebHook(req, secureToken)
@@ -247,7 +247,7 @@ async function serveBuildFile (repositoryURL, requestURL) {
   const pathMastersDirectory = join(pathCacheDirectory, 'js', 'masters')
   // Download the source files if they are not found in the cache.
   if (!exists(pathMastersDirectory)) {
-    await downloadJSFolder(pathCacheDirectory, repositoryURL, branch)
+    await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
   }
 
   // Respond with not found if the master file is not found in the cache.
@@ -322,7 +322,7 @@ async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '
 
   // Download the source files if not found in the cache.
   if (!exists(join(pathCacheDirectory, 'js/masters'))) {
-    await downloadJSFolder(pathCacheDirectory, repositoryURL, branch)
+    await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
   }
 
   // Filter out filenames that is not existing in the source directory.

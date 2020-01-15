@@ -8,7 +8,7 @@ describe('download.js', () => {
     const functions = [
       'downloadFile',
       'downloadFiles',
-      'downloadJSFolder',
+      'downloadSourceFolder',
       'getDownloadFiles',
       'httpsGetPromise',
       'urlExists'
