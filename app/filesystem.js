@@ -26,13 +26,11 @@ const { dirname, join, normalize, sep } = require('path')
  * @param  {string} path Path to directory.
  */
 async function createDirectory (path) {
-  const folders = normalize(path).split(sep)
-  await folders.reduce(async (base, name) => {
-    const subPath = join(await base, name)
-    if (!existsSync(subPath)) {
-      await mkdir(subPath)
+  return mkdir(normalize(path), { recursive: true }, (err) => {
+    if (err.code !== 'EEXIST') {
+      throw err
     }
-    return subPath
+    return path
   })
 }
 
