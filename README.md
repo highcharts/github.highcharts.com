@@ -79,9 +79,11 @@ Open a CLI and run the following command:
 The application will be packed into an archive named `github.highcharts-<version>.zip`. The zip is ready to be uploaded and unpacked on your server.
 
 ## Nice to know
+The application does not do a full clone of the `highcharts` repo. It fetches only certain folders within that repo.
 The files are downloaded via GitHub Contents API and stored in a local folder per branch/tag/ref the first time a particular branch/tag/ref is requested. For every subseqent request the local version will be used, which, means that the state of a particular branch won't be updated unless the application is redeployed.
 
-When fetching newer version the downloaded contents are checked for the presence of a ts config - and if found it will run an additional step for compiling the files to Javascript.
+TypeScript: When fetching a branch the downloaded contents are checked for the presence of a Typescript config - and if found it will run an additional step for compiling the files to Javascript.
+Note that TypeScript files are not being served by this application.
 
 For bundling master files, or custom files the `highcharts-assembler` is used.  
 
