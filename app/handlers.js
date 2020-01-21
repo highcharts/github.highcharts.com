@@ -9,6 +9,7 @@
 // Import dependencies, sorted by path name.
 const { secureToken } = require('../config.json')
 const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
+const { compileTypeScript } = require('./utilities')
 const {
   exists,
   getFileNamesInDirectory,
@@ -29,6 +30,21 @@ const { join } = require('path')
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
 const URL_DOWNLOAD = 'https://raw.githubusercontent.com/highcharts/highcharts/'
+
+/**
+ * Tries to look for a remote tsconfig file if the branch/ref is of newer date typically 2019+.
+ * If one exists it will return true
+ * @param {String} repoURL to repository on GitHub
+ * @param {String} branch or ref for commit
+ * @return {Promise<boolean>} true if a tsconfig.json file exists for the branch/ref
+ */
+async function shouldDownloadTypeScriptFolders (repoURL, branch) {
+  const urlPath = `${repoURL}${branch}/ts/tsconfig.json`
+  const tsConfigPath = join(PATH_TMP_DIRECTORY, branch, 'ts', 'tsconfig.json')
+  const tsConfigResponse = await downloadFile(urlPath, tsConfigPath)
+
+  return (tsConfigResponse.statusCode >= 200 && tsConfigResponse.statusCode < 300)
+}
 
 /**
  * Adds error handler to async middleware functions. When an error is caught the
@@ -248,6 +264,13 @@ async function serveBuildFile (repositoryURL, requestURL) {
   // Download the source files if they are not found in the cache.
   if (!exists(pathMastersDirectory)) {
     await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
+    if (await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
+      try {
+        compileTypeScript(branch)
+      } catch (err) {
+        throw new Error(`500: Typescript compilation failed`)
+      }
+    }
   }
 
   // Respond with not found if the master file is not found in the cache.
@@ -301,6 +324,11 @@ async function serveStaticFile (repositoryURL, requestURL) {
     const urlFile = `${repositoryURL}${branch}/js/${file}`
     const download = await downloadFile(urlFile, pathFile)
     if (download.statusCode !== 200) {
+      // we don't always know if it is a static file before we have tried to download it.
+      // check if this branch contains TypeScript config (we then need to compile it).
+      if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
+        return serveBuildFile(repositoryURL, requestURL)
+      }
       return response.notFound
     }
   }
@@ -321,8 +349,13 @@ async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
 
   // Download the source files if not found in the cache.
-  if (!exists(join(pathCacheDirectory, 'js/masters'))) {
+  if (!exists(join(pathCacheDirectory, 'js/masters')) || shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
     await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
+    try {
+      compileTypeScript(branch)
+    } catch (err) {
+      throw new Error(`500: Typescript compilation failed`)
+    }
   }
 
   // Filter out filenames that is not existing in the source directory.

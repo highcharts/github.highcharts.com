@@ -11,7 +11,6 @@ const { writeFile } = require('./filesystem.js')
 const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
-const childProcess = require('child_process')
 
 /**
  * Downloads the content of a url and writes it to the given output path.
@@ -73,14 +72,6 @@ async function downloadSourceFolder (outputDir, repositoryURL, branch) {
     .filter(({ statusCode }) => statusCode !== 200)
     .map(({ url, statusCode }) => `${statusCode}: ${url}`)
 
-  if (files.some(file => file.includes('tsconfig.json'))) {
-    console.log(`tsconfig.json file found for ${branch}. Compiling TypeScript..`)
-    try {
-      childProcess.execSync(`npm run ts-compile -- -p tmp/${branch}/ts/tsconfig.json`)
-    } catch (err) {
-      errors.push(`500: Typescript compilation failed`)
-    }
-  }
   // Log possible errors
   if (errors.length) {
     log(2, `Some files did not download in branch "${branch}"\n${
