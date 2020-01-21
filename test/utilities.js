@@ -17,7 +17,8 @@ describe('utilities.js', () => {
       'isString',
       'isUndefined',
       'log',
-      'padStart'
+      'padStart',
+      'compileTypeScript'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {

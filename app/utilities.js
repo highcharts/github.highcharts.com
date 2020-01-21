@@ -5,6 +5,7 @@
  */
 'use strict'
 
+const childProcess = require('child_process')
 // Import dependencies, sorted by path.
 const config = require('../config.json')
 
@@ -143,6 +144,16 @@ function padStart (str, length = 0, char) {
   return isString(str) ? str.padStart(length, char) : false
 }
 
+/**
+ * Compiles TypeScript in a downloaded folder residing in tmp/.
+ * Can be long running.
+ * @param {String} branch to specific commit, tag or branch
+ */
+function compileTypeScript (branch) {
+  console.log(`Compiling TypeScript for downloaded folder ${branch}..`)
+  childProcess.execSync(`npm run ts-compile -- -p tmp/${branch}/ts/tsconfig.json`)
+}
+
 // Export utility functions
 module.exports = {
   formatDate,
@@ -155,5 +166,6 @@ module.exports = {
   isString,
   isUndefined,
   log,
-  padStart
+  padStart,
+  compileTypeScript
 }
