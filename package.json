@@ -5,7 +5,8 @@
   "main": "server.js",
   "dependencies": {
     "express": "^4.16.3",
-    "highcharts-assembler": "github:highcharts/highcharts-assembler#v1.3.3"
+    "highcharts-assembler": "github:highcharts/highcharts-assembler#v1.3.3",
+    "typescript": "^3.7.5"
   },
   "devDependencies": {
     "@types/jquery": "^3.3.31",
@@ -16,8 +17,7 @@
     "nyc": "^14.1.1",
     "rimraf": "^3.0.0",
     "sinon": "^4.0.1",
-    "standard": "^11.0.1",
-    "typescript": "^3.7.4"
+    "standard": "^11.0.1"
   },
   "scripts": {
     "coverage": "nyc npm run unit-tests",
