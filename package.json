@@ -4,7 +4,7 @@
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
   "dependencies": {
-    "express": "^4.16.3",
+    "express": "^4.17.1",
     "highcharts-assembler": "github:highcharts/highcharts-assembler#v1.3.3",
     "typescript": "^3.7.5"
   },
