@@ -136,7 +136,7 @@ async function getFilesInFolder (path, branch) {
   })
 
   if (statusCode !== 200) {
-    console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}.`)
+    console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}. (HTTP ${statusCode})`)
   }
 
   let promises = []
