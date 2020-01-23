@@ -19,6 +19,9 @@
     "sinon": "^4.0.1",
     "standard": "^11.0.1"
   },
+  "engines": {
+    "node": ">=10.0.0"
+  },
   "scripts": {
     "coverage": "nyc npm run unit-tests",
     "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
