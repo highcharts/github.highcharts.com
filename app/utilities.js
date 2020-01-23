@@ -151,7 +151,7 @@ function padStart (str, length = 0, char) {
  */
 function compileTypeScript (branch) {
   console.log(`Compiling TypeScript for downloaded folder ${branch}..`)
-  childProcess.execSync(`npm run ts-compile -- -p tmp/${branch}/ts/tsconfig.json`)
+  childProcess.execSync(`npx tsc --project tmp/${branch}/ts/tsconfig.json 2> /var/log/nodejs/typescript.log`)
 }
 
 // Export utility functions

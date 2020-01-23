@@ -30,8 +30,7 @@
     "pretest": "rimraf tmp/",
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
-    "unit-tests": "mocha test/test.js",
-    "ts-compile": "tsc"
+    "unit-tests": "mocha test/test.js"
   },
   "repository": {
     "type": "git",
