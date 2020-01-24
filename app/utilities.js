@@ -150,8 +150,18 @@ function padStart (str, length = 0, char) {
  * @param {String} branch to specific commit, tag or branch
  */
 function compileTypeScript (branch) {
-  console.log(`Compiling TypeScript for downloaded folder ${branch}..`)
-  childProcess.execSync(`npm run ts-compile -- -p tmp/${branch}/ts/tsconfig.json`)
+  return new Promise((resolve, reject) => {
+    console.log(`Compiling TypeScript for downloaded folder ${branch}..`)
+    childProcess.exec(`npm run ts-compile -- -p tmp/${branch}/ts/tsconfig.json`,
+      (error, stdout, stderr) => {
+        if (error) {
+          console.log(`TS compilation error: ${error} - ${stderr}${stdout}`)
+          return reject(error)
+        }
+        console.log(`TS compilation done: ${stdout} ${stderr}`)
+        return resolve()
+      })
+  })
 }
 
 // Export utility functions
