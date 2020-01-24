@@ -11,7 +11,7 @@ const config = require('../config.json')
 
 // Constants
 const INFORMATION_LEVEL = typeof config.informationLevel === 'number'
-  ? config.informationLevel : 2
+  ? config.informationLevel : 1
 
 /**
  * Format a date as YYYY-MM-DDTHH-MM-SS. Returns a string with date formatted
@@ -151,6 +151,7 @@ function padStart (str, length = 0, char) {
  */
 function compileTypeScript (branch) {
   return new Promise((resolve, reject) => {
+    const start = (new Date()).getTime()
     console.log(`Compiling TypeScript for downloaded folder ${branch}..`)
     childProcess.exec(`npm run ts-compile -- -p tmp/${branch}/ts/tsconfig.json`,
       (error, stdout, stderr) => {
@@ -158,7 +159,7 @@ function compileTypeScript (branch) {
           console.log(`TS compilation error: ${error} - ${stderr}${stdout}`)
           return reject(error)
         }
-        console.log(`TS compilation done: ${stdout} ${stderr}`)
+        console.log(`TS compilation done in ${((new Date()).getTime() - start) / 1000}: ${stdout} ${stderr}s`)
         return resolve()
       })
   })
