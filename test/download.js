@@ -40,7 +40,7 @@ describe('download.js', () => {
       return httpsGetPromise(downloadURL)
         .then(({ body, statusCode }) => {
           expect(statusCode).to.equal(400)
-          expect(body).to.equal('400: Invalid request\n')
+          expect(body).to.equal('400: Invalid request')
         })
     })
   })
