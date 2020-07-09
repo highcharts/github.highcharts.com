@@ -9,7 +9,7 @@
 // Import dependencies, sorted by path name.
 const { secureToken } = require('../config.json')
 const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
-const { compileTypeScript } = require('./utilities')
+const { compileTypeScript, getGlobalsLocation } = require('./utilities')
 const {
   exists,
   getFileNamesInDirectory,
@@ -63,7 +63,7 @@ function catchAsyncErrors (asyncFn) {
  *
  * @param {Array<string>} dependencies The dependencies of the custom file.
  */
-function getCustomFileContent (dependencies) {
+function getCustomFileContent (dependencies, globalsPath) {
   const LB = '\r\n' // Line break
   const importFolder = '../js/'
 
@@ -81,7 +81,7 @@ function getCustomFileContent (dependencies) {
     ' * License: www.highcharts.com/license',
     ' */',
     '\'use strict\';',
-    'import Highcharts from \'' + importFolder + 'Core/Globals.js\';',
+    'import Highcharts from \'' + importFolder + globalsPath,
     imports,
     'export default Highcharts;',
     '' // new line at end of file
@@ -370,7 +370,8 @@ async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '
   // Create the master file if it not found in the cache.
   const pathMasterFile = join(pathCacheDirectory, filename)
   if (!exists(pathMasterFile)) {
-    const content = getCustomFileContent(parts)
+    const globalsLocation = await getGlobalsLocation(join(pathCacheDirectory, 'js/masters', 'highcharts.src.js'))
+    const content = getCustomFileContent(parts, globalsLocation)
     await writeFile(pathMasterFile, content)
   }
 
