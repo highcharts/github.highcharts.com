@@ -18,7 +18,8 @@ describe('utilities.js', () => {
       'isUndefined',
       'log',
       'padStart',
-      'compileTypeScript'
+      'compileTypeScript',
+      'getGlobalsLocation'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {
