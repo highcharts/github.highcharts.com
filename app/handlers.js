@@ -81,7 +81,7 @@ function getCustomFileContent (dependencies) {
     ' * License: www.highcharts.com/license',
     ' */',
     '\'use strict\';',
-    'import Highcharts from \'' + importFolder + 'parts/Globals.js\';',
+    'import Highcharts from \'' + importFolder + 'Core/Globals.js\';',
     imports,
     'export default Highcharts;',
     '' // new line at end of file
