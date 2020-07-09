@@ -6,6 +6,8 @@
 'use strict'
 
 const childProcess = require('child_process')
+const fs = require('fs').promises
+
 // Import dependencies, sorted by path.
 const config = require('../config.json')
 
@@ -154,6 +156,12 @@ function compileTypeScript (branch) {
   childProcess.execSync(`npx tsc --project tmp/${branch}/ts/tsconfig.json`)
 }
 
+async function getGlobalsLocation (filePath) {
+  const content = await fs.readFile(filePath, 'utf-8')
+
+  return content.match(/\/.*\/Globals.js.*$/m)[0]
+}
+
 // Export utility functions
 module.exports = {
   formatDate,
@@ -167,5 +175,6 @@ module.exports = {
   isUndefined,
   log,
   padStart,
-  compileTypeScript
+  compileTypeScript,
+  getGlobalsLocation
 }
