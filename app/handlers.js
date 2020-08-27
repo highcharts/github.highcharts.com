@@ -101,15 +101,18 @@ async function handlerDefault (req, res) {
   const parts = req.query.parts
 
   // Serve a file depending on the request URL.
-  const result = parts
-    // If request has a query including parts, then create a custom file.
-    ? await serveDownloadFile(URL_DOWNLOAD, branch, parts)
-    : await urlExists(URL_DOWNLOAD + branch + '/js/masters/highcharts.src.js')
-      // If a master file exist, then create dist file using
-      // highcharts-assembler.
-      ? await serveBuildFile(URL_DOWNLOAD, req.url)
-      // If no master file, then try to serve  a static file.
-      : await serveStaticFile(URL_DOWNLOAD, req.url)
+  let result
+  // If request has a query including parts, then create a custom file.
+  if (parts) {
+    result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
+  } else if (await urlExists(URL_DOWNLOAD + branch + '/js/masters/highcharts.src.js')) {
+    // If a master file exist, then create dist file using
+    result = await serveBuildFile(URL_DOWNLOAD, req.url)
+  }
+  // If all else fails, then try to serve  a static file.
+  if (!result || result.status !== 200) {
+    result = await serveStaticFile(URL_DOWNLOAD, req.url)
+  }
 
   return respondToClient(result, res, req)
 }
@@ -273,8 +276,13 @@ async function serveBuildFile (repositoryURL, requestURL) {
     }
   }
 
-  // Respond with not found if the master file is not found in the cache.
+  // First check if there is a masters file (if so, proceed). If not see if there is a .js file.
+  // Return the .js file if found, else respond with 404
   if (!exists(join(pathMastersDirectory, file))) {
+    const cachedJSFile = join(pathCacheDirectory, 'js', file.replace('.src.js', '.js'))
+    if (exists(cachedJSFile)) {
+      return { file: cachedJSFile }
+    }
     return response.notFound
   }
 
