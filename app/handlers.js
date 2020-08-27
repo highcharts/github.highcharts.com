@@ -110,7 +110,7 @@ async function handlerDefault (req, res) {
     result = await serveBuildFile(URL_DOWNLOAD, req.url)
   }
   // If all else fails, then try to serve  a static file.
-  if (!result || result.status !== 200) {
+  if (!result || (!result.file && result.status !== 200)) {
     result = await serveStaticFile(URL_DOWNLOAD, req.url)
   }
 
