@@ -13,7 +13,7 @@ const {
 const { join, sep, relative } = require('path')
 
 // Constants
-const BRANCH_TYPES = ['bugfix', 'feature']
+const BRANCH_TYPES = ['bugfix', 'feature', 'enhancement', 'refactor']
 const PRODUCTS = ['stock', 'maps', 'gantt']
 const replaceAll = (str, search, replace) => str.split(search).join(replace)
 
