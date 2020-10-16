@@ -175,6 +175,29 @@ async function urlExists (url) {
   }
 }
 
+/**
+ * Gets branch info from the github api.
+ * @param {string} branch
+ * The branch name
+ *
+ * @returns {Promise<({}|false)>}
+ * The branch info object, or false if not found
+ */
+async function getBranchInfo (branch) {
+  const { body, statusCode } = await get({
+    hostname: 'api.github.com',
+    path: `/repos/highcharts/highcharts/branches/${branch}`,
+    headers: {
+      'user-agent': 'github.highcharts.com',
+      'Authorization': `token ${token}`
+    }
+  })
+  if (statusCode === 200) {
+    return JSON.parse(body)
+  }
+  return false
+}
+
 // Export download functions
 module.exports = {
   downloadFile,
@@ -182,5 +205,6 @@ module.exports = {
   downloadSourceFolder,
   getDownloadFiles,
   httpsGetPromise: get,
-  urlExists
+  urlExists,
+  getBranchInfo
 }
