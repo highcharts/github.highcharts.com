@@ -103,9 +103,11 @@ async function removeDirectory (path) {
     const files = await readdir(path)
     const deleteContents = files.map(async file => {
       const itemPath = join(path, file)
-      return (await fsStat(itemPath).isDirectory())
-        ? removeDirectory(itemPath)
-        : unlink(itemPath)
+      const dir = await fsStat(itemPath)
+      if (dir && dir.isDirectory()) {
+        return removeDirectory(itemPath)
+      }
+      return unlink(itemPath)
     })
     await Promise.all(deleteContents)
 
