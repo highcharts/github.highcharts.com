@@ -11,6 +11,7 @@ const { writeFile } = require('./filesystem.js')
 const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
+const authToken = {'Authorization': `token ${token}`}
 
 /**
  * Downloads the content of a url and writes it to the given output path.
@@ -131,8 +132,11 @@ async function getDownloadFiles (branch) {
 async function getFilesInFolder (path, branch) {
   const { body, statusCode } = await get({
     hostname: 'api.github.com',
-    path: `/repos/highcharts/highcharts/contents/${path}?ref=${branch}&access_token=${token}`,
-    headers: { 'user-agent': 'github.highcharts.com' }
+    path: `/repos/highcharts/highcharts/contents/${path}?ref=${branch}`,
+    headers: {
+      'user-agent': 'github.highcharts.com',
+      ...authToken
+    }
   })
 
   if (statusCode !== 200) {
@@ -189,7 +193,7 @@ async function getBranchInfo (branch) {
     path: `/repos/highcharts/highcharts/branches/${branch}`,
     headers: {
       'user-agent': 'github.highcharts.com',
-      'Authorization': `token ${token}`
+      ...authToken
     }
   })
   if (statusCode === 200) {
