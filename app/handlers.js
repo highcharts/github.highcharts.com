@@ -8,7 +8,7 @@
 
 // Import dependencies, sorted by path name.
 const { secureToken } = require('../config.json')
-const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
+const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo } = require('./download.js')
 const { compileTypeScript, getGlobalsLocation } = require('./utilities')
 const {
   exists,
@@ -264,6 +264,9 @@ async function serveBuildFile (repositoryURL, requestURL) {
 
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
   const pathMastersDirectory = join(pathCacheDirectory, 'js', 'masters')
+  const branchInfo = await getBranchInfo(branch)
+  const version = branchInfo ? branchInfo.commit.sha : undefined
+
   // Download the source files if they are not found in the cache.
   if (!exists(pathMastersDirectory)) {
     await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
@@ -301,7 +304,7 @@ async function serveBuildFile (repositoryURL, requestURL) {
       files: [file],
       pretty: false,
       type: type,
-      version: branch,
+      version: branch + (version ? `(${version})` : ''),
       fileOptions: fileOptions
     })
   }

@@ -11,7 +11,8 @@ describe('download.js', () => {
       'downloadSourceFolder',
       'getDownloadFiles',
       'httpsGetPromise',
-      'urlExists'
+      'urlExists',
+      'getBranchInfo'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {
