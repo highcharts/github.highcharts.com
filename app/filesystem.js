@@ -26,7 +26,7 @@ const { dirname, join, normalize, sep } = require('path')
  * @param  {string} path Path to directory.
  */
 async function createDirectory (path) {
-  return mkdir(normalize(path), { recursive: true }, (err) => {
+  return mkdir(normalize(path), { recursive: true }).catch(err => {
     if (err.code !== 'EEXIST') {
       throw err
     }
@@ -78,12 +78,12 @@ async function getFileNamesInDirectory (path, recursive = true) {
   return files.reduce(async (filenames, filename) => {
     const subPath = join(path, filename)
     const stat = await fsStat(subPath)
-    if (stat.isDirectory() && recursive) {
+    if (stat && stat.isDirectory() && recursive) {
+      const filesInDirectory = (await getFileNamesInDirectory(subPath, true))
       filenames = (await filenames).concat(
-        (await getFileNamesInDirectory(subPath, true))
-          .map(x => join(filename, x).split(sep).join('/'))
+        (filesInDirectory || []).map(x => join(filename, x).split(sep).join('/'))
       )
-    } else if (stat.isFile()) {
+    } else if (stat && stat.isFile()) {
       (await filenames).push(filename)
     }
     return filenames
