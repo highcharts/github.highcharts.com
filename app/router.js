@@ -47,23 +47,31 @@ const skip = req => {
   return false
 }
 
-// Slow down after 30 requests
-// Delay is cumulative
+// Separate limit for each file requested
+const keyGenerator = (req) => {
+  return req.ip + req.baseUrl
+}
+
+// Slow down after 15 requests
+// Delay is cumulative up to 2s
 ROUTER.use('*', slowDown({
   windowMs: 15 * 60 * 1000,
-  delayAfter: 30,
+  delayAfter: 15,
   delayMs: 500,
+  keyGenerator,
   skip
 }))
 
-// limit after 50 requests
+// limit after 30 requests
 ROUTER.use('*', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 50,
+  max: 30,
   message: `github.highcharts.com is intended for testing only.
 Use code.highcharts.com for production environments`,
+  keyGenerator,
   skip
 }))
+
 ROUTER.get('*', catchAsyncErrors(handlerDefault))
 
 // Export the router
