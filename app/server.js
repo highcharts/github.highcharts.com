@@ -16,13 +16,46 @@ const {
   setConnectionAborted
 } = require('./middleware.js')
 const router = require('./router.js')
-const { formatDate, log } = require('./utilities.js')
+const { formatDate, log, compileTypeScript } = require('./utilities.js')
 const express = require('express')
 
 // Constants
 const APP = express()
 const PORT = process.env.PORT || config.port || 80
 const DATE = formatDate(new Date())
+
+const state = {
+  typescriptJobs: {}
+}
+
+/**
+ * Adds the compilation of the branch to the job registry
+ * Returns the promise
+ * @param {string} branch
+ * @returns {Promise}
+ */
+function addTypescriptJob (branch) {
+  if (!state.typescriptJobs[branch]) {
+    const job = state.typescriptJobs[branch] = compileTypeScript(branch)
+    return job
+  }
+}
+
+/**
+ * Removes a job from the registry
+ * @param {*} branch
+ */
+function removeTypescriptJob (branch) {
+  if (state.typescriptJobs[branch]) delete state.typescriptJobs[branch]
+}
+
+/**
+ * Returns a job from the registry
+ * @param {*} branch
+ */
+function getTypescriptJob (branch) {
+  return state.typescriptJobs[branch]
+}
 
 // Output status information
 log(2, `
@@ -54,3 +87,11 @@ APP.use(logErrors)
  * Start the server
  */
 APP.listen(PORT)
+
+module.exports = {
+  default: APP,
+  getTypescriptJob,
+  addTypescriptJob,
+  removeTypescriptJob,
+  state
+}
