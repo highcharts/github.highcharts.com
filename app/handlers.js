@@ -8,8 +8,9 @@
 
 // Import dependencies, sorted by path name.
 const { secureToken } = require('../config.json')
-const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo } = require('./download.js')
-const { compileTypeScript, getGlobalsLocation } = require('./utilities')
+const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
+const { compileTypeScript, getGlobalsLocation, log } = require('./utilities')
+
 const {
   exists,
   getFileNamesInDirectory,
@@ -264,53 +265,83 @@ async function serveBuildFile (repositoryURL, requestURL) {
 
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
   const pathMastersDirectory = join(pathCacheDirectory, 'js', 'masters')
-  const branchInfo = await getBranchInfo(branch)
-  const version = branchInfo ? branchInfo.commit.sha : undefined
+  const server = require('./server.js')
 
-  // Download the source files if they are not found in the cache.
-  if (!exists(pathMastersDirectory)) {
-    await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
-    if (await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
-      try {
-        compileTypeScript(branch)
-      } catch (err) {
-        throw new Error(`500: Typescript compilation failed`)
-      }
-    }
-  }
-
-  // First check if there is a masters file (if so, proceed). If not see if there is a .js file.
-  // Return the .js file if found, else respond with 404
-  if (!exists(join(pathMastersDirectory, file))) {
+  /*
+  * Check if the file is already built, and return it if that is the case
+  */
+  function checkFile () {
     const cachedJSFile = join(pathCacheDirectory, 'js', file.replace('.src.js', '.js'))
     if (exists(cachedJSFile)) {
       return { file: cachedJSFile }
     }
+  }
+
+  let foundFile = checkFile()
+  if (foundFile) return foundFile
+
+  // If the branch is already being compiled, get that job
+  let typescriptJob = server.getTypescriptJob(branch)
+
+  // Download the source files if they are not found in the cache.
+  // and a job is not currently in progress
+  if (!exists(pathMastersDirectory) && !typescriptJob) {
+    await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
+    if (await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
+      typescriptJob = server.addTypescriptJob(branch)
+    }
+  }
+
+  if (typescriptJob) {
+    await typescriptJob
+      .catch(error => {
+        server.removeTypescriptJob(branch)
+
+        // Fail gracefully
+        log(2, `500: Typescript compilation failed:
+${error.message}`)
+      })
+
+    server.removeTypescriptJob(branch)
+  }
+
+  foundFile = checkFile()
+  if (foundFile) {
+    return foundFile
+  }
+
+  // Try to assemble.
+  // If the assembler fails, we assume that the file can't be found
+  return (assemble().catch(() => {
     return response.notFound
-  }
+  }))
 
-  const pathOutputFolder = join(pathCacheDirectory, 'output')
-  const pathOutputFile = join(
-    pathOutputFolder, (type === 'css' ? 'js' : ''), file
-  )
-  // Build the distribution file if it is not found in cache.
-  if (!exists(pathOutputFile)) {
-    const files = await getFileNamesInDirectory(pathMastersDirectory)
-    const fileOptions = getFileOptions(files, join(pathCacheDirectory, 'js'))
-    build({
-      // TODO: Remove trailing slash when assembler has fixed path concatenation
-      base: pathMastersDirectory + '/',
-      output: pathOutputFolder,
-      files: [file],
-      pretty: false,
-      type: type,
-      version: branch + (version ? `(${version})` : ''),
-      fileOptions: fileOptions
-    })
+  /**
+   * Assembles the source files
+   */
+  async function assemble () {
+    const pathOutputFolder = join(pathCacheDirectory, 'output')
+    const pathOutputFile = join(
+      pathOutputFolder, (type === 'css' ? 'js' : ''), file
+    )
+    // Build the distribution file if it is not found in cache.
+    if (!exists(pathOutputFile)) {
+      const files = await getFileNamesInDirectory(pathMastersDirectory)
+      const fileOptions = getFileOptions(files, join(pathCacheDirectory, 'js'))
+      build({
+        // TODO: Remove trailing slash when assembler has fixed path concatenation
+        base: pathMastersDirectory + '/',
+        output: pathOutputFolder,
+        files: [file],
+        pretty: false,
+        type: type,
+        version: branch,
+        fileOptions: fileOptions
+      })
+    }
+    // Return path to file location in the cache.
+    return { file: pathOutputFile }
   }
-
-  // Return path to file location in the cache.
-  return { file: pathOutputFile }
 }
 
 /**

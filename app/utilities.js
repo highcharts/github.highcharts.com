@@ -7,6 +7,7 @@
 
 const childProcess = require('child_process')
 const fs = require('fs').promises
+const util = require('util')
 
 // Import dependencies, sorted by path.
 const config = require('../config.json')
@@ -152,8 +153,8 @@ function padStart (str, length = 0, char) {
  * @param {String} branch to specific commit, tag or branch
  */
 function compileTypeScript (branch) {
-  console.log(`Compiling TypeScript for downloaded folder ${branch}..`)
-  childProcess.execSync(`npx tsc --project tmp/${branch}/ts/tsconfig.json`)
+  log(0, `Compiling TypeScript for downloaded folder ${branch}..`)
+  return util.promisify(childProcess.exec)(`npx tsc --project tmp/${branch}/ts/tsconfig.json --skipLibCheck`)
 }
 
 async function getGlobalsLocation (filePath) {
