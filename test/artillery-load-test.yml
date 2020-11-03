@@ -1,0 +1,16 @@
+# run with `npx artillery run ./test/artillery-load-test.yml`
+
+config:
+  target: http://localhost:90
+  phases:
+    - duration: 30
+      arrivalRate: 5
+      arrivalCount: 10 # queries over 60 seconds per '- get'
+scenarios:
+  - flow:
+      - get:
+          url: "/highcharts.src.js"
+      - get:
+          url: "/v8.2.2/highcharts.src.js"
+      - get:
+          url: "/v5.0.0/highcharts.src.js"
