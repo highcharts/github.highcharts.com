@@ -3,6 +3,7 @@
  * @author Jon Arild Nygard
  * @todo Add license
  */
+
 'use strict'
 
 // Import dependencies, sorted by path.
@@ -130,10 +131,30 @@ async function writeFilePromise (filepath, data) {
   return writeFile(filepath, data)
 }
 
+async function cleanUp (path) {
+  const files = await readdir(path)
+
+  // const deleted = [];
+
+  files.forEach(async file => {
+    const folderpath = join(path, file)
+    const fileInfo = await fsStat(folderpath)
+
+    if (fileInfo && fileInfo.isDirectory()) {
+      try {
+        // const data = require(join(folderpath, 'info.json'))
+      } catch (error) {
+        console.error(error)
+      }
+    }
+  })
+}
+
 module.exports = {
   createDirectory,
   exists,
   getFileNamesInDirectory,
   removeDirectory,
-  writeFile: writeFilePromise
+  writeFile: writeFilePromise,
+  cleanUp
 }

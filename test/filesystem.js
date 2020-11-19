@@ -2,11 +2,33 @@ const mocha = require('mocha')
 const fs = require('fs')
 const expect = require('chai').expect
 const defaults = require('../app/filesystem.js')
+const { join } = require('path')
 const describe = mocha.describe
 const it = mocha.it
 const before = mocha.before
 const after = mocha.after
 
+const throwErr = (err) => { if (err) throw err }
+const cleanFiles = () => {
+  [
+    'tmp/test-empty',
+    'tmp/test-files/file.txt',
+    'tmp/test-files/subfolder/file.txt',
+    'tmp/test-files/subfolder',
+    'tmp/test-files',
+    'tmp'
+  ].forEach(p => {
+    let stat = false
+    try {
+      stat = fs.lstatSync(p)
+    } catch (err) {}
+    if (stat && stat.isFile()) {
+      fs.unlinkSync(p)
+    } else if (stat && stat.isDirectory()) {
+      fs.rmdirSync(p)
+    }
+  })
+}
 describe('filesystem.js', () => {
   it('should have a default export', () => {
     const functions = [
@@ -24,27 +46,6 @@ describe('filesystem.js', () => {
 
   describe('getFileNamesInDirectory', () => {
     const getFileNamesInDirectory = defaults.getFileNamesInDirectory
-    const throwErr = (err) => { if (err) throw err }
-    const cleanFiles = () => {
-      [
-        'tmp/test-empty',
-        'tmp/test-files/file.txt',
-        'tmp/test-files/subfolder/file.txt',
-        'tmp/test-files/subfolder',
-        'tmp/test-files',
-        'tmp'
-      ].forEach(p => {
-        let stat = false
-        try {
-          stat = fs.lstatSync(p)
-        } catch (err) {}
-        if (stat && stat.isFile()) {
-          fs.unlinkSync(p)
-        } else if (stat && stat.isDirectory()) {
-          fs.rmdirSync(p)
-        }
-      })
-    }
 
     // Set up preconditions and cleaning
     before(() => {
@@ -72,4 +73,17 @@ describe('filesystem.js', () => {
       expect(await getFileNamesInDirectory('tmp/test-files', false)).to.deep.equal(['file.txt'])
     })
   })
+})
+
+describe.only('cleanUp', () => {
+  const {cleanUp} = require('../app/filesystem.js')
+  before(() => {
+    cleanFiles()
+    fs.mkdirSync('tmp/test-empty', { recursive: true })
+    fs.mkdirSync('tmp/test-files/subfolder', { recursive: true })
+    fs.writeFile('tmp/test-files/file.txt', '', throwErr)
+    fs.writeFile('tmp/test-files/subfolder/file.txt', '', throwErr)
+  })
+  cleanUp(join(__dirname, '../tmp/'))
+  after(cleanFiles)
 })

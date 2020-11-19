@@ -11,6 +11,7 @@ const {
   getOrderedDependencies
 } = require('highcharts-assembler/src/dependencies.js')
 const { join, sep, relative } = require('path')
+const { getBranchInfo } = require('./download.js')
 
 // Constants
 const BRANCH_TYPES = ['bugfix', 'feature', 'enhancement', 'refactor']
@@ -23,7 +24,7 @@ const replaceAll = (str, search, replace) => str.split(search).join(replace)
  *
  * @param  {string} url The request URL.
  */
-function getBranch (url) {
+async function getBranch (url) {
   const folders = ['adapters', 'indicators', 'modules', 'parts-3d', 'parts-map',
     'parts-more', 'parts', 'themes']
   const isValidBranchName = (str) => (
@@ -49,6 +50,14 @@ function getBranch (url) {
   } else if (isValidBranchName(sections[0])) {
     branch = sections[0]
   }
+
+  // If we can get it, save by commit sha
+  // Only `v8.0.0` gets saved by their proper names
+  const { commit } = await getBranchInfo(branch)
+  if (commit) {
+    branch = commit.sha
+  }
+
   return branch
 }
 
@@ -61,6 +70,15 @@ function getBranch (url) {
  * @param  {string} url The request URL.
  */
 function getFile (branch, type, url) {
+  // Replace branches in url, since we save by commit sha
+  url = url.replace(/^\/master/, '')
+  for (const branchType of BRANCH_TYPES) {
+    const regex = new RegExp(`^/${branchType}/([a-z]|[0-9]|-)+/`)
+    if (regex.test(url)) {
+      url = url.replace(regex, '/')
+      break
+    }
+  }
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
     x => x === branch.split('/')[1], // Remove second section of branch name
