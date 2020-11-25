@@ -16,6 +16,8 @@ const cleanFiles = () => {
     'tmp/test-files/subfolder/file.txt',
     'tmp/test-files/subfolder',
     'tmp/test-files',
+    'tmp/fakebranchhash/info.json',
+    'tmp/fakebranchhash',
     'tmp'
   ].forEach(p => {
     let stat = false
@@ -75,15 +77,25 @@ describe('filesystem.js', () => {
   })
 })
 
-describe.only('cleanUp', () => {
-  const {cleanUp} = require('../app/filesystem.js')
-  before(() => {
-    cleanFiles()
-    fs.mkdirSync('tmp/test-empty', { recursive: true })
-    fs.mkdirSync('tmp/test-files/subfolder', { recursive: true })
-    fs.writeFile('tmp/test-files/file.txt', '', throwErr)
-    fs.writeFile('tmp/test-files/subfolder/file.txt', '', throwErr)
+describe('tmp folder cleanup function', () => {
+  const { cleanUp } = require('../app/filesystem.js')
+
+  before(async () => {
+    // Make a fake branch that should be deleted
+    const fakeBranchPath = join(__dirname, '../tmp/fakebranchhash')
+    await fs.promises.mkdir(fakeBranchPath, { recursive: true })
+    await fs.promises.writeFile(join(fakeBranchPath, 'info.json'),
+      JSON.stringify({ 'last_access': new Date(Date.UTC(2010)) })
+    )
   })
-  cleanUp(join(__dirname, '../tmp/'))
+
   after(cleanFiles)
+
+  it('Should delete the branch', async () => {
+    await cleanUp()
+
+    const branches = await fs.promises.readdir(join(__dirname, '../tmp/'))
+
+    expect(branches).to.be.an('array').that.does.not.includes('fakebranchhash')
+  })
 })

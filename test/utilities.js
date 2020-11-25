@@ -19,7 +19,8 @@ describe('utilities.js', () => {
       'log',
       'padStart',
       'compileTypeScript',
-      'getGlobalsLocation'
+      'getGlobalsLocation',
+      'updateBranchAccess'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {

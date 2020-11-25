@@ -1,7 +1,7 @@
 # github.highcharts.com
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
-Node.js server which runs a RESTful application to serve requested Highcharts distribution files for a given version. Used for testing purposes only. 
+Node.js server which runs a RESTful application to serve requested Highcharts distribution files for a given version. Used for testing purposes only.
 
 ## Install
 Open a CLI and navigate to where you would like to install the application.
@@ -22,6 +22,9 @@ The application requires a configuration file `./config.json` to be able to run.
 | port | The port the server application will listen to. Defaults to 80. |
 | secureToken | The secret token used to validate the GitHub webhook post to /update. See [GitHub Developer - Securing your webhooks](https://developer.github.com/webhooks/securing/) for more information. |
 | token | Personal access token used to gain access to GitHub API. The token scope is requires only access to public repositories. See [GitHub Help - Creating a personal access token for the command line](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line) for more information. |
+| cleanInterval | How often the server should check if it is time to clean. Defaults to every 2 hours (Note that the cleanup job|
+| cleanThreshold | The amount of downloaded branches that will trigger the clean up job. Defaults to 1000 |
+| tmpLifetime | How many hours since last request to keep a branch when cleaning up |
 
 Example config file:
 ```json
@@ -29,7 +32,9 @@ Example config file:
     "informationLevel": 0,
     "port": 90,
     "token": "token",
-    "secureToken": "secureToken"
+    "secureToken": "secureToken",
+    "cleanThreshold": 1500,
+    "tmpLifetime": 168
 }
 ```
 
@@ -85,7 +90,7 @@ The files are downloaded via GitHub Contents API and stored in a local folder pe
 TypeScript: When fetching a branch the downloaded contents are checked for the presence of a Typescript config - and if found it will run an additional step for compiling the files to Javascript.
 Note that TypeScript files are not being served by this application.
 
-For bundling master files, or custom files the `highcharts-assembler` is used.  
+For bundling master files, or custom files the `highcharts-assembler` is used.
 
 ### Troubleshooting
-The temporary folder `tmp/` folder may become bloated or have a partial state if something goes wrong. This may cause unexpected behaviour. If you experience something similar then try to delete everything in the  `tmp/` folder and retry your request.  
+The temporary folder `tmp/` folder may become bloated or have a partial state if something goes wrong. This may cause unexpected behaviour. If you experience something similar then try to delete everything in the  `tmp/` folder and retry your request.
