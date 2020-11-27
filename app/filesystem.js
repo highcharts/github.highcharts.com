@@ -3,6 +3,7 @@
  * @author Jon Arild Nygard
  * @todo Add license
  */
+
 'use strict'
 
 // Import dependencies, sorted by path.
@@ -14,10 +15,12 @@ const {
     rmdir,
     stat,
     unlink,
-    writeFile
+    writeFile,
+    readFile
   }
 } = require('fs')
 const { dirname, join, normalize, sep } = require('path')
+const { log } = require('./utilities')
 
 /**
  * Recursively creates all missing directiories in a given path.
@@ -130,10 +133,56 @@ async function writeFilePromise (filepath, data) {
   return writeFile(filepath, data)
 }
 
+const { cleanThreshold, tmpLifetime } = require('../config.json')
+
+/**
+ * Checks if number of branches in the tmp folder has surpassed the `cleanThreshold`
+ * set in the config (default to 1000 if not found)
+ */
+async function shouldClean () {
+  const files = await readdir(join(__dirname, '../tmp/'))
+  if (files.length > (cleanThreshold || 1000)) return true
+
+  return false
+}
+
+/**
+ * Cleans up the tmp folder
+ */
+async function cleanUp () {
+  const path = join(__dirname, '../tmp/')
+  const files = await readdir(path)
+
+  await Promise.all(files.map(async file => {
+    const folderpath = join(path, file)
+    const fileInfo = await fsStat(folderpath)
+    const timeToKill = tmpLifetime * 60 * 60 * 1000 || 30 * 24 * 60 * 60 * 1000
+
+    if (fileInfo && fileInfo.isDirectory()) {
+      try {
+        const dataPath = join(folderpath, 'info.json')
+        const data = JSON.parse(await readFile(dataPath))
+        const { last_access } = data // eslint-disable-line
+        const diff = new Date() - new Date(last_access)
+
+        if (diff > timeToKill) {
+          await removeDirectory(folderpath)
+          log(0, `Removing ${folderpath}. Not accessed in ${Math.round(diff / (1000 * 60 * 60))} hours`)
+        }
+      } catch (error) {
+        log(2, error)
+      }
+    }
+  })
+  )
+}
+
 module.exports = {
   createDirectory,
   exists,
   getFileNamesInDirectory,
   removeDirectory,
-  writeFile: writeFilePromise
+  writeFile: writeFilePromise,
+  cleanUp,
+  shouldClean
 }

@@ -20,26 +20,31 @@ describe('interpreter.js', () => {
 
   describe('getBranch', () => {
     const getBranch = defaults.getBranch
-    it('should return "master" when first section is either a file, folder or type', () => {
-      expect(getBranch('/modules/exporting.src.js')).to.equal('master')
-      expect(getBranch('/highcharts.src.js')).to.equal('master')
-      expect(getBranch('/js/highcharts.src.js')).to.equal('master')
-      expect(getBranch('/css/highcharts.css')).to.equal('master')
-      expect(getBranch('/gantt/highcharts.src.js')).to.equal('master')
-    })
-    it('should support multiple level branch names for bugfix and feature', () => {
-      expect(getBranch('/bugfix/modules/exporting.src.js'))
-        .to.equal('bugfix')
-      expect(getBranch('/bugfix/issue-name/modules/exporting.src.js'))
-        .to.equal('bugfix/issue-name')
-      expect(getBranch('/feature/modules/exporting.src.js'))
-        .to.equal('feature')
-      expect(getBranch('/feature/feature-name/modules/exporting.src.js'))
-        .to.equal('feature/feature-name')
-    })
 
-    it('should support custom builds', () => {
-      expect(getBranch('/6.0.7'))
+    it('should return "master" when first section is either a file, folder or type', async () => {
+      [
+        '/modules/exporting.src.js',
+        '/highcharts.src.js',
+        '/css/highcharts.css',
+        '/js/highcharts.src.js',
+        '/gantt/highcharts.src.js'
+      ].forEach(async (branch) => {
+        expect((await getBranch(branch)).length).to.equal(40)
+      })
+    })
+    // it('should support multiple level branch names for bugfix and feature', () => {
+    //   expect(getBranch('/bugfix/modules/exporting.src.js'))
+    //     .to.equal('bugfix')
+    //   expect(getBranch('/bugfix/issue-name/modules/exporting.src.js'))
+    //     .to.equal('bugfix/issue-name')
+    //   expect(getBranch('/feature/modules/exporting.src.js'))
+    //     .to.equal('feature')
+    //   expect(getBranch('/feature/feature-name/modules/exporting.src.js'))
+    //     .to.equal('feature/feature-name')
+    // })
+
+    it('should support custom builds', async () => {
+      expect(await getBranch('/6.0.7'))
         .to.equal('6.0.7')
     })
   })
@@ -72,7 +77,7 @@ describe('interpreter.js', () => {
     })
 
     it('should support multiple level branch names for bugfix and feature', () => {
-      expect(getFile('bugfix', 'classic', '/bugfix/modules/exporting.src.js'))
+      expect(getFile('bugfix', 'classic', '/modules/exporting.src.js'))
         .to.equal('modules/exporting.src.js')
       expect(getFile('bugfix', 'css', '/bugfix/js/modules/exporting.src.js'))
         .to.equal('modules/exporting.src.js')

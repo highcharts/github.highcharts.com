@@ -9,13 +9,13 @@
 // Import dependencies, sorted by path name.
 const { secureToken } = require('../config.json')
 const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
-const { compileTypeScript, getGlobalsLocation, log } = require('./utilities')
+const { compileTypeScript, getGlobalsLocation, log, updateBranchAccess } = require('./utilities')
 
 const {
   exists,
   getFileNamesInDirectory,
-  removeDirectory,
   writeFile
+  /* removeDirectory */
 } = require('./filesystem.js')
 const {
   getBranch,
@@ -98,7 +98,7 @@ function getCustomFileContent (dependencies, globalsPath) {
  * @param {Request} req Express request object.
  */
 async function handlerDefault (req, res) {
-  const branch = getBranch(req.path)
+  const branch = await getBranch(req.path)
   const parts = req.query.parts
 
   // Serve a file depending on the request URL.
@@ -115,6 +115,7 @@ async function handlerDefault (req, res) {
     result = await serveStaticFile(URL_DOWNLOAD, req.url)
   }
 
+  await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
   return respondToClient(result, res, req)
 }
 
@@ -191,7 +192,7 @@ async function handlerUpdate (req, res) {
 
       // Remove the cache if it exists
       if (doCacheExist) {
-        await removeDirectory(pathCacheDirectory)
+        // await removeDirectory(pathCacheDirectory)
       }
 
       // Respond with information of if the cache was deleted
@@ -254,7 +255,7 @@ async function respondToClient (result, response, request) {
  * @param {string} requestURL The url which the request was sent to.
  */
 async function serveBuildFile (repositoryURL, requestURL) {
-  const branch = getBranch(requestURL)
+  const branch = await getBranch(requestURL)
   const type = getType(branch, requestURL)
   const file = getFile(branch, type, requestURL)
 
@@ -302,6 +303,9 @@ async function serveBuildFile (repositoryURL, requestURL) {
 ${error.message}`)
       })
 
+    // Delete the typescript files after compilation is done
+    /* await removeDirectory(join(pathCacheDirectory, 'ts')) */
+
     server.removeTypescriptJob(branch)
   }
 
@@ -312,7 +316,8 @@ ${error.message}`)
 
   // Try to assemble.
   // If the assembler fails, we assume that the file can't be found
-  return (assemble().catch(() => {
+  return (assemble().catch((error) => {
+    log(2, error.message)
     return response.notFound
   }))
 
@@ -352,7 +357,7 @@ ${error.message}`)
  * @param {string} requestURL The url which the request was sent to.
  */
 async function serveStaticFile (repositoryURL, requestURL) {
-  const branch = getBranch(requestURL)
+  const branch = await getBranch(requestURL)
   const file = getFile(branch, 'classic', requestURL)
 
   // Respond with not found if the interpreter can not find a filename.

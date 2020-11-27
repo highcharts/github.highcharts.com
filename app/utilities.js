@@ -6,6 +6,7 @@
 'use strict'
 
 const childProcess = require('child_process')
+const { join } = require('path')
 const fs = require('fs').promises
 const util = require('util')
 
@@ -157,6 +158,31 @@ function compileTypeScript (branch) {
   return util.promisify(childProcess.exec)(`npx tsc --project tmp/${branch}/ts/tsconfig.json --skipLibCheck`)
 }
 
+async function updateBranchAccess (branchPath) {
+  const { stat, writeFile, readdir } = fs
+  const filePath = join(branchPath, 'info.json')
+
+  const jsonString = JSON.stringify({ last_access: new Date() })
+
+  if (await stat(branchPath)) {
+    // create file if not existant
+    const isFile = (await readdir(branchPath)).includes('info.json')
+    if (!isFile) {
+      return writeFile(filePath, jsonString)
+    }
+
+    // Only update if the date has changed
+    const data = require(filePath)
+    const splitDate = (date) => date.toISOString().split('T')[0]
+
+    if (splitDate(new Date(data.last_access)) !== splitDate(new Date())) {
+      return writeFile(filePath, jsonString)
+    }
+  }
+
+  return Promise.resolve()
+}
+
 async function getGlobalsLocation (filePath) {
   const content = await fs.readFile(filePath, 'utf-8')
 
@@ -177,5 +203,6 @@ module.exports = {
   log,
   padStart,
   compileTypeScript,
-  getGlobalsLocation
+  getGlobalsLocation,
+  updateBranchAccess
 }

@@ -14,8 +14,7 @@ const {
   handlerHealth,
   handlerIcon,
   handlerIndex,
-  handlerRobots,
-  handlerUpdate
+  handlerRobots
 } = require('./handlers.js')
 const { Router } = require('express')
 
@@ -29,7 +28,6 @@ const ROUTER = Router()
 
 // Register handlers to the router
 ROUTER.get('/health', catchAsyncErrors(handlerHealth))
-ROUTER.post('/update', catchAsyncErrors(handlerUpdate))
 ROUTER.get('/favicon.ico', catchAsyncErrors(handlerIcon))
 ROUTER.get('/robots.txt', catchAsyncErrors(handlerRobots))
 ROUTER.get('/', catchAsyncErrors(handlerIndex))

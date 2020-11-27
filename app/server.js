@@ -18,6 +18,7 @@ const {
 const router = require('./router.js')
 const { formatDate, log, compileTypeScript } = require('./utilities.js')
 const express = require('express')
+const { cleanUp, shouldClean } = require('./filesystem')
 
 // Constants
 const APP = express()
@@ -87,6 +88,15 @@ APP.use(logErrors)
  * Start the server
  */
 APP.listen(PORT)
+
+// Clean up the tmp folder every now and then
+setInterval(async () => {
+  // Clean only after a certain amount of branches and when there are no jobs running
+  if ((await shouldClean()) && Object.keys(state.typescriptJobs).length === 0) {
+    log(0, 'Cleaning up...')
+    await cleanUp()
+  }
+}, config.cleanInterval || 2 * 60 * 1000)
 
 module.exports = {
   default: APP,

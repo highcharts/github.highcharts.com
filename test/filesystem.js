@@ -2,11 +2,35 @@ const mocha = require('mocha')
 const fs = require('fs')
 const expect = require('chai').expect
 const defaults = require('../app/filesystem.js')
+const { join } = require('path')
 const describe = mocha.describe
 const it = mocha.it
 const before = mocha.before
 const after = mocha.after
 
+const throwErr = (err) => { if (err) throw err }
+const cleanFiles = () => {
+  [
+    'tmp/test-empty',
+    'tmp/test-files/file.txt',
+    'tmp/test-files/subfolder/file.txt',
+    'tmp/test-files/subfolder',
+    'tmp/test-files',
+    'tmp/fakebranchhash/info.json',
+    'tmp/fakebranchhash',
+    'tmp'
+  ].forEach(p => {
+    let stat = false
+    try {
+      stat = fs.lstatSync(p)
+    } catch (err) {}
+    if (stat && stat.isFile()) {
+      fs.unlinkSync(p)
+    } else if (stat && stat.isDirectory()) {
+      fs.rmdirSync(p)
+    }
+  })
+}
 describe('filesystem.js', () => {
   it('should have a default export', () => {
     const functions = [
@@ -24,27 +48,6 @@ describe('filesystem.js', () => {
 
   describe('getFileNamesInDirectory', () => {
     const getFileNamesInDirectory = defaults.getFileNamesInDirectory
-    const throwErr = (err) => { if (err) throw err }
-    const cleanFiles = () => {
-      [
-        'tmp/test-empty',
-        'tmp/test-files/file.txt',
-        'tmp/test-files/subfolder/file.txt',
-        'tmp/test-files/subfolder',
-        'tmp/test-files',
-        'tmp'
-      ].forEach(p => {
-        let stat = false
-        try {
-          stat = fs.lstatSync(p)
-        } catch (err) {}
-        if (stat && stat.isFile()) {
-          fs.unlinkSync(p)
-        } else if (stat && stat.isDirectory()) {
-          fs.rmdirSync(p)
-        }
-      })
-    }
 
     // Set up preconditions and cleaning
     before(() => {
@@ -71,5 +74,28 @@ describe('filesystem.js', () => {
     it('should not include subfolders when includeSubfolders is false', async () => {
       expect(await getFileNamesInDirectory('tmp/test-files', false)).to.deep.equal(['file.txt'])
     })
+  })
+})
+
+describe('tmp folder cleanup function', () => {
+  const { cleanUp } = require('../app/filesystem.js')
+
+  before(async () => {
+    // Make a fake branch that should be deleted
+    const fakeBranchPath = join(__dirname, '../tmp/fakebranchhash')
+    await fs.promises.mkdir(fakeBranchPath, { recursive: true })
+    await fs.promises.writeFile(join(fakeBranchPath, 'info.json'),
+      JSON.stringify({ 'last_access': new Date(Date.UTC(2010)) })
+    )
+  })
+
+  after(cleanFiles)
+
+  it('Should delete the branch', async () => {
+    await cleanUp()
+
+    const branches = await fs.promises.readdir(join(__dirname, '../tmp/'))
+
+    expect(branches).to.be.an('array').that.does.not.includes('fakebranchhash')
   })
 })
