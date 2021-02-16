@@ -106,7 +106,10 @@ async function handlerDefault (req, res) {
   // If request has a query including parts, then create a custom file.
   if (parts) {
     result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
-  } else if (await urlExists(URL_DOWNLOAD + branch + '/js/masters/highcharts.src.js')) {
+  } else if (
+    await urlExists(URL_DOWNLOAD + branch + '/ts/masters/highcharts.src.ts') ||
+    await urlExists(URL_DOWNLOAD + branch + '/js/masters/highcharts.src.js')
+  ) {
     // If a master file exist, then create dist file using
     result = await serveBuildFile(URL_DOWNLOAD, req.url)
   }
