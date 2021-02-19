@@ -155,7 +155,7 @@ function padStart (str, length = 0, char) {
  */
 function compileTypeScript (branch) {
   log(0, `Compiling TypeScript for downloaded folder ${branch}..`)
-  return util.promisify(childProcess.exec)(`npx tsc --project ${join(__dirname, '../tmp')}/${branch}/ts/tsconfig.json --skipLibCheck`)
+  return util.promisify(childProcess.exec)(`cd ${join(__dirname, '../tmp')}/${branch}/ts/ && npx tsc --skipLibCheck`)
 }
 
 async function updateBranchAccess (branchPath) {

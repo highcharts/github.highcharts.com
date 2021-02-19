@@ -399,12 +399,13 @@ async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
 
   // Download the source files if not found in the cache.
-  if (!exists(join(pathCacheDirectory, 'js/masters')) || shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
+  if (!exists(join(pathCacheDirectory, 'js/masters')) || await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
     await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
     try {
-      compileTypeScript(branch)
+      await compileTypeScript(branch)
     } catch (err) {
-      throw new Error(`500: Typescript compilation failed`)
+      throw new Error(`500: Typescript compilation failed with error:
+${err.message}`)
     }
   }
 
