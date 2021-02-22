@@ -153,9 +153,16 @@ function padStart (str, length = 0, char) {
  * Can be long running.
  * @param {String} branch to specific commit, tag or branch
  */
-function compileTypeScript (branch) {
+async function compileTypeScript (branch) {
   log(0, `Compiling TypeScript for downloaded folder ${branch}..`)
-  return util.promisify(childProcess.exec)(`cd ${join(__dirname, '../tmp')}/${branch}/ts/ && npx tsc --skipLibCheck`)
+  const exec = util.promisify(childProcess.exec)
+  const TS_PATH = join(__dirname, '../tmp', branch, 'ts')
+  try {
+    const { stdout, stderr } = await exec(`npx tsc --project ${TS_PATH} --skipLibCheck`)
+    log(0, stderr || stdout)
+  } catch (error) {
+    log(2, error)
+  }
 }
 
 async function updateBranchAccess (branchPath) {
