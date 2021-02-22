@@ -106,7 +106,10 @@ async function handlerDefault (req, res) {
   // If request has a query including parts, then create a custom file.
   if (parts) {
     result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
-  } else if (await urlExists(URL_DOWNLOAD + branch + '/js/masters/highcharts.src.js')) {
+  } else if (
+    await urlExists(URL_DOWNLOAD + branch + '/ts/masters/highcharts.src.ts') ||
+    await urlExists(URL_DOWNLOAD + branch + '/js/masters/highcharts.src.js')
+  ) {
     // If a master file exist, then create dist file using
     result = await serveBuildFile(URL_DOWNLOAD, req.url)
   }
@@ -396,12 +399,13 @@ async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
 
   // Download the source files if not found in the cache.
-  if (!exists(join(pathCacheDirectory, 'js/masters')) || shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
+  if (!exists(join(pathCacheDirectory, 'js/masters')) || await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
     await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
     try {
-      compileTypeScript(branch)
+      await compileTypeScript(branch)
     } catch (err) {
-      throw new Error(`500: Typescript compilation failed`)
+      throw new Error(`500: Typescript compilation failed with error:
+${err.message}`)
     }
   }
 

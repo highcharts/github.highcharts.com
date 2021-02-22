@@ -14,7 +14,7 @@ const { join, sep, relative } = require('path')
 const { getBranchInfo } = require('./download.js')
 
 // Constants
-const BRANCH_TYPES = ['bugfix', 'feature', 'enhancement', 'refactor']
+const BRANCH_TYPES = ['bugfix', 'feature', 'enhancement', 'ts', 'refactor']
 const PRODUCTS = ['stock', 'maps', 'gantt']
 const replaceAll = (str, search, replace) => str.split(search).join(replace)
 
