@@ -1,3 +1,4 @@
+// @
 /**
  * Server application.
  * Fires up a server using ExpressJS, and registers routers, and starts listening to a port.
@@ -33,11 +34,13 @@ const state = {
  * Adds the compilation of the branch to the job registry
  * Returns the promise
  * @param {string} branch
+ * @param {string} file
  * @returns {Promise}
  */
-function addTypescriptJob (branch) {
-  if (!state.typescriptJobs[branch]) {
-    const job = state.typescriptJobs[branch] = compileTypeScript(branch)
+function addTypescriptJob (branch, file) {
+  const id = branch + file
+  if (!state.typescriptJobs[id]) {
+    const job = state.typescriptJobs[id] = compileTypeScript(branch, file)
     return job
   }
 }
@@ -45,17 +48,20 @@ function addTypescriptJob (branch) {
 /**
  * Removes a job from the registry
  * @param {*} branch
+ * @param {string} file
  */
-function removeTypescriptJob (branch) {
-  if (state.typescriptJobs[branch]) delete state.typescriptJobs[branch]
+function removeTypescriptJob (branch, file) {
+  const id = branch + file
+  if (state.typescriptJobs[id]) delete state.typescriptJobs[id]
 }
 
 /**
  * Returns a job from the registry
  * @param {*} branch
  */
-function getTypescriptJob (branch) {
-  return state.typescriptJobs[branch]
+function getTypescriptJob (branch, file) {
+  const id = branch + file
+  return state.typescriptJobs[id]
 }
 
 // Output status information

@@ -19,6 +19,7 @@ describe('utilities.js', () => {
       'log',
       'padStart',
       'compileTypeScript',
+      'compileTypeScriptProject',
       'getGlobalsLocation',
       'updateBranchAccess'
     ]
