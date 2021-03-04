@@ -27,7 +27,8 @@ const PORT = process.env.PORT || config.port || 80
 const DATE = formatDate(new Date())
 
 const state = {
-  typescriptJobs: {}
+  typescriptJobs: {},
+  downloads: {}
 }
 
 /**
@@ -62,6 +63,32 @@ function removeTypescriptJob (branch, file) {
 function getTypescriptJob (branch, file) {
   const id = branch + file
   return state.typescriptJobs[id]
+}
+
+/**
+ * Sets a download job in the registry
+ * or returns an existing job
+ * @param {string} branch
+ * @returns {Promise<any> | undefined}
+ */
+function addDownloadJob (branch, promise) {
+  if (!state.downloads[branch]) {
+    const job = state.downloads[branch] = promise
+    return job
+  }
+}
+
+/**
+ * Get a download job from the registry
+ * @param {string} branch
+ * @returns {Promise<any> | undefined}
+ */
+function getDownloadJob (branch) {
+  return state.downloads[branch]
+}
+
+function removeDownloadJob (branch) {
+  if (state.downloads[branch]) delete state.downloads[branch]
 }
 
 // Output status information
@@ -109,5 +136,8 @@ module.exports = {
   getTypescriptJob,
   addTypescriptJob,
   removeTypescriptJob,
+  addDownloadJob,
+  getDownloadJob,
+  removeDownloadJob,
   state
 }

@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Contains all handlers used in the Express router.
  * The handlers processes the HTTP request and returns a response to the client.
@@ -288,8 +289,15 @@ async function serveBuildFile (repositoryURL, requestURL) {
   // Download the source files if they are not found in the cache.
   // and a job is not currently in progress
   if (!(exists(pathMastersDirectory) || exists(TSMastersPath)) && !typescriptJob) {
-    log(0, `Downloading source for commit ${branch}`)
-    await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
+    try {
+      const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, downloadSourceFolder(pathCacheDirectory, repositoryURL, branch))
+      if (!downloadPromise) throw new Error()
+      await downloadPromise
+      server.removeDownloadJob(branch)
+    } catch (error) {
+      server.removeDownloadJob(branch)
+      return response.error
+    }
   }
 
   // Add a typescript job, if the corresponding ts file has been downloaded,
