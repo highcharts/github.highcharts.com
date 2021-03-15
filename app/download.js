@@ -66,6 +66,7 @@ function downloadFiles (baseURL, subpaths, outputDir) {
  * @param {string} branch The name of the branch the files are located in.
  */
 async function downloadSourceFolder (outputDir, repositoryURL, branch) {
+  log(0, `Downloading source for commit ${branch}`)
   const url = `${repositoryURL}${branch}`
   const files = await getDownloadFiles(branch)
   const responses = await downloadFiles(url, files, outputDir)

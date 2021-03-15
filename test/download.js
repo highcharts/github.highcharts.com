@@ -71,13 +71,13 @@ describe('download.js', () => {
     })
     it('should resolve with an informational object, and a newly created file.', () => {
       return downloadFile(
-        downloadURL + 'master/js/masters/highcharts.src.js',
+        downloadURL + 'master/ts/masters/highcharts.src.ts',
         './tmp/test/downloaded-file1.js'
       ).then(({ outputPath, statusCode, success, url }) => {
         expect(outputPath).to.equal('./tmp/test/downloaded-file1.js')
         expect(statusCode).to.equal(200)
         expect(success).to.equal(true)
-        expect(url).to.equal(downloadURL + 'master/js/masters/highcharts.src.js')
+        expect(url).to.equal(downloadURL + 'master/ts/masters/highcharts.src.ts')
         expect(fs.lstatSync('./tmp/test/downloaded-file1.js').size).to.be.greaterThan(0)
       })
     })

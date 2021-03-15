@@ -7,7 +7,15 @@
 
 const childProcess = require('child_process')
 const { join } = require('path')
-const fs = require('fs').promises
+const {
+  existsSync,
+  promises: {
+    readFile,
+    stat,
+    writeFile,
+    readdir
+  }
+} = require('fs')
 const util = require('util')
 
 // Import dependencies, sorted by path.
@@ -151,14 +159,41 @@ function padStart (str, length = 0, char) {
 /**
  * Compiles TypeScript in a downloaded folder residing in tmp/.
  * Can be long running.
- * @param {String} branch to specific commit, tag or branch
+ * @param {string} branch to specific commit, tag or branch
+ * @param {string} file the file to compile
  */
-async function compileTypeScript (branch) {
+async function compileTypeScript (branch, file = 'masters/highcharts.src.ts') {
+  log(0, `Compiling ${file} for commit ${branch}`)
+  const exec = util.promisify(childProcess.exec)
+  const TS_PATH = join(__dirname, '../tmp', branch, 'ts')
+  const OUT_PATH = join(__dirname, '../tmp', branch, 'js')
+  const jsFilePath = join(OUT_PATH, file.replace('.ts', '.js'))
+
+  // This will fail, but the js-files should still be output
+  try {
+    const args = `--outDir ${OUT_PATH} --allowJS true --module es6 --target es5 --skipLibCheck --esModuleInterop`
+    const { stdout, stderr } = await exec(`npx tsc ${join(TS_PATH, file.replace(/\.js$/, '.ts'))} ${args}`)
+    log(0, stderr || stdout)
+  } catch (error) {
+    // log(2, error)
+    if (!existsSync(jsFilePath)) {
+      throw new Error(`Typescript compilation was unable to output file ${jsFilePath}:
+${error.message}
+      `)
+    }
+  }
+}
+
+/**
+ * Compiles the full project based on the tsconfig.
+ * @param {string} branch
+ */
+async function compileTypeScriptProject (branch) {
   log(0, `Compiling TypeScript for downloaded folder ${branch}..`)
   const exec = util.promisify(childProcess.exec)
   const TS_PATH = join(__dirname, '../tmp', branch, 'ts')
   try {
-    const { stdout, stderr } = await exec(`npx tsc --project ${TS_PATH} --skipLibCheck`)
+    const { stdout, stderr } = await exec(`npx tsc --build ${TS_PATH}`)
     log(0, stderr || stdout)
   } catch (error) {
     log(2, error)
@@ -166,7 +201,6 @@ async function compileTypeScript (branch) {
 }
 
 async function updateBranchAccess (branchPath) {
-  const { stat, writeFile, readdir } = fs
   const filePath = join(branchPath, 'info.json')
 
   const jsonString = JSON.stringify({ last_access: new Date() })
@@ -191,7 +225,7 @@ async function updateBranchAccess (branchPath) {
 }
 
 async function getGlobalsLocation (filePath) {
-  const content = await fs.readFile(filePath, 'utf-8')
+  const content = await readFile(filePath, 'utf-8')
 
   return content.match(/\/.*\/Globals.js.*$/m)[0]
 }
@@ -210,6 +244,7 @@ module.exports = {
   log,
   padStart,
   compileTypeScript,
+  compileTypeScriptProject,
   getGlobalsLocation,
   updateBranchAccess
 }

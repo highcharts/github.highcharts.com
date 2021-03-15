@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Contains all handlers used in the Express router.
  * The handlers processes the HTTP request and returns a response to the client.
@@ -9,7 +10,7 @@
 // Import dependencies, sorted by path name.
 const { secureToken } = require('../config.json')
 const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
-const { compileTypeScript, getGlobalsLocation, log, updateBranchAccess } = require('./utilities')
+const { compileTypeScriptProject, getGlobalsLocation, log, updateBranchAccess } = require('./utilities')
 
 const {
   exists,
@@ -271,48 +272,60 @@ async function serveBuildFile (repositoryURL, requestURL) {
   const pathMastersDirectory = join(pathCacheDirectory, 'js', 'masters')
   const server = require('./server.js')
 
-  /*
-  * Check if the file is already built, and return it if that is the case
-  */
-  function checkFile () {
-    const cachedJSFile = join(pathCacheDirectory, 'js', file.replace('.src.js', '.js'))
-    if (exists(cachedJSFile)) {
-      return { file: cachedJSFile }
-    }
-  }
+  const isMastersQuery = file.startsWith('masters/')
+  const isMasterFile = await isMasterTSFile(file)
+  const TSFileCacheLocation = join(
+    isMasterFile && !isMastersQuery ? 'masters' : '',
+    file.replace(isMasterFile ? '.js' : '.src.js', '.ts')
+  )
+  const TSMastersPath = join(pathCacheDirectory, 'js', 'masters')
 
-  let foundFile = checkFile()
+  let foundFile = checkFile(file)
   if (foundFile) return foundFile
 
   // If the branch is already being compiled, get that job
-  let typescriptJob = server.getTypescriptJob(branch)
+  let typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation)
 
   // Download the source files if they are not found in the cache.
   // and a job is not currently in progress
-  if (!exists(pathMastersDirectory) && !typescriptJob) {
-    await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
-    if (await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
-      typescriptJob = server.addTypescriptJob(branch)
+  if (!(exists(pathMastersDirectory) || exists(TSMastersPath)) && !typescriptJob) {
+    try {
+      const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, downloadSourceFolder(pathCacheDirectory, repositoryURL, branch))
+      if (!downloadPromise) throw new Error()
+      await downloadPromise
+      server.removeDownloadJob(branch)
+    } catch (error) {
+      server.removeDownloadJob(branch)
+      return response.error
     }
   }
 
+  // Add a typescript job, if the corresponding ts file has been downloaded,
+  // and the requested file is not downloaded
+  if (
+    !typescriptJob &&
+    exists(join(pathCacheDirectory, 'ts', TSFileCacheLocation)) &&
+    !checkFile(file)
+  ) {
+    typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation) || server.addTypescriptJob(branch, TSFileCacheLocation)
+  }
+
+  // Wait for the Typescript compilation to finish
   if (typescriptJob) {
     await typescriptJob
       .catch(error => {
-        server.removeTypescriptJob(branch)
+        server.removeTypescriptJob(branch, TSFileCacheLocation)
 
         // Fail gracefully
         log(2, `500: Typescript compilation failed:
 ${error.message}`)
       })
 
-    // Delete the typescript files after compilation is done
-    /* await removeDirectory(join(pathCacheDirectory, 'ts')) */
-
-    server.removeTypescriptJob(branch)
+    server.removeTypescriptJob(branch, TSFileCacheLocation)
   }
 
-  foundFile = checkFile()
+  // File
+  foundFile = checkFile(file)
   if (foundFile) {
     return foundFile
   }
@@ -322,7 +335,15 @@ ${error.message}`)
   return (assemble().catch((error) => {
     log(2, error.message)
     return response.notFound
+  }).finally(() => {
+    log(0, `Finished assembling ${file} for commit ${branch}`)
   }))
+
+  /* *
+   *
+   *  Scoped utility functions
+   *
+   * */
 
   /**
    * Assembles the source files
@@ -350,6 +371,39 @@ ${error.message}`)
     // Return path to file location in the cache.
     return { file: pathOutputFile }
   }
+
+  /**
+   * Checks if the file is in the ts/masters folder.
+   * If the ts/masters folder is downloaded, it will check that.
+   * Otherwise it will check Github
+   * @param {string} file
+   */
+  async function isMasterTSFile (file) {
+    // If ts folder is downloaded, check that
+    if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
+      const masterFiles = await getFileNamesInDirectory(join(pathCacheDirectory, 'ts', 'masters'), true) || []
+      return masterFiles.some(product => file.replace('.js', '.ts').startsWith(product))
+    }
+    // Otherwise check github
+    const remoteURL = URL_DOWNLOAD + branch + '/ts/masters/' + file.replace('.js', '.ts')
+    return urlExists(remoteURL)
+  }
+
+  /**
+  * Check if the file is already built, and return it if that is the case
+  * @param {string} file
+  */
+  function checkFile (file) {
+    const compiledFilePath = join(pathCacheDirectory, 'output', file)
+    const cachedJSFile =
+      exists(compiledFilePath) && !isMastersQuery
+        ? compiledFilePath
+        : join(pathCacheDirectory, 'js', isMastersQuery ? file : file.replace('.src.js', '.js'))
+
+    if (exists(cachedJSFile)) {
+      return { file: cachedJSFile }
+    }
+  }
 }
 
 /**
@@ -370,6 +424,7 @@ async function serveStaticFile (repositoryURL, requestURL) {
 
   const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
   // Download the file if it is not already available in cache.
+  console.log(pathFile)
   if (!exists(pathFile)) {
     const urlFile = `${repositoryURL}${branch}/js/${file}`
     const download = await downloadFile(urlFile, pathFile)
@@ -402,7 +457,7 @@ async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '
   if (!exists(join(pathCacheDirectory, 'js/masters')) || await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
     await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
     try {
-      await compileTypeScript(branch)
+      await compileTypeScriptProject(branch)
     } catch (err) {
       throw new Error(`500: Typescript compilation failed with error:
 ${err.message}`)

@@ -1,6 +1,6 @@
 {
   "name": "github.highcharts.com",
-  "version": "1.9.0",
+  "version": "1.9.1",
   "description": "Node.js server which runs a RESTful application to serve Highcharts scripts built from the Highcharts build script.",
   "main": "server.js",
   "dependencies": {

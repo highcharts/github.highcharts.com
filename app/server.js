@@ -1,3 +1,4 @@
+// @
 /**
  * Server application.
  * Fires up a server using ExpressJS, and registers routers, and starts listening to a port.
@@ -26,18 +27,21 @@ const PORT = process.env.PORT || config.port || 80
 const DATE = formatDate(new Date())
 
 const state = {
-  typescriptJobs: {}
+  typescriptJobs: {},
+  downloads: {}
 }
 
 /**
  * Adds the compilation of the branch to the job registry
  * Returns the promise
  * @param {string} branch
+ * @param {string} file
  * @returns {Promise}
  */
-function addTypescriptJob (branch) {
-  if (!state.typescriptJobs[branch]) {
-    const job = state.typescriptJobs[branch] = compileTypeScript(branch)
+function addTypescriptJob (branch, file) {
+  const id = branch + file
+  if (!state.typescriptJobs[id]) {
+    const job = state.typescriptJobs[id] = compileTypeScript(branch, file)
     return job
   }
 }
@@ -45,17 +49,46 @@ function addTypescriptJob (branch) {
 /**
  * Removes a job from the registry
  * @param {*} branch
+ * @param {string} file
  */
-function removeTypescriptJob (branch) {
-  if (state.typescriptJobs[branch]) delete state.typescriptJobs[branch]
+function removeTypescriptJob (branch, file) {
+  const id = branch + file
+  if (state.typescriptJobs[id]) delete state.typescriptJobs[id]
 }
 
 /**
  * Returns a job from the registry
  * @param {*} branch
  */
-function getTypescriptJob (branch) {
-  return state.typescriptJobs[branch]
+function getTypescriptJob (branch, file) {
+  const id = branch + file
+  return state.typescriptJobs[id]
+}
+
+/**
+ * Sets a download job in the registry
+ * or returns an existing job
+ * @param {string} branch
+ * @returns {Promise<any> | undefined}
+ */
+function addDownloadJob (branch, promise) {
+  if (!state.downloads[branch]) {
+    const job = state.downloads[branch] = promise
+    return job
+  }
+}
+
+/**
+ * Get a download job from the registry
+ * @param {string} branch
+ * @returns {Promise<any> | undefined}
+ */
+function getDownloadJob (branch) {
+  return state.downloads[branch]
+}
+
+function removeDownloadJob (branch) {
+  if (state.downloads[branch]) delete state.downloads[branch]
 }
 
 // Output status information
@@ -103,5 +136,8 @@ module.exports = {
   getTypescriptJob,
   addTypescriptJob,
   removeTypescriptJob,
+  addDownloadJob,
+  getDownloadJob,
+  removeDownloadJob,
   state
 }
