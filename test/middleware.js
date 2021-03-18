@@ -32,7 +32,7 @@ describe('middleware.js', () => {
       this['on' + name] = fn
     }
     it('should set property rawBody to empty string, when there is no data', () => {
-      let req = { on: on }
+      const req = { on: on }
       const next = stub()
       bodyJSONParser(req, {}, next)
       req.onend()
@@ -42,7 +42,7 @@ describe('middleware.js', () => {
       expect(next.called).to.equal(true)
     })
     it('should set rawBody to equal data received, and body should be parsed JSON', () => {
-      let req = { on: on }
+      const req = { on: on }
       const next = stub()
       bodyJSONParser(req, {}, next)
       req.ondata('{ "prop": "val" }')
@@ -50,11 +50,11 @@ describe('middleware.js', () => {
       expect(req).to.have.property('rawBody')
         .that.equals('{ "prop": "val" }')
       expect(req).to.have.property('body')
-        .that.deep.equals({ 'prop': 'val' })
+        .that.deep.equals({ prop: 'val' })
       expect(next.called).to.equal(true)
     })
     it('should not parse invalidJSON', () => {
-      let req = { on: on }
+      const req = { on: on }
       const next = stub()
       bodyJSONParser(req, {}, next)
       req.ondata('abc')
@@ -71,8 +71,8 @@ describe('middleware.js', () => {
       this['on' + name] = fn
     }
     it('should send status 400 and a message to the client', () => {
-      let req = { on: on }
-      let res = {}
+      const req = { on: on }
+      const res = {}
       res.status = stub().returns(res)
       res.send = stub().returns(res)
       const next = stub()
@@ -101,7 +101,7 @@ describe('middleware.js', () => {
       this['on' + name] = fn
     }
     it('should set connectionAborted to true on close', () => {
-      let req = { on: on }
+      const req = { on: on }
       const next = stub()
       setConnectionAborted(req, {}, next)
       req.onclose()
@@ -109,7 +109,7 @@ describe('middleware.js', () => {
       expect(next.called).to.equal(true)
     })
     it('should set connectionAborted false by default', () => {
-      let req = { on: on }
+      const req = { on: on }
       const next = stub()
       setConnectionAborted(req, {}, next)
       expect(req).to.have.property('connectionAborted').that.equals(false)

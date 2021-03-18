@@ -9,6 +9,7 @@ describe('download.js', () => {
       'downloadFile',
       'downloadFiles',
       'downloadSourceFolder',
+      'downloadSourceFolderGit',
       'getDownloadFiles',
       'httpsGetPromise',
       'urlExists',
@@ -86,7 +87,7 @@ describe('download.js', () => {
         downloadURL + 'master/i-do-not-exist.js',
         './tmp/test/downloaded-file2.js'
       ).then(({ outputPath, statusCode, success, url }) => {
-        var exists = true
+        let exists = true
         try {
           fs.lstatSync('./tmp/test/downloaded-file2.js')
         } catch (e) {
