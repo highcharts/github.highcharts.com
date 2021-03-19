@@ -34,7 +34,8 @@
     "pretest": "rimraf tmp/",
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
-    "unit-tests": "mocha test/test.js"
+    "unit-tests": "mocha test/test.js",
+    "artillery-test": "npx artillery run ./test/artillery-load-test.yml"
   },
   "repository": {
     "type": "git",
