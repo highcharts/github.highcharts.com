@@ -1,0 +1,23 @@
+version: 2.1
+
+jobs:
+   build:
+    docker:
+      - image: circleci/node
+    working_directory: ~/repo
+    steps:
+      - checkout
+      - run: ls
+      - run: npm i --prod
+      - run:
+          name: Setup config.json
+          command: |
+           echo "{\"token\": \"\",\"port\": \"90\",\"repo\": \"highcharts/highcharts\"}" > config.json
+           cat config.json
+      - run:
+          name: Run server
+          command: npm start
+          background: true
+      - run: npm run artillery-test
+      - store_artifacts:
+          path: /tmp/artillery-report
