@@ -106,7 +106,8 @@ async function downloadSourceFolderGit (outputDir, branch) {
         const emitter = degit(uri, {
           cache: false,
           force: true,
-          verbose: false
+          verbose: false,
+          mode: 'tar'
         })
         emitter.clone(outputPath).then(() => {
           result.success = true
@@ -265,6 +266,30 @@ async function getBranchInfo (branch) {
   return false
 }
 
+
+/**
+ * Gets commit info from the github api.
+ * @param {string} commit
+ * The commit sha, long or short
+ *
+ * @returns {Promise<({}|false)>}
+ * The commit info object, or false if not found
+ */
+async function getCommitInfo (commit) {
+  const { body, statusCode } = await get({
+    hostname: 'api.github.com',
+    path: `/repos/${repo}/commits/${commit}`,
+    headers: {
+      'user-agent': 'github.highcharts.com',
+      ...authToken
+    }
+  })
+  if (statusCode === 200) {
+    return JSON.parse(body)
+  }
+  return false
+}
+
 // Export download functions
 module.exports = {
   downloadFile,
@@ -274,5 +299,6 @@ module.exports = {
   getDownloadFiles,
   httpsGetPromise: get,
   urlExists,
-  getBranchInfo
+  getBranchInfo,
+  getCommitInfo
 }

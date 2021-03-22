@@ -13,7 +13,8 @@ describe('download.js', () => {
       'getDownloadFiles',
       'httpsGetPromise',
       'urlExists',
-      'getBranchInfo'
+      'getBranchInfo',
+      'getCommitInfo'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {

@@ -9,7 +9,7 @@
 
 // Import dependencies, sorted by path name.
 const { secureToken, repo } = require('../config.json')
-const { downloadFile, downloadSourceFolder, downloadSourceFolderGit, urlExists } = require('./download.js')
+const { downloadFile, downloadSourceFolder, downloadSourceFolderGit, urlExists, getBranchInfo, getCommitInfo } = require('./download.js')
 const { compileTypeScriptProject, getGlobalsLocation, log, updateBranchAccess } = require('./utilities')
 
 const {
@@ -99,8 +99,31 @@ function getCustomFileContent (dependencies, globalsPath) {
  * @param {Request} req Express request object.
  */
 async function handlerDefault (req, res) {
-  const branch = await getBranch(req.path)
+  let branch = await getBranch(req.path)
+  let url = req.url
   const parts = req.query.parts
+  let useGitDownloader = branch === 'master' || /^\/v[0-9]/.test(req.path) // version tags
+
+  // If we can get it, save by commit sha
+  // This also means we can use the degit downloader
+  // (only works on latest commit in a branch)
+  // Only `v8.0.0` gets saved by their proper names
+  const { commit } = await getBranchInfo(branch)
+  if (commit) {
+    branch = commit.sha
+    useGitDownloader = true
+  }
+
+  // If this is still not true, the request may be for a short SHA
+  // Get the long form sha
+  // Todo: find a way to check if it is the latest commit in the branch
+  if (!useGitDownloader) {
+    const { sha } = await getCommitInfo(branch)
+    if (sha) {
+      url = url.replace(branch, sha)
+      branch = sha
+    }
+  }
 
   // Serve a file depending on the request URL.
   let result
@@ -109,11 +132,11 @@ async function handlerDefault (req, res) {
     result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
   } else {
     // Try to build the file
-    result = await serveBuildFile(branch, req.url)
+    result = await serveBuildFile(branch, url, useGitDownloader)
   }
   // If all else fails, then try to serve  a static file.
   if (!result || (!result.file && result.status !== 200)) {
-    result = await serveStaticFile(URL_DOWNLOAD, req.url)
+    result = await serveStaticFile(branch, url)
   }
 
   await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
@@ -252,7 +275,7 @@ async function respondToClient (result, response, request) {
  * The Promise resolves with an object containing information on the response.
  * @param {string} requestURL The url which the request was sent to.
  */
-async function serveBuildFile (branch, requestURL) {
+async function serveBuildFile (branch, requestURL, useGitDownloader) {
   const type = getType(branch, requestURL)
   const file = getFile(branch, type, requestURL)
 
@@ -284,9 +307,10 @@ async function serveBuildFile (branch, requestURL) {
   // Download the source files if they are not found in the cache
   if (!isAlreadyDownloaded) {
     try {
-      const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, downloadSourceFolderGit(pathCacheDirectory, branch))
+      const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, useGitDownloader
+        ? downloadSourceFolderGit(pathCacheDirectory, branch)
+        : downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch))
       if (!downloadPromise) throw new Error()
-      // await downloadPromise
     } catch (error) {
       server.removeDownloadJob(branch)
       return response.error
@@ -416,11 +440,10 @@ ${error.message}`)
  * Interprets the request URL and serves a static file if found.
  * The Promise resolves with an object containing information on the response.
  *
- * @param {string} repositoryURL Url to download the file.
+ * @param {string} branch
  * @param {string} requestURL The url which the request was sent to.
  */
-async function serveStaticFile (repositoryURL, requestURL) {
-  const branch = await getBranch(requestURL)
+async function serveStaticFile (branch, requestURL) {
   const file = getFile(branch, 'classic', requestURL)
 
   // Respond with not found if the interpreter can not find a filename.
@@ -431,12 +454,12 @@ async function serveStaticFile (repositoryURL, requestURL) {
   const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
   // Download the file if it is not already available in cache.
   if (!exists(pathFile)) {
-    const urlFile = `${repositoryURL}${branch}/js/${file}`
+    const urlFile = `${URL_DOWNLOAD}${branch}/js/${file}`
     const download = await downloadFile(urlFile, pathFile)
     if (download.statusCode !== 200) {
       // we don't always know if it is a static file before we have tried to download it.
       // check if this branch contains TypeScript config (we then need to compile it).
-      if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
+      if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(URL_DOWNLOAD, branch)) {
         return serveBuildFile(branch, requestURL)
       }
       return response.notFound
