@@ -35,8 +35,9 @@ ROUTER.get('/', catchAsyncErrors(handlerIndex))
 const skip = req => {
   // allow requests with allowed referers
   const referer = req.get('Referer')
-  const allowedReferer = referer ? ['highcharts.local', 'highcharts.com']
-    .some((url) => referer.includes(url)) : false
+  const allowedReferer = referer
+    ? ['highcharts.local', 'highcharts.com'].some((url) => referer.includes(url))
+    : false
 
   if (allowedReferer) {
     log(1, `skipping rate limiter for referer ${referer}`)
@@ -60,10 +61,10 @@ ROUTER.use('*', slowDown({
   skip
 }))
 
-// limit after 30 requests
+// limit after 60 requests (per file) in a 15 minute period
 ROUTER.use('*', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 60,
   message: `github.highcharts.com is intended for testing only.
 Use code.highcharts.com for production environments`,
   keyGenerator,

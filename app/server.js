@@ -17,7 +17,7 @@ const {
   setConnectionAborted
 } = require('./middleware.js')
 const router = require('./router.js')
-const { formatDate, log, compileTypeScript } = require('./utilities.js')
+const { formatDate, log, compileTypeScript, compileTypeScriptProject } = require('./utilities.js')
 const express = require('express')
 const { cleanUp, shouldClean } = require('./filesystem')
 
@@ -28,7 +28,8 @@ const DATE = formatDate(new Date())
 
 const state = {
   typescriptJobs: {},
-  downloads: {}
+  downloads: {},
+  assembles: {}
 }
 
 /**
@@ -38,10 +39,21 @@ const state = {
  * @param {string} file
  * @returns {Promise}
  */
-function addTypescriptJob (branch, file) {
-  const id = branch + file
+function addTypescriptJob (branch, file, buildProject = false) {
+  // Return an existing job if it is found
+  const existingJob = getTypescriptJob(branch, file)
+  if (existingJob) return existingJob
+
+  const id = branch + (buildProject ? 'project' : file)
+  // Check if there is a job going on the file
   if (!state.typescriptJobs[id]) {
-    const job = state.typescriptJobs[id] = compileTypeScript(branch, file)
+    const job = state.typescriptJobs[id] = buildProject
+      ? compileTypeScriptProject(branch).finally(() => {
+          // Project jobs remove themselves
+          removeTypescriptJob(branch, 'project')
+        })
+      : compileTypeScript(branch, file)
+
     return job
   }
 }
@@ -61,6 +73,11 @@ function removeTypescriptJob (branch, file) {
  * @param {*} branch
  */
 function getTypescriptJob (branch, file) {
+  // Return the project job if it exists
+  if (state.typescriptJobs[branch + 'project']) {
+    return state.typescriptJobs[branch + 'project']
+  }
+
   const id = branch + file
   return state.typescriptJobs[id]
 }
@@ -88,7 +105,37 @@ function getDownloadJob (branch) {
 }
 
 function removeDownloadJob (branch) {
-  if (state.downloads[branch]) delete state.downloads[branch]
+  setTimeout(() => {
+    if (state.downloads[branch]) delete state.downloads[branch]
+  }, 5000)
+}
+
+/**
+ * Sets a download job in the registry
+ * or returns an existing job
+ * @param {string} branch
+ * @returns {Promise<any> | undefined}
+ */
+function addAssemblyJob (id, promise) {
+  if (!state.downloads[id]) {
+    const job = state.assembles[id] = promise
+    return job
+  }
+}
+
+/**
+ * Get a download job from the registry
+ * @param {string} branch
+ * @returns {Promise<any> | undefined}
+ */
+function getAssemblyJob (id) {
+  return state.assembles[id]
+}
+
+function removeAssemblyJob (id) {
+  setTimeout(() => {
+    if (state.assembles[id]) delete state.assembles[id]
+  }, 2500)
 }
 
 // Output status information
@@ -139,5 +186,8 @@ module.exports = {
   addDownloadJob,
   getDownloadJob,
   removeDownloadJob,
+  getAssemblyJob,
+  addAssemblyJob,
+  removeAssemblyJob,
   state
 }

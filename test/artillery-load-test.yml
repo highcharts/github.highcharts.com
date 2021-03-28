@@ -11,6 +11,10 @@ scenarios:
       - get:
           url: "/highcharts.src.js"
       - get:
+          url: "/master/masters/highcharts.src.js"
+      - get:
+          url: "/master/masters/highstock.src.js"
+      - get:
           url: "/v8.2.2/highcharts.src.js"
       - get:
           url: "/v5.0.0/highcharts.src.js"

@@ -8,8 +8,8 @@
 'use strict'
 
 // Import dependencies, sorted by path name.
-const { secureToken } = require('../config.json')
-const { downloadFile, downloadSourceFolder, urlExists } = require('./download.js')
+const { secureToken, repo } = require('../config.json')
+const { downloadFile, downloadSourceFolder, downloadSourceFolderGit, urlExists, getBranchInfo, getCommitInfo } = require('./download.js')
 const { compileTypeScriptProject, getGlobalsLocation, log, updateBranchAccess } = require('./utilities')
 
 const {
@@ -31,7 +31,7 @@ const { join } = require('path')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
-const URL_DOWNLOAD = 'https://raw.githubusercontent.com/highcharts/highcharts/'
+const URL_DOWNLOAD = `https://raw.githubusercontent.com/${repo}/`
 
 /**
  * Tries to look for a remote tsconfig file if the branch/ref is of newer date typically 2019+.
@@ -99,24 +99,44 @@ function getCustomFileContent (dependencies, globalsPath) {
  * @param {Request} req Express request object.
  */
 async function handlerDefault (req, res) {
-  const branch = await getBranch(req.path)
+  let branch = await getBranch(req.path)
+  let url = req.url
   const parts = req.query.parts
+  let useGitDownloader = branch === 'master' || /^\/v[0-9]/.test(req.path) // version tags
+
+  // If we can get it, save by commit sha
+  // This also means we can use the degit downloader
+  // (only works on latest commit in a branch)
+  // Only `v8.0.0` gets saved by their proper names
+  const { commit } = await getBranchInfo(branch)
+  if (commit) {
+    branch = commit.sha
+    useGitDownloader = true
+  }
+
+  // If this is still not true, the request may be for a short SHA
+  // Get the long form sha
+  // Todo: find a way to check if it is the latest commit in the branch
+  if (!useGitDownloader) {
+    const { sha } = await getCommitInfo(branch)
+    if (sha) {
+      url = url.replace(branch, sha)
+      branch = sha
+    }
+  }
 
   // Serve a file depending on the request URL.
   let result
   // If request has a query including parts, then create a custom file.
   if (parts) {
     result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
-  } else if (
-    await urlExists(URL_DOWNLOAD + branch + '/ts/masters/highcharts.src.ts') ||
-    await urlExists(URL_DOWNLOAD + branch + '/js/masters/highcharts.src.js')
-  ) {
-    // If a master file exist, then create dist file using
-    result = await serveBuildFile(URL_DOWNLOAD, req.url)
+  } else {
+    // Try to build the file
+    result = await serveBuildFile(branch, url, useGitDownloader)
   }
   // If all else fails, then try to serve  a static file.
   if (!result || (!result.file && result.status !== 200)) {
-    result = await serveStaticFile(URL_DOWNLOAD, req.url)
+    result = await serveStaticFile(branch, url)
   }
 
   await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
@@ -253,13 +273,9 @@ async function respondToClient (result, response, request) {
  * Downloads the source files for the given branch/tag/commit if they are not
  * found in the cache.
  * The Promise resolves with an object containing information on the response.
- *
- * @param {string} repositoryURL The URL to the repository containing the
- * source files.
  * @param {string} requestURL The url which the request was sent to.
  */
-async function serveBuildFile (repositoryURL, requestURL) {
-  const branch = await getBranch(requestURL)
+async function serveBuildFile (branch, requestURL, useGitDownloader) {
   const type = getType(branch, requestURL)
   const file = getFile(branch, type, requestURL)
 
@@ -269,7 +285,7 @@ async function serveBuildFile (repositoryURL, requestURL) {
   }
 
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
-  const pathMastersDirectory = join(pathCacheDirectory, 'js', 'masters')
+  const jsMastersDirectory = join(pathCacheDirectory, 'js', 'masters')
   const server = require('./server.js')
 
   const isMastersQuery = file.startsWith('masters/')
@@ -278,66 +294,73 @@ async function serveBuildFile (repositoryURL, requestURL) {
     isMasterFile && !isMastersQuery ? 'masters' : '',
     file.replace(isMasterFile ? '.js' : '.src.js', '.ts')
   )
-  const TSMastersPath = join(pathCacheDirectory, 'js', 'masters')
+  const tsMastersDirectory = join(pathCacheDirectory, 'ts', 'masters')
 
+  // Check if file is there before we download anything
   let foundFile = checkFile(file)
   if (foundFile) return foundFile
 
   // If the branch is already being compiled, get that job
   let typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation)
+  const isAlreadyDownloaded = typescriptJob ? true : (exists(jsMastersDirectory) || exists(tsMastersDirectory))
 
-  // Download the source files if they are not found in the cache.
-  // and a job is not currently in progress
-  if (!(exists(pathMastersDirectory) || exists(TSMastersPath)) && !typescriptJob) {
+  // Download the source files if they are not found in the cache
+  if (!isAlreadyDownloaded) {
     try {
-      const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, downloadSourceFolder(pathCacheDirectory, repositoryURL, branch))
+      const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, useGitDownloader
+        ? downloadSourceFolderGit(pathCacheDirectory, branch)
+        : downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch))
       if (!downloadPromise) throw new Error()
-      await downloadPromise
-      server.removeDownloadJob(branch)
     } catch (error) {
       server.removeDownloadJob(branch)
       return response.error
     }
   }
+  // Await the download if it exists
+  await (server.getDownloadJob(branch) || Promise.resolve())
 
+  const buildProject = isMastersQuery
   // Add a typescript job, if the corresponding ts file has been downloaded,
   // and the requested file is not downloaded
   if (
-    !typescriptJob &&
-    exists(join(pathCacheDirectory, 'ts', TSFileCacheLocation)) &&
-    !checkFile(file)
+    exists(join(pathCacheDirectory, 'ts', buildProject ? '' : TSFileCacheLocation)) &&
+    !checkFile(file) && !checkCompiled(file)
   ) {
-    typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation) || server.addTypescriptJob(branch, TSFileCacheLocation)
+    typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation) || await server.addTypescriptJob(branch, TSFileCacheLocation, buildProject)
   }
 
   // Wait for the Typescript compilation to finish
-  if (typescriptJob) {
-    await typescriptJob
-      .catch(error => {
-        server.removeTypescriptJob(branch, TSFileCacheLocation)
-
-        // Fail gracefully
-        log(2, `500: Typescript compilation failed:
+  await (typescriptJob || server.getTypescriptJob(branch, TSFileCacheLocation) || Promise.resolve())
+    .catch(error => {
+      // Fail gracefully
+      log(2, `500: Typescript compilation failed:
 ${error.message}`)
-      })
+      server.removeTypescriptJob(branch, TSFileCacheLocation)
+    })
 
-    server.removeTypescriptJob(branch, TSFileCacheLocation)
-  }
-
-  // File
+  // If the file is found, remove download and typescript jobs from the state
   foundFile = checkFile(file)
   if (foundFile) {
+    server.removeDownloadJob(branch)
+    server.removeTypescriptJob(branch, TSFileCacheLocation)
     return foundFile
   }
 
-  // Try to assemble.
-  // If the assembler fails, we assume that the file can't be found
-  return (assemble().catch((error) => {
+  const assemblyID = branch + (isMasterFile ? file : 'project')
+  // Await the existing assembly, or add a new one
+  // Remove registry entries on success or error
+  const result = await (server.getAssemblyJob(assemblyID) || server.addAssemblyJob(assemblyID, assemble().catch((error) => {
     log(2, error.message)
+    // If the assembler fails, we assume that the file can't be found
     return response.notFound
   }).finally(() => {
     log(0, `Finished assembling ${file} for commit ${branch}`)
-  }))
+    server.removeDownloadJob(branch)
+    server.removeTypescriptJob(branch, TSFileCacheLocation)
+    server.removeAssemblyJob(assemblyID)
+  })))
+
+  return result
 
   /* *
    *
@@ -355,11 +378,11 @@ ${error.message}`)
     )
     // Build the distribution file if it is not found in cache.
     if (!exists(pathOutputFile)) {
-      const files = await getFileNamesInDirectory(pathMastersDirectory)
+      const files = await getFileNamesInDirectory(jsMastersDirectory)
       const fileOptions = getFileOptions(files, join(pathCacheDirectory, 'js'))
       build({
         // TODO: Remove trailing slash when assembler has fixed path concatenation
-        base: pathMastersDirectory + '/',
+        base: jsMastersDirectory + '/',
         output: pathOutputFolder,
         files: [file],
         pretty: false,
@@ -382,7 +405,7 @@ ${error.message}`)
     // If ts folder is downloaded, check that
     if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
       const masterFiles = await getFileNamesInDirectory(join(pathCacheDirectory, 'ts', 'masters'), true) || []
-      return masterFiles.some(product => file.replace('.js', '.ts').startsWith(product))
+      return masterFiles.some(product => file.replace(/^masters\//, '').replace('.js', '.ts').startsWith(product))
     }
     // Otherwise check github
     const remoteURL = URL_DOWNLOAD + branch + '/ts/masters/' + file.replace('.js', '.ts')
@@ -404,17 +427,23 @@ ${error.message}`)
       return { file: cachedJSFile }
     }
   }
+
+  function checkCompiled (file) {
+    const compiledMasterFile = join(pathCacheDirectory, 'js/masters', file)
+    if (exists(compiledMasterFile)) {
+      return { file: compiledMasterFile }
+    }
+  }
 }
 
 /**
  * Interprets the request URL and serves a static file if found.
  * The Promise resolves with an object containing information on the response.
  *
- * @param {string} repositoryURL Url to download the file.
+ * @param {string} branch
  * @param {string} requestURL The url which the request was sent to.
  */
-async function serveStaticFile (repositoryURL, requestURL) {
-  const branch = await getBranch(requestURL)
+async function serveStaticFile (branch, requestURL) {
   const file = getFile(branch, 'classic', requestURL)
 
   // Respond with not found if the interpreter can not find a filename.
@@ -424,15 +453,14 @@ async function serveStaticFile (repositoryURL, requestURL) {
 
   const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
   // Download the file if it is not already available in cache.
-  console.log(pathFile)
   if (!exists(pathFile)) {
-    const urlFile = `${repositoryURL}${branch}/js/${file}`
+    const urlFile = `${URL_DOWNLOAD}${branch}/js/${file}`
     const download = await downloadFile(urlFile, pathFile)
     if (download.statusCode !== 200) {
       // we don't always know if it is a static file before we have tried to download it.
       // check if this branch contains TypeScript config (we then need to compile it).
-      if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
-        return serveBuildFile(repositoryURL, requestURL)
+      if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(URL_DOWNLOAD, branch)) {
+        return serveBuildFile(branch, requestURL)
       }
       return response.notFound
     }

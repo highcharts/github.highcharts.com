@@ -43,18 +43,18 @@ function validateWebHook (request, secureToken) {
   return !(isObject(request) && isString(secureToken))
     ? { valid: false, message: 'Invalid input parameters' }
     : !(isObject(request.body) && isString(request.rawBody))
-      ? { valid: false, message: 'Missing payload' }
-      : !(
-        isString(request.headers['x-hub-signature']) &&
+        ? { valid: false, message: 'Missing payload' }
+        : !(
+            isString(request.headers['x-hub-signature']) &&
         validSignature(
           request.headers['x-hub-signature'],
           request.rawBody,
           secureToken
         ))
-        ? { valid: false, message: 'Invalid signature' }
-        : isString(request.body.ref)
-          ? { valid: true, message: '' }
-          : { valid: false, message: 'Missing Git ref' }
+            ? { valid: false, message: 'Invalid signature' }
+            : isString(request.body.ref)
+              ? { valid: true, message: '' }
+              : { valid: false, message: 'Missing Git ref' }
 }
 
 /**

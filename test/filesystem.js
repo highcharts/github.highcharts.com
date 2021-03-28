@@ -85,7 +85,7 @@ describe('tmp folder cleanup function', () => {
     const fakeBranchPath = join(__dirname, '../tmp/fakebranchhash')
     await fs.promises.mkdir(fakeBranchPath, { recursive: true })
     await fs.promises.writeFile(join(fakeBranchPath, 'info.json'),
-      JSON.stringify({ 'last_access': new Date(Date.UTC(2010)) })
+      JSON.stringify({ last_access: new Date(Date.UTC(2010)) })
     )
   })
 

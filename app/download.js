@@ -6,12 +6,14 @@
 'use strict'
 
 // Import dependencies, sorted by path.
-const { token } = require('../config.json')
+const { token, repo } = require('../config.json')
 const { writeFile } = require('./filesystem.js')
 const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
-const authToken = {'Authorization': `token ${token}`}
+const authToken = { Authorization: `token ${token}` }
+
+const degit = require('tiged')
 
 /**
  * Downloads the content of a url and writes it to the given output path.
@@ -66,10 +68,69 @@ function downloadFiles (baseURL, subpaths, outputDir) {
  * @param {string} branch The name of the branch the files are located in.
  */
 async function downloadSourceFolder (outputDir, repositoryURL, branch) {
-  log(0, `Downloading source for commit ${branch}`)
+  log(0, `Downloading source for commit ${branch} using GH api`)
   const url = `${repositoryURL}${branch}`
   const files = await getDownloadFiles(branch)
   const responses = await downloadFiles(url, files, outputDir)
+  const errors = responses
+    .filter(({ statusCode }) => statusCode !== 200)
+    .map(({ url, statusCode }) => `${statusCode}: ${url}`)
+
+  // Log possible errors
+  if (errors.length) {
+    log(2, `Some files did not download in branch "${branch}"\n${errors.join('\n')
+      }`)
+  }
+}
+
+/**
+ * Download the source folder using git (via https://github.com/tiged/tiged)
+ * @param {string} outputDir
+ * @param {string} branch
+ * @returns Promise<[{}]>
+ */
+async function downloadSourceFolderGit (outputDir, branch) {
+  log(0, `Downloading source for commit ${branch} using git`)
+
+  const responses = []
+  const promises = ['css', 'js', 'ts'].map(folder => {
+    const outputPath = join(outputDir, folder)
+    const uri = `${repo}/${folder}#${branch}`
+    return new Promise((resolve, reject) => {
+      const result = {
+        success: false,
+        statusCode: 400,
+        url: uri
+      }
+      try {
+        const emitter = degit(uri, {
+          cache: false,
+          force: true,
+          verbose: false,
+          mode: 'tar'
+        })
+        emitter.clone(outputPath).then(() => {
+          result.success = true
+          result.statusCode = 200
+        }).catch(() => {
+          // Error here is mostly degit not finding the branch
+          // log(0, error)
+        }).finally(() => {
+          return resolve(result)
+        })
+      } catch (error) {
+        log(0, error)
+        return resolve(result)
+      }
+    })
+  })
+
+  /* eslint-disable */
+  for await (const promise of promises) {
+    responses.push(promise)
+  }
+  /* eslint-disable */
+
   const errors = responses
     .filter(({ statusCode }) => statusCode !== 200)
     .map(({ url, statusCode }) => `${statusCode}: ${url}`)
@@ -80,6 +141,8 @@ async function downloadSourceFolder (outputDir, repositoryURL, branch) {
       errors.join('\n')
     }`)
   }
+
+  return responses
 }
 
 /**
@@ -133,7 +196,7 @@ async function getDownloadFiles (branch) {
 async function getFilesInFolder (path, branch) {
   const { body, statusCode } = await get({
     hostname: 'api.github.com',
-    path: `/repos/highcharts/highcharts/contents/${path}?ref=${branch}`,
+    path: `/repos/${repo}/contents/${path}?ref=${branch}`,
     headers: {
       'user-agent': 'github.highcharts.com',
       ...authToken
@@ -191,7 +254,31 @@ async function urlExists (url) {
 async function getBranchInfo (branch) {
   const { body, statusCode } = await get({
     hostname: 'api.github.com',
-    path: `/repos/highcharts/highcharts/branches/${branch}`,
+    path: `/repos/${repo}/branches/${branch}`,
+    headers: {
+      'user-agent': 'github.highcharts.com',
+      ...authToken
+    }
+  })
+  if (statusCode === 200) {
+    return JSON.parse(body)
+  }
+  return false
+}
+
+
+/**
+ * Gets commit info from the github api.
+ * @param {string} commit
+ * The commit sha, long or short
+ *
+ * @returns {Promise<({}|false)>}
+ * The commit info object, or false if not found
+ */
+async function getCommitInfo (commit) {
+  const { body, statusCode } = await get({
+    hostname: 'api.github.com',
+    path: `/repos/${repo}/commits/${commit}`,
     headers: {
       'user-agent': 'github.highcharts.com',
       ...authToken
@@ -208,8 +295,10 @@ module.exports = {
   downloadFile,
   downloadFiles,
   downloadSourceFolder,
+  downloadSourceFolderGit,
   getDownloadFiles,
   httpsGetPromise: get,
   urlExists,
-  getBranchInfo
+  getBranchInfo,
+  getCommitInfo
 }
