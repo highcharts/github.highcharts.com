@@ -16,8 +16,10 @@ const {
     readdir
   }
 } = require('fs')
-const cwd = join(__dirname, '../')
+const tscPath = require.resolve('typescript/lib/tsc.js')
 const util = require('util')
+
+console.log(tscPath)
 
 // Import dependencies, sorted by path.
 const config = require('../config.json')
@@ -174,9 +176,7 @@ async function compileTypeScript (branch, file = 'masters/highcharts.src.ts') {
   // This will fail, but the js-files should still be output
   try {
     const args = `--outDir ${OUT_PATH} --allowJS true --module es6 --target es5 --skipLibCheck --esModuleInterop`
-    const { stdout, stderr } = await exec(`npx tsc ${join(TS_PATH, file.replace(/\.js$/, '.ts'))} ${args}`, {
-      cwd
-    })
+    const { stdout, stderr } = await exec(`node ${tscPath} ${join(TS_PATH, file.replace(/\.js$/, '.ts'))} ${args}`)
     log(0, stderr || stdout)
   } catch (error) {
     // log(2, error)
@@ -199,9 +199,7 @@ async function compileTypeScriptProject (branch) {
   try {
     const dir = __dirname
     log(1, { dir })
-    const { stdout, stderr } = await exec(`npx tsc --build ${TS_PATH}`, {
-      cwd
-    })
+    const { stdout, stderr } = await exec(`node ${tscPath} --build ${TS_PATH}`)
     log(0, stderr || stdout)
   } catch (error) {
     log(2, error)
