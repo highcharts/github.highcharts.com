@@ -29,7 +29,7 @@ describe('interpreter.js', () => {
         '/js/highcharts.src.js',
         '/gantt/highcharts.src.js'
       ].forEach(async (branch) => {
-        expect((await getBranch(branch)).length).to.equal(40)
+        expect((await getBranch(branch))).to.equal('master')
       })
     })
     // it('should support multiple level branch names for bugfix and feature', () => {

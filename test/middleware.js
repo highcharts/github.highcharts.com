@@ -101,7 +101,7 @@ describe('middleware.js', () => {
       this['on' + name] = fn
     }
     it('should set connectionAborted to true on close', () => {
-      const req = { on: on }
+      const req = { on: on, destroy: () => null }
       const next = stub()
       setConnectionAborted(req, {}, next)
       req.onclose()

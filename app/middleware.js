@@ -77,9 +77,17 @@ function logErrors (err, req, res, next) {
  */
 function setConnectionAborted (req, res, next) {
   req.connectionAborted = false
-  req.on('close', () => {
+  function onClose () {
     req.connectionAborted = true
-  })
+    req.destroy()
+  }
+
+  if (req.socket) {
+    req.socket.on('close', onClose)
+  } else {
+    req.on('close', onClose)
+  }
+
   next()
 }
 

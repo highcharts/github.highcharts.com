@@ -15,7 +15,8 @@ const { compileTypeScriptProject, getGlobalsLocation, log, updateBranchAccess } 
 const {
   exists,
   getFileNamesInDirectory,
-  writeFile
+  writeFile,
+  cleanUp
   /* removeDirectory */
 } = require('./filesystem.js')
 const {
@@ -178,6 +179,22 @@ async function handlerIcon (req, res) {
 async function handlerIndex (req, res) {
   const result = { file: join(__dirname, '/../views/index.html') }
   return respondToClient(result, res, req)
+}
+
+/**
+ * Trigger cleanup by a get
+ * The Promise resolves when a response is sent to client.
+ *
+ * @todo Use express.static in stead of send file.
+ * @param {Response} res Express response object.
+ * @param {Request} req Express request object.
+ */
+async function handlerCleanup (req, res) {
+  if (req.url.includes('?true')) {
+    const result = await cleanUp()
+    res.status(200).send(result)
+  }
+  res.status(400).send()
 }
 
 /**
@@ -534,6 +551,7 @@ module.exports = {
   handlerHealth,
   handlerIcon,
   handlerIndex,
+  handlerCleanup,
   handlerRobots,
   handlerUpdate
 }
