@@ -153,10 +153,15 @@ async function cleanUp () {
   const path = join(__dirname, '../tmp/')
   const files = await readdir(path)
 
+  const cleaned = []
+
   await Promise.all(files.map(async file => {
     const folderpath = join(path, file)
     const fileInfo = await fsStat(folderpath)
-    const timeToKill = tmpLifetime * 60 * 60 * 1000 || 30 * 24 * 60 * 60 * 1000
+
+    const timeToKill = !tmpLifetime && tmpLifetime !== 0
+      ? 30 * 24 * 60 * 60 * 1000
+      : tmpLifetime * 60 * 60 * 1000
 
     if (fileInfo && fileInfo.isDirectory()) {
       try {
@@ -168,6 +173,7 @@ async function cleanUp () {
         if (diff > timeToKill) {
           await removeDirectory(folderpath)
           log(0, `Removing ${folderpath}. Not accessed in ${Math.round(diff / (1000 * 60 * 60))} hours`)
+          cleaned.push(file)
         }
       } catch (error) {
         log(2, error)
@@ -175,6 +181,7 @@ async function cleanUp () {
     }
   })
   )
+  return cleaned
 }
 
 module.exports = {

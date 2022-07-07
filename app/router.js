@@ -14,7 +14,8 @@ const {
   handlerHealth,
   handlerIcon,
   handlerIndex,
-  handlerRobots
+  handlerRobots,
+  handlerCleanup
 } = require('./handlers.js')
 const { Router } = require('express')
 
@@ -31,6 +32,7 @@ ROUTER.get('/health', catchAsyncErrors(handlerHealth))
 ROUTER.get('/favicon.ico', catchAsyncErrors(handlerIcon))
 ROUTER.get('/robots.txt', catchAsyncErrors(handlerRobots))
 ROUTER.get('/', catchAsyncErrors(handlerIndex))
+ROUTER.get('/cleanup', catchAsyncErrors(handlerCleanup))
 
 const skip = req => {
   // allow requests with allowed referers
