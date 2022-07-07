@@ -139,8 +139,9 @@ async function handlerDefault (req, res) {
   if (!result || (!result.file && result.status !== 200)) {
     result = await serveStaticFile(branch, url)
   }
-
-  await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
+  if (result) {
+    await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
+  }
   return respondToClient(result, res, req)
 }
 
