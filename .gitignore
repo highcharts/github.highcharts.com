@@ -3,6 +3,7 @@ tmp
 config.json
 .ebextensions
 .idea
+.vagrant
 
 # Logs
 *.log
