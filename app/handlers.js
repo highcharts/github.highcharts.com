@@ -292,7 +292,7 @@ async function respondToClient (result, response, request) {
  * The Promise resolves with an object containing information on the response.
  * @param {string} requestURL The url which the request was sent to.
  */
-async function serveBuildFile (branch, requestURL, useGitDownloader) {
+async function serveBuildFile (branch, requestURL, useGitDownloader = false) {
   const type = getType(branch, requestURL)
   const file = getFile(branch, type, requestURL)
 
@@ -391,7 +391,7 @@ ${error.message}`)
   async function assemble () {
     const pathOutputFolder = join(pathCacheDirectory, 'output')
     const pathOutputFile = join(
-      pathOutputFolder, (type === 'css' ? 'js' : ''), file
+      pathOutputFolder, (type === 'css' ? 'js' : ''), file || ''
     )
     // Build the distribution file if it is not found in cache.
     if (!exists(pathOutputFile)) {
