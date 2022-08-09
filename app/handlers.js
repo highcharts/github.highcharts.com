@@ -29,6 +29,7 @@ const { response } = require('./message.json')
 const { sha1, validateWebHook } = require('./webhook.js')
 const build = require('highcharts-assembler')
 const { join } = require('path')
+const directoryTree = require('directory-tree')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
@@ -128,16 +129,15 @@ async function handlerDefault (req, res) {
 
   // Serve a file depending on the request URL.
   let result
+  // Try to serve  a static file.
+  result = await serveStaticFile(branch, url)
+
   // If request has a query including parts, then create a custom file.
-  if (parts) {
+  if (result.status !== 200 && parts) {
     result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
   } else {
     // Try to build the file
     result = await serveBuildFile(branch, url, useGitDownloader)
-  }
-  // If all else fails, then try to serve  a static file.
-  if (!result || (!result.file && result.status !== 200)) {
-    result = await serveStaticFile(branch, url)
   }
 
   await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
@@ -192,9 +192,9 @@ async function handlerIndex (req, res) {
 async function handlerCleanup (req, res) {
   if (req.url.includes('?true')) {
     const result = await cleanUp()
-    res.status(200).send(result)
+    return respondToClient({ status: 200, body: result }, res, req)
   }
-  res.status(400).send()
+  return respondToClient(response.error, res, req)
 }
 
 /**
@@ -292,7 +292,7 @@ async function respondToClient (result, response, request) {
  * The Promise resolves with an object containing information on the response.
  * @param {string} requestURL The url which the request was sent to.
  */
-async function serveBuildFile (branch, requestURL, useGitDownloader = false) {
+async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   const type = getType(branch, requestURL)
   const file = getFile(branch, type, requestURL)
 
@@ -484,7 +484,7 @@ async function serveStaticFile (branch, requestURL) {
   }
 
   // Return path to file location in the cache.
-  return { file: pathFile }
+  return { status: 200, file: pathFile }
 }
 
 /**
@@ -544,6 +544,41 @@ ${err.message}`)
   return { file: pathFile }
 }
 
+function printTreeChildren (children, level = 1, carry) {
+  return children.reduce((carry, child) => {
+    let padding = ''
+
+    while (padding.length < level) {
+      padding += '-'
+    }
+
+    carry.push(padding + child.name)
+
+    if (child.children) {
+      printTreeChildren(child.children, level + 1, carry)
+    }
+
+    return carry
+  }, carry || []).join('\n')
+}
+
+async function handlerFS (req, res) {
+  if (req.url.includes('?commit=')) {
+    const comm = req.url.match(/commit=(.+?(?=&|$))/)
+    if (comm.length > 1) {
+      const commit = comm[1]
+      const tree = directoryTree(join(PATH_TMP_DIRECTORY, commit, 'output'))
+      if (tree && tree.children) {
+        const textTree = printTreeChildren(tree.children)
+        return respondToClient({ status: 200, body: `<pre>${textTree}</pre>` }, res, req)
+      }
+    }
+    return respondToClient({ status: 404, body: 'no output folder found for this commit' }, res, req)
+  }
+
+  return respondToClient(response.notFound, res, req)
+}
+
 // Export handlers
 module.exports = {
   catchAsyncErrors,
@@ -553,5 +588,6 @@ module.exports = {
   handlerIndex,
   handlerCleanup,
   handlerRobots,
-  handlerUpdate
+  handlerUpdate,
+  handlerFS
 }
