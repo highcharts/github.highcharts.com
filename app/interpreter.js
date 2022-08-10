@@ -63,12 +63,9 @@ async function getBranch (url) {
 function getFile (branch, type, url) {
   // Replace branches in url, since we save by commit sha
   url = url.replace(/^\/master/, '')
-  for (const branchType of BRANCH_TYPES) {
-    const regex = new RegExp(`^\\/${branchType}\\/([a-z]|[0-9]|-)+\\/`)
-    if (regex.test(url)) {
-      url = url.replace(regex, '/')
-      break
-    }
+  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([a-z]|[0-9]|-)+\\/`)
+  if (regex.test(url)) {
+    url = url.replace(regex, '/')
   }
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
