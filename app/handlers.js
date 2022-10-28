@@ -116,6 +116,8 @@ async function handlerDefault (req, res) {
     useGitDownloader = true
   }
 
+  console.log({ useGitDownloader, branch })
+
   // If this is still not true, the request may be for a short SHA
   // Get the long form sha
   // Todo: find a way to check if it is the latest commit in the branch
@@ -325,7 +327,15 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   if (!isAlreadyDownloaded) {
     try {
       const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, useGitDownloader
-        ? downloadSourceFolderGit(pathCacheDirectory, branch)
+        ? downloadSourceFolderGit(pathCacheDirectory, branch).then(
+            result => {
+            // Sometimes the default degit/tiged tar mode fails to find a branch
+              if (!result.some(res => res.success)) {
+                log(2, 'Retrying using git mode')
+                return downloadSourceFolderGit(pathCacheDirectory, branch, 'git')
+              }
+            }
+          )
         : downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch))
       if (!downloadPromise) throw new Error()
     } catch (error) {

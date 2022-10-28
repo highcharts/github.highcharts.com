@@ -89,7 +89,7 @@ async function downloadSourceFolder (outputDir, repositoryURL, branch) {
  * @param {string} branch
  * @returns Promise<[{}]>
  */
-async function downloadSourceFolderGit (outputDir, branch) {
+async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
   log(0, `Downloading source for commit ${branch} using git`)
 
   const responses = []
@@ -107,7 +107,7 @@ async function downloadSourceFolderGit (outputDir, branch) {
           cache: false,
           force: true,
           verbose: false,
-          mode: 'tar'
+          mode
         })
         emitter.clone(outputPath).then(() => {
           result.success = true
