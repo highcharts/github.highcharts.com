@@ -116,8 +116,6 @@ async function handlerDefault (req, res) {
     useGitDownloader = true
   }
 
-  console.log({ useGitDownloader, branch })
-
   // If this is still not true, the request may be for a short SHA
   // Get the long form sha
   // Todo: find a way to check if it is the latest commit in the branch
