@@ -41,6 +41,10 @@ function bodyJSONParser (req, res, next) {
  * @param {Function} next Call the next middleware function in the stack.
  */
 function clientErrorHandler (err, req, res, next) {
+  if (res?.writable) {
+    next(err)
+  }
+
   res.status(response.error.status).send(response.error.body)
   next(err)
 }
