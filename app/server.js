@@ -47,26 +47,15 @@ function addTypescriptJob (branch, file, buildProject = false) {
   const id = branch + (buildProject ? 'project' : file)
   // Check if there is a job going on the file
   if (!state.typescriptJobs[id]) {
-    if (buildProject) {
-      state.typescriptJobs[id] = compileTypeScriptProject(branch).finally(() => {
-        // Project jobs remove themselves
-        return removeTypescriptJob(branch, 'project')
-      })
-
-      return state.typescriptJobs[id]
-    }
-
-    if (file.includes('/highcharts.src.ts')) {
-      state.typescriptJobs[id] = compileTypeScript(branch)
-    } else {
-      // Always compile highcharts first if a module
-      state.typescriptJobs[id] =
-        compileTypeScript(branch).then(() => {
-          return compileTypeScript(branch, file)
+    const job = state.typescriptJobs[id] = buildProject
+      ? compileTypeScriptProject(branch).finally(() => {
+          // Project jobs remove themselves
+          removeTypescriptJob(branch, 'project')
         })
-    }
+      : compileTypeScript(branch, file)
+
+    return job
   }
-  return state.typescriptJobs[id]
 }
 
 /**
