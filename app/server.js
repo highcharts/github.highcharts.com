@@ -50,7 +50,7 @@ function addTypescriptJob (branch, file, buildProject = false) {
     if (buildProject) {
       state.typescriptJobs[id] = compileTypeScriptProject(branch).finally(() => {
         // Project jobs remove themselves
-        removeTypescriptJob(branch, 'project')
+        return removeTypescriptJob(branch, 'project')
       })
 
       return state.typescriptJobs[id]
