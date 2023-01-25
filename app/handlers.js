@@ -371,8 +371,9 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
 
         return cssFilePath
       }
-    } catch {
+    } catch (error) {
       log(1, 'Failed to compile SCSS for ' + file)
+      log(1, error)
     }
   }
 
