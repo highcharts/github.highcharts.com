@@ -30,6 +30,7 @@ const { sha1, validateWebHook } = require('./webhook.js')
 const build = require('highcharts-assembler')
 const { join } = require('path')
 const directoryTree = require('directory-tree')
+const { writeFilePromise } = require('highcharts-assembler/src/utilities')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
@@ -129,15 +130,18 @@ async function handlerDefault (req, res) {
 
   // Serve a file depending on the request URL.
   let result
+
   // Try to serve  a static file.
   result = await serveStaticFile(branch, url)
 
   // If request has a query including parts, then create a custom file.
-  if (result.status !== 200 && parts) {
-    result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
-  } else {
-    // Try to build the file
-    result = await serveBuildFile(branch, url, useGitDownloader)
+  if (result.status !== 200) {
+    if (parts) {
+      result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
+    } else {
+      // Try to build the file
+      result = await serveBuildFile(branch, url, useGitDownloader)
+    }
   }
 
   await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
@@ -354,6 +358,24 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
     typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation) || await server.addTypescriptJob(branch, TSFileCacheLocation, buildProject)
   }
 
+  // If it ends with .css and has not already been served, try to compile a matching scss file
+  if (file.endsWith('.css')) {
+    try {
+      const sass = require('sass')
+
+      const { css } = await sass.compileAsync(join(pathCacheDirectory, file.replace('.css', '.scss')))
+
+      if (css) {
+        const cssFilePath = join(pathCacheDirectory, 'output', file)
+        await writeFilePromise(cssFilePath, css)
+
+        return cssFilePath
+      }
+    } catch {
+      log(1, 'Failed to compile SCSS for ' + file)
+    }
+  }
+
   // Wait for the Typescript compilation to finish
   await (typescriptJob || server.getTypescriptJob(branch, TSFileCacheLocation) || Promise.resolve())
     .catch(error => {
@@ -477,6 +499,7 @@ async function serveStaticFile (branch, requestURL) {
   }
 
   const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
+
   // Download the file if it is not already available in cache.
   if (!exists(pathFile)) {
     const urlFile = `${URL_DOWNLOAD}${branch}/js/${file}`

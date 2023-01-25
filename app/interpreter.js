@@ -88,6 +88,11 @@ function getFile (branch, type, url) {
   }, url.substring(1).split('/'))
 
   let filename = sections.join('/')
+
+  if (filename.endsWith('.css')) {
+    return filename
+  }
+
   // Redirect .js requests to .src.js
   if (!filename.endsWith('.src.js')) {
     filename = filename.replace('.js', '.src.js')
