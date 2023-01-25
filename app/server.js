@@ -47,15 +47,30 @@ function addTypescriptJob (branch, file, buildProject = false) {
   const id = branch + (buildProject ? 'project' : file)
   // Check if there is a job going on the file
   if (!state.typescriptJobs[id]) {
-    const job = state.typescriptJobs[id] = buildProject
-      ? compileTypeScriptProject(branch).finally(() => {
-          // Project jobs remove themselves
-          removeTypescriptJob(branch, 'project')
-        })
-      : compileTypeScript(branch, file)
+    if (buildProject) {
+      state.typescriptJobs[id] = compileTypeScriptProject(branch).finally(() => {
+        // Project jobs remove themselves
+        return removeTypescriptJob(branch, 'project')
+      })
 
-    return job
+      return state.typescriptJobs[id]
+    }
+
+    if (
+      ['highcharts', 'highstock', 'highcharts-gantt', 'highmaps']
+        .some(masterFile => file.includes(`/${masterFile}.src.ts`))
+    ) {
+      state.typescriptJobs[id] = compileTypeScript(branch, file)
+    } else {
+      // Recursively add a highcharts build before modules
+      state.typescriptJobs[id] =
+        addTypescriptJob(branch, 'masters/highcharts.src.ts').then(() =>
+          compileTypeScript(branch, file)
+        )
+    }
   }
+
+  return state.typescriptJobs[id]
 }
 
 /**
