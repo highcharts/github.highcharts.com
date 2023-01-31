@@ -19,6 +19,8 @@ const {
   cleanUp
   /* removeDirectory */
 } = require('./filesystem.js')
+
+const { readFile } = require('fs/promises')
 const {
   getBranch,
   getFile,
@@ -437,6 +439,17 @@ ${error.message}`)
         version: branch,
         fileOptions: fileOptions
       })
+
+      // Workaround for code.highcharts.com version
+      // TODO: could look up relevant version number for older commits
+      const contents = await readFile(pathOutputFile, 'utf-8')
+      const toReplace = 'code.highcharts.com\/' + branch + '\/' // eslint-disable-line
+      if (contents && contents.includes(toReplace)) {
+        await writeFile(
+          pathOutputFile,
+          contents.replace(new RegExp(toReplace, 'g'), 'code.highcharts.com/')
+        )
+      }
     }
     // Return path to file location in the cache.
     return { file: pathOutputFile }
