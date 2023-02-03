@@ -138,10 +138,6 @@ function getFileOptions (files, pathJS) {
    * solid-gauge should also exclude gauge-series
    * highcharts-more and highcharts-3d is also not standalone.
    */
-  if (fileOptions['modules/solid-gauge.src.js']) {
-    fileOptions['modules/solid-gauge.src.js'].exclude =
-      new RegExp([highchartsFiles, 'GaugeSeries\\.js$'].join('|'))
-  }
   if (fileOptions['modules/map.src.js']) {
     fileOptions['modules/map.src.js'].product = 'Highmaps'
   }
