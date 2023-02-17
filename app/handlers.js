@@ -276,6 +276,8 @@ async function respondToClient (result, response, request) {
     'Origin, X-Requested-With, Content-Type, Accept'
   )
 
+  response.header('cache-control', 'no-cache')
+
   // Make sure connection is not lost before attemting a response.
   if (!request.connectionAborted) {
     if (file) {
