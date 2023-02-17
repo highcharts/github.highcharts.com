@@ -147,6 +147,8 @@ async function handlerDefault (req, res) {
   }
 
   await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
+
+  res.header('ETag', branch)
   return respondToClient(result, res, req)
 }
 
