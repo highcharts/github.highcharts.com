@@ -29,10 +29,10 @@ const {
 } = require('./interpreter.js')
 const { response } = require('./message.json')
 const { sha1, validateWebHook } = require('./webhook.js')
-const build = require('highcharts-assembler')
+const build = require('@highcharts/highcharts-assembler')
 const { join } = require('path')
 const directoryTree = require('directory-tree')
-const { writeFilePromise } = require('highcharts-assembler/src/utilities')
+const { writeFilePromise } = require('@highcharts/highcharts-assembler/src/utilities')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')

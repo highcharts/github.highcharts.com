@@ -9,7 +9,7 @@
 // Import dependencies, sorted by path name.
 const {
   getOrderedDependencies
-} = require('highcharts-assembler/src/dependencies.js')
+} = require('@highcharts/highcharts-assembler/src/dependencies.js')
 const { join, sep, relative } = require('path')
 
 // Constants
