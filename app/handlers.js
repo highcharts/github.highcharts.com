@@ -308,7 +308,7 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
 
   // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
-    return response.notFound
+    return response.missingFile
   }
 
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
@@ -406,7 +406,7 @@ ${error.message}`)
   const result = await (server.getAssemblyJob(assemblyID) || server.addAssemblyJob(assemblyID, assemble().catch((error) => {
     log(2, error.message)
     // If the assembler fails, we assume that the file can't be found
-    return response.notFound
+    return response.invalidBuild
   }).finally(() => {
     log(0, `Finished assembling ${file} for commit ${branch}`)
     server.removeDownloadJob(branch)
@@ -434,16 +434,20 @@ ${error.message}`)
     if (!exists(pathOutputFile)) {
       const files = await getFileNamesInDirectory(jsMastersDirectory)
       const fileOptions = getFileOptions(files, join(pathCacheDirectory, 'js'))
-      build({
-        // TODO: Remove trailing slash when assembler has fixed path concatenation
-        base: jsMastersDirectory + '/',
-        output: pathOutputFolder,
-        files: [file],
-        pretty: false,
-        type: type,
-        version: branch,
-        fileOptions: fileOptions
-      })
+      try {
+        build({
+          // TODO: Remove trailing slash when assembler has fixed path concatenation
+          base: jsMastersDirectory + '/',
+          output: pathOutputFolder,
+          files: [file],
+          pretty: false,
+          type: type,
+          version: branch,
+          fileOptions: fileOptions
+        })
+      } catch (error) {
+        console.log('assembler error: ', error)
+      }
 
       // Workaround for code.highcharts.com version
       // TODO: could look up relevant version number for older commits
@@ -513,7 +517,7 @@ async function serveStaticFile (branch, requestURL) {
 
   // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
-    return response.notFound
+    return response.missingFile
   }
 
   const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
@@ -528,7 +532,7 @@ async function serveStaticFile (branch, requestURL) {
       if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(URL_DOWNLOAD, branch)) {
         return serveBuildFile(branch, requestURL)
       }
-      return response.notFound
+      return response.missingFile
     }
   }
 
@@ -625,7 +629,7 @@ async function handlerFS (req, res) {
     return respondToClient({ status: 404, body: 'no output folder found for this commit' }, res, req)
   }
 
-  return respondToClient(response.notFound, res, req)
+  return respondToClient(response.missingFile, res, req)
 }
 
 // Export handlers
