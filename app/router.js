@@ -16,7 +16,8 @@ const {
   handlerIndex,
   handlerRobots,
   handlerCleanup,
-  handlerFS
+  handlerFS,
+  handlerRemoveFiles
 } = require('./handlers.js')
 const { Router } = require('express')
 
@@ -35,6 +36,7 @@ ROUTER.get('/robots.txt', catchAsyncErrors(handlerRobots))
 ROUTER.get('/', catchAsyncErrors(handlerIndex))
 ROUTER.get('/cleanup', catchAsyncErrors(handlerCleanup))
 ROUTER.get('/files', catchAsyncErrors(handlerFS))
+ROUTER.delete('/*', catchAsyncErrors(handlerRemoveFiles))
 
 const skip = req => {
   // allow requests with allowed referers
