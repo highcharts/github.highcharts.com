@@ -16,8 +16,8 @@ const {
   exists,
   getFileNamesInDirectory,
   writeFile,
-  cleanUp
-  /* removeDirectory */
+  cleanUp,
+  removeDirectory
 } = require('./filesystem.js')
 
 const { readFile } = require('fs/promises')
@@ -632,6 +632,37 @@ async function handlerFS (req, res) {
   return respondToClient(response.missingFile, res, req)
 }
 
+async function handlerRemoveFiles (req, res) {
+  const commit = req.params['0']
+  const commitDir = join(PATH_TMP_DIRECTORY, commit)
+  const referer = req.get('referer')
+  const userAgent = req.get('user-agent')
+
+  if (
+    userAgent.includes('curl') &&
+        referer &&
+        referer === 'highcharts.local'
+  ) {
+    if (commit) {
+      const result = await removeDirectory(commitDir)
+        .catch(error => {
+          return { error: error.message.split(':')[0] }
+        })
+
+      return respondToClient(
+        {
+          status: 200,
+          body: result?.error ? result.error : commit
+        },
+        res,
+        req
+      )
+    }
+  }
+
+  return respondToClient({ status: 400, body: 'invalid request' }, res, req)
+}
+
 // Export handlers
 module.exports = {
   catchAsyncErrors,
@@ -642,5 +673,6 @@ module.exports = {
   handlerCleanup,
   handlerRobots,
   handlerUpdate,
-  handlerFS
+  handlerFS,
+  handlerRemoveFiles
 }
