@@ -112,9 +112,9 @@ async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
         emitter.clone(outputPath).then(() => {
           result.success = true
           result.statusCode = 200
-        }).catch(() => {
+        }).catch((error) => {
           // Error here is mostly degit not finding the branch
-          // log(0, error)
+          log(0, error.message)
         }).finally(() => {
           return resolve(result)
         })
