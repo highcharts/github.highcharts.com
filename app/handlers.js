@@ -339,8 +339,8 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
             result => {
             // Sometimes the default degit/tiged tar mode fails to find a branch
               if (!result.some(res => res.success)) {
-                log(2, 'Retrying using git mode')
-                return downloadSourceFolderGit(pathCacheDirectory, branch, 'git')
+                log(2, 'Retrying using git API')
+                return downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch)
               }
             }
           )

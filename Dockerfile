@@ -1,4 +1,4 @@
-FROM node:14
+FROM node:lts
 WORKDIR /var/app/current
 
 COPY package*.json ./
