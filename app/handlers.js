@@ -227,36 +227,51 @@ async function handlerRobots (req, res) {
  * @param {Request} req Express request object.
  */
 async function handlerUpdate (req, res) {
-  const hook = validateWebHook(req, secureToken)
-  let result
+  // let result
+  //
+  // // Check if the webhook is valid
+  // if (hook.valid) {
+  //   const branch = req.body.ref.replace('refs/heads/', '')
+  //
+  //   // Check if branch name is provided
+  //   if (branch) {
+  //     const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
+  //     const doCacheExist = exists(pathCacheDirectory)
+  //
+  //     // Remove the cache if it exists
+  //     if (doCacheExist) {
+  //       // await removeDirectory(pathCacheDirectory)
+  //     }
+  //
+  //     // Respond with information of if the cache was deleted
+  //     result = doCacheExist ? response.cacheDeleted : response.noCache
+  //   } else {
+  //     // Respond with information of invalid branch
+  //     result = response.invalidBranch
+  //   }
+  // } else {
+  //   // Respond with information of insecure webhook
+  //   result = {
+  //     body: response.insecureWebhook.body + hook.message,
+  //     status: response.insecureWebhook.status
+  //   }
+  // }
 
-  // Check if the webhook is valid
-  if (hook.valid) {
-    const branch = req.body.ref.replace('refs/heads/', '')
+  let result = response.notFound
 
-    // Check if branch name is provided
-    if (branch) {
-      const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
-      const doCacheExist = exists(pathCacheDirectory)
+  // Just check the user agent for now
+  if (('' + req.get('user-agent')) === 'GitHub-Hookshot/0a3a2d2') {
+    result = response.ok
+  }
 
-      // Remove the cache if it exists
-      if (doCacheExist) {
-        // await removeDirectory(pathCacheDirectory)
-      }
-
-      // Respond with information of if the cache was deleted
-      result = doCacheExist ? response.cacheDeleted : response.noCache
-    } else {
-      // Respond with information of invalid branch
-      result = response.invalidBranch
-    }
-  } else {
-    // Respond with information of insecure webhook
-    result = {
-      body: response.insecureWebhook.body + hook.message,
-      status: response.insecureWebhook.status
+  // Do the more expensive check as a fallback
+  if (result.status !== 200) {
+    const hook = validateWebHook(req, secureToken)
+    if (hook.valid) {
+      result = response.ok
     }
   }
+
   return respondToClient(result, res, req)
 }
 
