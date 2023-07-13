@@ -20,6 +20,9 @@ const {
   handlerRemoveFiles,
   handlerUpdate
 } = require('./handlers.js')
+
+const { dashboardsHandler } = require('./dashboards')
+
 const { Router } = require('express')
 
 // Middleware
@@ -78,6 +81,9 @@ Use code.highcharts.com for production environments`,
   keyGenerator,
   skip
 }))
+
+ROUTER.get('/:commit(!master|release)/dashboards/:filepath(*)', dashboardsHandler)
+ROUTER.get('/:branch(*)/dashboards/:filepath(*)', dashboardsHandler)
 
 ROUTER.get('*', catchAsyncErrors(handlerDefault))
 

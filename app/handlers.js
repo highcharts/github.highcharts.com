@@ -9,7 +9,7 @@
 
 // Import dependencies, sorted by path name.
 const { secureToken, repo } = require('../config.json')
-const { downloadFile, downloadSourceFolder, downloadSourceFolderGit, urlExists, getBranchInfo, getCommitInfo } = require('./download.js')
+const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo, getCommitInfo } = require('./download.js')
 const { compileTypeScriptProject, getGlobalsLocation, log, updateBranchAccess } = require('./utilities')
 
 const {
@@ -33,6 +33,7 @@ const build = require('@highcharts/highcharts-assembler')
 const { join } = require('path')
 const directoryTree = require('directory-tree')
 const { writeFilePromise } = require('@highcharts/highcharts-assembler/src/utilities')
+const { JobQueue } = require('./JobQueue')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
@@ -346,35 +347,24 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   let typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation)
   const isAlreadyDownloaded = typescriptJob ? true : (exists(jsMastersDirectory) || exists(tsMastersDirectory))
 
-  // Download the source files if they are not found in the cache
-  if (!isAlreadyDownloaded) {
-    try {
-      const downloadPromise = server.getDownloadJob(branch) || server.addDownloadJob(branch, useGitDownloader
-        ? downloadSourceFolderGit(pathCacheDirectory, branch).then(
-            result => {
-            // Sometimes the default degit/tiged tar mode fails to find a branch
-              if (!result.some(res => res.success)) {
-                log(2, 'Retrying using git API')
-                return downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch)
-              }
-            }
-          )
-        : downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch))
-      if (!downloadPromise) throw new Error()
-    } catch (error) {
-      server.removeDownloadJob(branch)
-      return response.error
-    }
-  }
-  // Await the download if it exists
-  await (server.getDownloadJob(branch) || Promise.resolve())
+  const queue = new JobQueue()
+  const downloadPromise =
+        queue.addDownloadJob(
+          branch,
+          isAlreadyDownloaded
+            ? Promise.resolve(true)
+            : downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch)
+        )
+
+  // Await the download
+  await downloadPromise
 
   const buildProject = isMastersQuery
   // Add a typescript job, if the corresponding ts file has been downloaded,
   // and the requested file is not downloaded
   if (
     exists(join(pathCacheDirectory, 'ts', buildProject ? '' : TSFileCacheLocation)) &&
-    !checkFile(file) && !checkCompiled(file)
+        !checkFile(file) && !checkCompiled(file)
   ) {
     typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation) || await server.addTypescriptJob(branch, TSFileCacheLocation, buildProject)
   }
@@ -432,14 +422,14 @@ ${error.message}`)
   return result
 
   /* *
-   *
-   *  Scoped utility functions
-   *
-   * */
+       *
+       *  Scoped utility functions
+       *
+       * */
 
   /**
-   * Assembles the source files
-   */
+       * Assembles the source files
+       */
   async function assemble () {
     const pathOutputFolder = join(pathCacheDirectory, 'output')
     const pathOutputFile = join(
@@ -456,9 +446,9 @@ ${error.message}`)
           output: pathOutputFolder,
           files: [file],
           pretty: false,
-          type: type,
+          type,
           version: branch,
-          fileOptions: fileOptions
+          fileOptions
         })
       } catch (error) {
         console.log('assembler error: ', error)
@@ -467,7 +457,7 @@ ${error.message}`)
       // Workaround for code.highcharts.com version
       // TODO: could look up relevant version number for older commits
       const contents = await readFile(pathOutputFile, 'utf-8')
-      const toReplace = 'code.highcharts.com\/' + branch + '\/' // eslint-disable-line
+            const toReplace = 'code.highcharts.com\/' + branch + '\/' // eslint-disable-line
       if (contents && contents.includes(toReplace)) {
         await writeFile(
           pathOutputFile,
@@ -480,11 +470,11 @@ ${error.message}`)
   }
 
   /**
-   * Checks if the file is in the ts/masters folder.
-   * If the ts/masters folder is downloaded, it will check that.
-   * Otherwise it will check Github
-   * @param {string} file
-   */
+       * Checks if the file is in the ts/masters folder.
+       * If the ts/masters folder is downloaded, it will check that.
+       * Otherwise it will check Github
+       * @param {string} file
+       */
   async function isMasterTSFile (file) {
     // If ts folder is downloaded, check that
     if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
@@ -497,15 +487,15 @@ ${error.message}`)
   }
 
   /**
-  * Check if the file is already built, and return it if that is the case
-  * @param {string} file
-  */
+      * Check if the file is already built, and return it if that is the case
+      * @param {string} file
+      */
   function checkFile (file) {
     const compiledFilePath = join(pathCacheDirectory, 'output', file)
     const cachedJSFile =
-      exists(compiledFilePath) && !isMastersQuery
-        ? compiledFilePath
-        : join(pathCacheDirectory, 'js', isMastersQuery ? file : file.replace('.src.js', '.js'))
+            exists(compiledFilePath) && !isMastersQuery
+              ? compiledFilePath
+              : join(pathCacheDirectory, 'js', isMastersQuery ? file : file.replace('.src.js', '.js'))
 
     if (exists(cachedJSFile)) {
       return { file: cachedJSFile }
