@@ -58,8 +58,8 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   }
 
   /**
-       * @param {string} dirPath
-       */
+         * @param {string} dirPath
+         */
   async function modifyFiles (dirPath) {
     const dir = await opendir(dirPath)
       .catch(() => null)
@@ -93,8 +93,9 @@ async function assembleDashboards (pathCacheDirectory, commit) {
 /**
  * @param {import('express').Request} req
  * @param {import('express').Response} res
+ * @param {import('express').NextFunction} next
 */
-async function dashboardsHandler (req, res) {
+async function dashboardsHandler (req, res, next) {
   const { filepath } = req.params
 
   let commit
@@ -109,12 +110,24 @@ async function dashboardsHandler (req, res) {
   }
 
   if (!commit && req.params.branch) {
-    // get commit from branch
-    const branchData = await getBranchInfo(req.params.branch)
-    if (branchData) {
-      // @ts-ignore
-      commit = branchData.commit.sha
+    const isVersionTag = /v[0-9]+\./.test(req.params.branch)
+
+    if (isVersionTag) {
+      commit = req.params.branch
+    } else {
+      // get commit from branch
+      const branchData = await getBranchInfo(req.params.branch)
+      if (branchData) {
+        // @ts-ignore
+        commit = branchData.commit.sha
+      }
     }
+  }
+
+  if (!commit) {
+    console.log(req.params)
+    res.sendStatus(404)
+    return
   }
 
   const queue = new JobQueue()
