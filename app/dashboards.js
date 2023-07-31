@@ -1,9 +1,9 @@
 // @ts-check
 
 const { join } = require('node:path')
-const { stat, cp, opendir } = require('node:fs/promises')
+const { stat, opendir, readFile, writeFile, symlink } = require('node:fs/promises')
 const { existsSync } = require('node:fs')
-const { downloadSourceFolder, getBranchInfo } = require('./download')
+const { downloadSourceFolder, getBranchInfo, getCommitInfo } = require('./download')
 const { compileTypeScript } = require('./utilities')
 const { build } = require('@highcharts/highcharts-assembler/src/build')
 const { JobQueue } = require('./JobQueue')
@@ -51,7 +51,7 @@ async function assembleDashboards (pathCacheDirectory, commit) {
       pretty: false,
       version: commit,
       fileOptions,
-      palette: {}
+      namespace: 'Dashboards'
     })
 
     console.log({ output })
@@ -59,19 +59,39 @@ async function assembleDashboards (pathCacheDirectory, commit) {
     console.log('assembler error: ', error)
   }
 
-  const dir = await opendir(pathOutputFolder)
-    .catch(() => null)
+  /**
+     * @param {string} dirPath
+     */
+  async function doThingsToDir (dirPath) {
+    const dir = await opendir(dirPath)
+      .catch(() => null)
 
-  if (dir) {
-    for await (const dirent of dir) {
-      if (dirent.name.endsWith('.src.js')) {
-        await cp(
-          join(pathOutputFolder, dirent.name),
-          join(pathOutputFolder, dirent.name.replace('.src', ''))
-        )
+    if (dir) {
+      for await (const dirent of dir) {
+        if (dirent.isDirectory()) {
+          console.log(dirPath)
+          console.log(dirent.name)
+          await doThingsToDir(join(dirPath, dirent.name))
+        } else if (dirent.name.endsWith('.src.js')) {
+          const contents = await readFile(join(dirPath, dirent.name), 'utf-8')
+                    const toReplace = 'code.highcharts.com.*' + commit + '\/' // eslint-disable-line
+          if (contents) {
+            await writeFile(
+              join(dirPath, dirent.name),
+              contents.replace(new RegExp(toReplace, 'g'), 'code.highcharts.com/')
+            )
+          }
+
+          await symlink(
+            join(dirPath, dirent.name),
+            join(dirPath, dirent.name.replace('.src', ''))
+          )
+        }
       }
     }
   }
+
+  await doThingsToDir(pathOutputFolder)
 }
 
 /**
@@ -83,7 +103,17 @@ async function dashboardsHandler (req, res) {
 
   let commit
 
+  console.log(req.params)
+
   if (req.params.commit) commit = req.params.commit
+
+  if (commit && commit.length === 7) {
+    const { sha } = await getCommitInfo(commit)
+    if (sha) {
+      commit = sha
+    }
+  }
+
   if (!commit && req.params.branch) {
     // get commit from branch
     const branchData = await getBranchInfo(req.params.branch)

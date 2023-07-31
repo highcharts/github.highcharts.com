@@ -10,7 +10,7 @@
 // Import dependencies, sorted by path name.
 const { secureToken, repo } = require('../config.json')
 const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo, getCommitInfo } = require('./download.js')
-const { compileTypeScriptProject, getGlobalsLocation, log, updateBranchAccess } = require('./utilities')
+const { log } = require('./utilities')
 
 const {
   exists,
@@ -28,11 +28,13 @@ const {
   getType
 } = require('./interpreter.js')
 const { response } = require('./message.json')
-const { sha1, validateWebHook } = require('./webhook.js')
-const build = require('@highcharts/highcharts-assembler')
+const { validateWebHook } = require('./webhook.js')
+const {
+  buildModules,
+  buildDistFromModules
+} = require('@highcharts/highcharts-assembler/src/build.js')
 const { join } = require('path')
 const directoryTree = require('directory-tree')
-const { writeFilePromise } = require('@highcharts/highcharts-assembler/src/utilities')
 const { JobQueue } = require('./JobQueue')
 
 // Constants
@@ -66,37 +68,6 @@ function catchAsyncErrors (asyncFn) {
 }
 
 /**
- * Creates the content for a custom file with all dependencies included.
- * Returns a string with the content of the file.
- *
- * @param {Array<string>} dependencies The dependencies of the custom file.
- */
-function getCustomFileContent (dependencies, globalsPath) {
-  const LB = '\r\n' // Line break
-  const importFolder = '../js/'
-
-  // Create all import statements for the provided dependencies.
-  const imports = dependencies
-    .map(path => 'import \'' + importFolder + path + '\';')
-    .join(LB)
-
-  // Return the file content
-  return [
-    '/**',
-    ' * @license @product.name@ JS v@product.version@ (@product.date@)',
-    ' *', ' * (c) 2009-2016 Torstein Honsi',
-    ' *',
-    ' * License: www.highcharts.com/license',
-    ' */',
-    '\'use strict\';',
-    'import Highcharts from \'' + importFolder + globalsPath,
-    imports,
-    'export default Highcharts;',
-    '' // new line at end of file
-  ].join(LB)
-}
-
-/**
  * Handle request to distribution files, download required source files from
  * GitHub, prepares and serves the resulting distribution file.
  * The Promise resolves when a response is sent to client.
@@ -107,7 +78,6 @@ function getCustomFileContent (dependencies, globalsPath) {
 async function handlerDefault (req, res) {
   let branch = await getBranch(req.path)
   let url = req.url
-  const parts = req.query.parts
   let useGitDownloader = branch === 'master' || /^\/v[0-9]/.test(req.path) // version tags
 
   // If we can get it, save by commit sha
@@ -139,15 +109,11 @@ async function handlerDefault (req, res) {
 
   // If request has a query including parts, then create a custom file.
   if (result.status !== 200) {
-    if (parts) {
-      result = await serveDownloadFile(URL_DOWNLOAD, branch, parts)
-    } else {
-      // Try to build the file
-      result = await serveBuildFile(branch, url, useGitDownloader)
-    }
+    // Try to build the file
+    result = await serveBuildFile(branch, url, useGitDownloader)
   }
 
-  await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
+  // await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
 
   res.header('ETag', branch)
   return respondToClient(result, res, req)
@@ -316,6 +282,7 @@ async function respondToClient (result, response, request) {
  * Downloads the source files for the given branch/tag/commit if they are not
  * found in the cache.
  * The Promise resolves with an object containing information on the response.
+ * @param {string} branch
  * @param {string} requestURL The url which the request was sent to.
  */
 async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
@@ -370,23 +337,23 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   }
 
   // If it ends with .css and has not already been served, try to compile a matching scss file
-  if (file.endsWith('.css')) {
-    try {
-      const sass = require('sass')
-
-      const { css } = await sass.compileAsync(join(pathCacheDirectory, file.replace('.css', '.scss')))
-
-      if (css) {
-        const cssFilePath = join(pathCacheDirectory, 'output', file)
-        await writeFilePromise(cssFilePath, css)
-
-        return cssFilePath
-      }
-    } catch (error) {
-      log(1, 'Failed to compile SCSS for ' + file)
-      log(1, error)
-    }
-  }
+  // if (file.endsWith('.css')) {
+  //     try {
+  //         const sass = require('sass')
+  //
+  //         const { css } = await sass.compileAsync(join(pathCacheDirectory, file.replace('.css', '.scss')))
+  //
+  //         if (css) {
+  //             const cssFilePath = join(pathCacheDirectory, 'output', file)
+  //             await writeFilePromise(cssFilePath, css)
+  //
+  //             return cssFilePath
+  //         }
+  //     } catch (error) {
+  //         log(1, 'Failed to compile SCSS for ' + file)
+  //         log(1, error)
+  //     }
+  // }
 
   // Wait for the Typescript compilation to finish
   await (typescriptJob || server.getTypescriptJob(branch, TSFileCacheLocation) || Promise.resolve())
@@ -422,14 +389,14 @@ ${error.message}`)
   return result
 
   /* *
-       *
-       *  Scoped utility functions
-       *
-       * */
+           *
+           *  Scoped utility functions
+           *
+           * */
 
   /**
-       * Assembles the source files
-       */
+           * Assembles the source files
+           */
   async function assemble () {
     const pathOutputFolder = join(pathCacheDirectory, 'output')
     const pathOutputFile = join(
@@ -439,16 +406,26 @@ ${error.message}`)
     if (!exists(pathOutputFile)) {
       const files = await getFileNamesInDirectory(jsMastersDirectory)
       const fileOptions = getFileOptions(files, join(pathCacheDirectory, 'js'))
+      const namespace = 'Highcharts'
+      const debug = true
       try {
-        build({
-          // TODO: Remove trailing slash when assembler has fixed path concatenation
-          base: jsMastersDirectory + '/',
+        buildModules({
+          base: join(pathCacheDirectory, 'js') + '/',
+          type: [type],
+          namespace,
           output: pathOutputFolder,
-          files: [file],
-          pretty: false,
-          type,
-          version: branch,
-          fileOptions
+          version: branch
+        })
+
+        buildDistFromModules({
+          base: join(pathOutputFolder, 'es-modules', 'masters') + '/',
+          debug,
+          fileOptions,
+          files,
+          namespace,
+          output: pathOutputFolder,
+          type: [type],
+          version: branch
         })
       } catch (error) {
         console.log('assembler error: ', error)
@@ -470,11 +447,11 @@ ${error.message}`)
   }
 
   /**
-       * Checks if the file is in the ts/masters folder.
-       * If the ts/masters folder is downloaded, it will check that.
-       * Otherwise it will check Github
-       * @param {string} file
-       */
+           * Checks if the file is in the ts/masters folder.
+           * If the ts/masters folder is downloaded, it will check that.
+           * Otherwise it will check Github
+           * @param {string} file
+           */
   async function isMasterTSFile (file) {
     // If ts folder is downloaded, check that
     if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
@@ -487,9 +464,9 @@ ${error.message}`)
   }
 
   /**
-      * Check if the file is already built, and return it if that is the case
-      * @param {string} file
-      */
+          * Check if the file is already built, and return it if that is the case
+          * @param {string} file
+          */
   function checkFile (file) {
     const compiledFilePath = join(pathCacheDirectory, 'output', file)
     const cachedJSFile =
@@ -543,63 +520,6 @@ async function serveStaticFile (branch, requestURL) {
 
   // Return path to file location in the cache.
   return { status: 200, file: pathFile }
-}
-
-/**
- * Interprets the request URL and serves a custom file with given dependencies.
- * The Promise resolves with an object containing information on the response.
- *
- * @param {string} repositoryURL Url to download the source files.
- * @param {string} [branch] The name of the branch the files are located in.
- * @param {string} [strParts] The list of dependencies for the custom file.
- */
-async function serveDownloadFile (repositoryURL, branch = 'master', strParts = '') {
-  const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
-
-  // Download the source files if not found in the cache.
-  if (!exists(join(pathCacheDirectory, 'js/masters')) || await shouldDownloadTypeScriptFolders(repositoryURL, branch)) {
-    await downloadSourceFolder(pathCacheDirectory, repositoryURL, branch)
-    try {
-      await compileTypeScriptProject(branch)
-    } catch (err) {
-      throw new Error(`500: Typescript compilation failed with error:
-${err.message}`)
-    }
-  }
-
-  // Filter out filenames that is not existing in the source directory.
-  const pathJSFolder = join(pathCacheDirectory, 'js')
-  const parts = strParts.split(',')
-    .filter(filename => exists(join(pathJSFolder, filename)))
-
-  // Create a unique name for the file based on the content.
-  const hash = sha1(secureToken, parts.join(','))
-  const filename = join('custom', `${hash}.src.js`)
-
-  // Create the master file if it not found in the cache.
-  const pathMasterFile = join(pathCacheDirectory, filename)
-  if (!exists(pathMasterFile)) {
-    const globalsLocation = await getGlobalsLocation(join(pathCacheDirectory, 'js/masters', 'highcharts.src.js'))
-    const content = getCustomFileContent(parts, globalsLocation)
-    await writeFile(pathMasterFile, content)
-  }
-
-  const pathOutputFolder = join(pathCacheDirectory, 'output')
-  const pathFile = join(pathOutputFolder, filename)
-  // Build the custom file from the master file if it is not found in the cache.
-  if (!exists(pathFile)) {
-    build({
-      base: pathCacheDirectory + '/',
-      jsBase: pathJSFolder + '/',
-      output: pathOutputFolder,
-      files: [filename],
-      type: 'classic',
-      version: branch + ' custom build'
-    })
-  }
-
-  // Return path to file location in the cache.
-  return { file: pathFile }
 }
 
 function printTreeChildren (children, level = 1, carry) {
