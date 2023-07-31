@@ -18,6 +18,8 @@ class JobQueue {
 
     return this.downloadJobs[commit].finally(() => {
       delete this.downloadJobs[commit]
+    }).catch(err => {
+      console.error(err)
     })
   }
 
@@ -32,6 +34,8 @@ class JobQueue {
     return this.compileJobs[commit]
       .finally(() => {
         delete this.compileJobs[commit]
+      }).catch(err => {
+        console.error(err)
       })
   }
 

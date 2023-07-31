@@ -43,7 +43,7 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   ]
   const fileOptions = []
   try {
-    const output = build({
+    build({
       // TODO: Remove trailing slash when assembler has fixed path concatenation
       base: jsMastersDirectory + '/',
       output: pathOutputFolder,
@@ -53,25 +53,21 @@ async function assembleDashboards (pathCacheDirectory, commit) {
       fileOptions,
       namespace: 'Dashboards'
     })
-
-    console.log({ output })
   } catch (error) {
     console.log('assembler error: ', error)
   }
 
   /**
-     * @param {string} dirPath
-     */
-  async function doThingsToDir (dirPath) {
+       * @param {string} dirPath
+       */
+  async function modifyFiles (dirPath) {
     const dir = await opendir(dirPath)
       .catch(() => null)
 
     if (dir) {
       for await (const dirent of dir) {
         if (dirent.isDirectory()) {
-          console.log(dirPath)
-          console.log(dirent.name)
-          await doThingsToDir(join(dirPath, dirent.name))
+          await modifyFiles(join(dirPath, dirent.name))
         } else if (dirent.name.endsWith('.src.js')) {
           const contents = await readFile(join(dirPath, dirent.name), 'utf-8')
                     const toReplace = 'code.highcharts.com.*' + commit + '\/' // eslint-disable-line
@@ -85,13 +81,13 @@ async function assembleDashboards (pathCacheDirectory, commit) {
           await symlink(
             join(dirPath, dirent.name),
             join(dirPath, dirent.name.replace('.src', ''))
-          )
+          ).catch(() => null)
         }
       }
     }
   }
 
-  await doThingsToDir(pathOutputFolder)
+  await modifyFiles(pathOutputFolder)
 }
 
 /**
@@ -102,8 +98,6 @@ async function dashboardsHandler (req, res) {
   const { filepath } = req.params
 
   let commit
-
-  console.log(req.params)
 
   if (req.params.commit) commit = req.params.commit
 
@@ -131,8 +125,6 @@ async function dashboardsHandler (req, res) {
   try {
     await stat(join(pathCacheDirectory, 'js'))
   } catch (err) {
-    // If it does not exist, try to download and proceed
-    // TODO: add deduping
     if (err.code === 'ENOENT') {
       await queue.addDownloadJob(
         commit,
@@ -160,8 +152,6 @@ async function dashboardsHandler (req, res) {
     )
   )
 
-  console.log(filepath, { hasMastersFile })
-
   const obj = {
     compile: filepath, // path to TS compile
     assembled: join(pathCacheDirectory, 'dashboards-output', filepath) // path to where assembled file should be
@@ -187,7 +177,6 @@ async function dashboardsHandler (req, res) {
           obj.compile.endsWith('.src.js')
             ? obj.compile
             : obj.compile.replace('.js', '.src.js')
-
         ).then(() =>
           assembleDashboards(pathCacheDirectory, commit)
         )
