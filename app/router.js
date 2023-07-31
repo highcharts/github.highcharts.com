@@ -89,8 +89,6 @@ ROUTER.get('/:commit(\\w{7})/dashboards/:filepath(*)', dashboardsHandler)
 // Otherwise assume branch?
 ROUTER.get('/:branch(*)/dashboards/:filepath(*)', dashboardsHandler)
 
-// TODO: version tags for dashboards?
-
 ROUTER.get('*', catchAsyncErrors(handlerDefault))
 
 // Export the router
