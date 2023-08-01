@@ -58,8 +58,8 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   }
 
   /**
-         * @param {string} dirPath
-         */
+           * @param {string} dirPath
+           */
   async function modifyFiles (dirPath) {
     const dir = await opendir(dirPath)
       .catch(() => null)
