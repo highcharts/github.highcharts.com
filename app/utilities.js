@@ -166,11 +166,11 @@ function padStart (str, length = 0, char) {
  * @param {string} branch to specific commit, tag or branch
  * @param {string} file the file to compile
  */
-async function compileTypeScript (branch, file = 'masters/highcharts.src.ts') {
+async function compileTypeScript (branch, file = 'masters/highcharts.src.ts', outDir = 'js') {
   log(0, `Compiling ${file} for commit ${branch}`)
   const exec = util.promisify(childProcess.exec)
   const TS_PATH = join(__dirname, '../tmp', branch, 'ts')
-  const OUT_PATH = join(__dirname, '../tmp', branch, 'js')
+  const OUT_PATH = join(__dirname, '../tmp', branch, outDir)
   const jsFilePath = join(OUT_PATH, file.replace('.ts', '.js'))
 
   // This will fail, but the js-files should still be output

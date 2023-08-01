@@ -32,7 +32,7 @@ describe('middleware.js', () => {
       this['on' + name] = fn
     }
     it('should set property rawBody to empty string, when there is no data', () => {
-      const req = { on: on }
+      const req = { on }
       const next = stub()
       bodyJSONParser(req, {}, next)
       req.onend()
@@ -42,7 +42,7 @@ describe('middleware.js', () => {
       expect(next.called).to.equal(true)
     })
     it('should set rawBody to equal data received, and body should be parsed JSON', () => {
-      const req = { on: on }
+      const req = { on }
       const next = stub()
       bodyJSONParser(req, {}, next)
       req.ondata('{ "prop": "val" }')
@@ -54,7 +54,7 @@ describe('middleware.js', () => {
       expect(next.called).to.equal(true)
     })
     it('should not parse invalidJSON', () => {
-      const req = { on: on }
+      const req = { on }
       const next = stub()
       bodyJSONParser(req, {}, next)
       req.ondata('abc')
@@ -71,7 +71,7 @@ describe('middleware.js', () => {
       this['on' + name] = fn
     }
     it('should send status 400 and a message to the client', () => {
-      const req = { on: on }
+      const req = { on }
       const res = {}
       res.status = stub().returns(res)
       res.send = stub().returns(res)
@@ -101,7 +101,7 @@ describe('middleware.js', () => {
       this['on' + name] = fn
     }
     it('should set connectionAborted to true on close', () => {
-      const req = { on: on, destroy: () => null }
+      const req = { on, destroy: () => null }
       const next = stub()
       setConnectionAborted(req, {}, next)
       req.onclose()
@@ -109,7 +109,7 @@ describe('middleware.js', () => {
       expect(next.called).to.equal(true)
     })
     it('should set connectionAborted false by default', () => {
-      const req = { on: on }
+      const req = { on }
       const next = stub()
       setConnectionAborted(req, {}, next)
       expect(req).to.have.property('connectionAborted').that.equals(false)

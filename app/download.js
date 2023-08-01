@@ -79,7 +79,7 @@ async function downloadSourceFolder (outputDir, repositoryURL, branch) {
   // Log possible errors
   if (errors.length) {
     log(2, `Some files did not download in branch "${branch}"\n${errors.join('\n')
-      }`)
+            }`)
   }
 }
 
@@ -126,23 +126,22 @@ async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
   })
 
   /* eslint-disable */
-  for await (const promise of promises) {
-    responses.push(promise)
-  }
-  /* eslint-disable */
+    for await (const promise of promises) {
+        responses.push(promise)
+    }
+    /* eslint-disable */
 
-  const errors = responses
-    .filter(({ statusCode }) => statusCode !== 200)
-    .map(({ url, statusCode }) => `${statusCode}: ${url}`)
+    const errors = responses
+        .filter(({ statusCode }) => statusCode !== 200)
+        .map(({ url, statusCode }) => `${statusCode}: ${url}`)
 
-  // Log possible errors
-  if (errors.length) {
-    log(2, `Some files did not download in branch "${branch}"\n${
-      errors.join('\n')
-    }`)
-  }
+    // Log possible errors
+    if (errors.length) {
+        log(2, `Some files did not download in branch "${branch}"\n${errors.join('\n')
+            }`)
+    }
 
-  return responses
+    return responses
 }
 
 /**
@@ -153,19 +152,19 @@ async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
  * @param {object|string} options Can either be an https request options object,
  * or an url string.
  */
-function get (options) {
-  return new Promise((resolve, reject) => {
-    const request = httpsGet(options, response => {
-      const body = []
-      response.setEncoding('utf8')
-      response.on('data', (data) => { body.push(data) })
-      response.on('end', () =>
-        resolve({ statusCode: response.statusCode, body: body.join('') })
-      )
+function get(options) {
+    return new Promise((resolve, reject) => {
+        const request = httpsGet(options, response => {
+            const body = []
+            response.setEncoding('utf8')
+            response.on('data', (data) => { body.push(data) })
+            response.on('end', () =>
+                resolve({ statusCode: response.statusCode, body: body.join('') })
+            )
+        })
+        request.on('error', reject)
+        request.end()
     })
-    request.on('error', reject)
-    request.end()
-  })
 }
 
 /**
@@ -175,13 +174,16 @@ function get (options) {
  *
  * @param {string} branch The name of the branch the files are located in.
  */
-async function getDownloadFiles (branch) {
-  const promises = ['css', 'ts', 'js'].map(folder => getFilesInFolder(folder, branch))
-  const folders = await Promise.all(promises)
-  const files = [].concat.apply([], folders)
-  const isValidFile = ({ path, size }) =>
-    (path.endsWith('.js') || path.endsWith('.ts') || path.endsWith('.scss') || path.endsWith('.json')) && size > 0
-  return files.filter(isValidFile).map(({ path }) => path)
+async function getDownloadFiles(branch) {
+    const promises = ['css', 'ts', 'js'].map(folder => getFilesInFolder(folder, branch))
+    const folders = await Promise.all(promises)
+    const files = [].concat.apply([], folders)
+
+    const extensions = ['ts', 'js', 'css', 'scss', 'json']
+
+    const isValidFile = ({ path, size }) =>
+        (extensions.some(ext => path.endsWith('.' + ext))) && size > 0
+    return files.filter(isValidFile).map(({ path }) => path)
 }
 
 /**
@@ -193,38 +195,38 @@ async function getDownloadFiles (branch) {
  * @param {string} path The path to the directory.
  * @param {string} branch The name of the branch the files are located in.
  */
-async function getFilesInFolder (path, branch) {
-  const { body, statusCode } = await get({
-    hostname: 'api.github.com',
-    path: `/repos/${repo}/contents/${path}?ref=${branch}`,
-    headers: {
-      'user-agent': 'github.highcharts.com',
-      ...authToken
-    }
-  })
-
-  if (statusCode !== 200) {
-    console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}. (HTTP ${statusCode})`)
-  }
-
-  let promises = []
-  if (statusCode === 200) {
-    promises = JSON.parse(body).map(obj => {
-      const name = path + '/' + obj.name
-      return (
-        (obj.type === 'dir')
-          ? getFilesInFolder(name, branch)
-          : [{
-            download: obj.download_url,
-            path: name,
-            size: obj.size,
-            type: obj.type
-          }]
-      )
+async function getFilesInFolder(path, branch) {
+    const { body, statusCode } = await get({
+        hostname: 'api.github.com',
+        path: `/repos/${repo}/contents/${path}?ref=${branch}`,
+        headers: {
+            'user-agent': 'github.highcharts.com',
+            ...authToken
+        }
     })
-  }
-  const arr = await Promise.all(promises)
-  return arr.reduce((arr1, arr2) => arr1.concat(arr2), [])
+
+    if (statusCode !== 200) {
+        console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}. (HTTP ${statusCode})`)
+    }
+
+    let promises = []
+    if (statusCode === 200) {
+        promises = JSON.parse(body).map(obj => {
+            const name = path + '/' + obj.name
+            return (
+                (obj.type === 'dir')
+                    ? getFilesInFolder(name, branch)
+                    : [{
+                        download: obj.download_url,
+                        path: name,
+                        size: obj.size,
+                        type: obj.type
+                    }]
+            )
+        })
+    }
+    const arr = await Promise.all(promises)
+    return arr.reduce((arr1, arr2) => arr1.concat(arr2), [])
 }
 
 /**
@@ -234,13 +236,13 @@ async function getFilesInFolder (path, branch) {
  *
  * @param  {string} url The URL to check if exists.
  */
-async function urlExists (url) {
-  try {
-    const response = await get(url)
-    return response.statusCode === 200
-  } catch (e) {
-    return false
-  }
+async function urlExists(url) {
+    try {
+        const response = await get(url)
+        return response.statusCode === 200
+    } catch (e) {
+        return false
+    }
 }
 
 /**
@@ -251,19 +253,19 @@ async function urlExists (url) {
  * @returns {Promise<({}|false)>}
  * The branch info object, or false if not found
  */
-async function getBranchInfo (branch) {
-  const { body, statusCode } = await get({
-    hostname: 'api.github.com',
-    path: `/repos/${repo}/branches/${branch}`,
-    headers: {
-      'user-agent': 'github.highcharts.com',
-      ...authToken
+async function getBranchInfo(branch) {
+    const { body, statusCode } = await get({
+        hostname: 'api.github.com',
+        path: `/repos/${repo}/branches/${branch}`,
+        headers: {
+            'user-agent': 'github.highcharts.com',
+            ...authToken
+        }
+    })
+    if (statusCode === 200) {
+        return JSON.parse(body)
     }
-  })
-  if (statusCode === 200) {
-    return JSON.parse(body)
-  }
-  return false
+    return false
 }
 
 
@@ -275,30 +277,30 @@ async function getBranchInfo (branch) {
  * @returns {Promise<({}|false)>}
  * The commit info object, or false if not found
  */
-async function getCommitInfo (commit) {
-  const { body, statusCode } = await get({
-    hostname: 'api.github.com',
-    path: `/repos/${repo}/commits/${commit}`,
-    headers: {
-      'user-agent': 'github.highcharts.com',
-      ...authToken
+async function getCommitInfo(commit) {
+    const { body, statusCode } = await get({
+        hostname: 'api.github.com',
+        path: `/repos/${repo}/commits/${commit}`,
+        headers: {
+            'user-agent': 'github.highcharts.com',
+            ...authToken
+        }
+    })
+    if (statusCode === 200) {
+        return JSON.parse(body)
     }
-  })
-  if (statusCode === 200) {
-    return JSON.parse(body)
-  }
-  return false
+    return false
 }
 
 // Export download functions
 module.exports = {
-  downloadFile,
-  downloadFiles,
-  downloadSourceFolder,
-  downloadSourceFolderGit,
-  getDownloadFiles,
-  httpsGetPromise: get,
-  urlExists,
-  getBranchInfo,
-  getCommitInfo
+    downloadFile,
+    downloadFiles,
+    downloadSourceFolder,
+    downloadSourceFolderGit,
+    getDownloadFiles,
+    httpsGetPromise: get,
+    urlExists,
+    getBranchInfo,
+    getCommitInfo
 }

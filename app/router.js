@@ -20,6 +20,9 @@ const {
   handlerRemoveFiles,
   handlerUpdate
 } = require('./handlers.js')
+
+const { dashboardsHandler } = require('./dashboards')
+
 const { Router } = require('express')
 
 // Middleware
@@ -78,6 +81,13 @@ Use code.highcharts.com for production environments`,
   keyGenerator,
   skip
 }))
+
+// long and short commit SHAs
+ROUTER.get('/:commit(\\w{40})/dashboards/:filepath(*)', dashboardsHandler)
+ROUTER.get('/:commit(\\w{7})/dashboards/:filepath(*)', dashboardsHandler)
+
+// Otherwise assume branch?
+ROUTER.get('/:branch(*)/dashboards/:filepath(*)', dashboardsHandler)
 
 ROUTER.get('*', catchAsyncErrors(handlerDefault))
 
