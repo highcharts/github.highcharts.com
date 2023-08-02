@@ -82,9 +82,8 @@ Use code.highcharts.com for production environments`,
   skip
 }))
 
-// long and short commit SHAs
-ROUTER.get('/:commit(\\w{40})/dashboards/:filepath(*)', dashboardsHandler)
-ROUTER.get('/:commit(\\w{7})/dashboards/:filepath(*)', dashboardsHandler)
+// long, shorter, and short commit SHAs
+ROUTER.get('/:commit(\\w{40}|\\w{10}|\\w{7})/dashboards/:filepath(*)', dashboardsHandler)
 
 // Otherwise assume branch?
 ROUTER.get('/:branch(*)/dashboards/:filepath(*)', dashboardsHandler)

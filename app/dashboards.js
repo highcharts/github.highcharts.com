@@ -36,18 +36,12 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   const jsMastersDirectory = join(pathCacheDirectory, 'js', 'masters-dashboards')
   const pathOutputFolder = join(pathCacheDirectory, 'dashboards-output')
 
-  const files = [
-    'dashboards.src.js',
-    'datagrid.src.js',
-    'modules/dashboards-plugin.src.js'
-  ]
   const fileOptions = []
   try {
     build({
       // TODO: Remove trailing slash when assembler has fixed path concatenation
       base: jsMastersDirectory + '/',
       output: pathOutputFolder,
-      files,
       pretty: false,
       version: commit,
       fileOptions,
@@ -58,8 +52,8 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   }
 
   /**
-         * @param {string} dirPath
-         */
+    * @param {string} dirPath
+    */
   async function modifyFiles (dirPath) {
     const dir = await opendir(dirPath)
       .catch(() => null)
@@ -125,7 +119,6 @@ async function dashboardsHandler (req, res, next) {
   }
 
   if (!commit) {
-    console.log(req.params)
     res.sendStatus(404)
     return
   }

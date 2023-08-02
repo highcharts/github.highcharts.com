@@ -36,6 +36,7 @@ const {
 const { join } = require('path')
 const directoryTree = require('directory-tree')
 const { JobQueue } = require('./JobQueue')
+const { existsSync } = require('node:fs')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
@@ -107,7 +108,6 @@ async function handlerDefault (req, res) {
   // Try to serve  a static file.
   result = await serveStaticFile(branch, url)
 
-  // If request has a query including parts, then create a custom file.
   if (result.status !== 200) {
     // Try to build the file
     result = await serveBuildFile(branch, url, useGitDownloader)
@@ -389,14 +389,14 @@ ${error.message}`)
   return result
 
   /* *
-           *
-           *  Scoped utility functions
-           *
-           * */
+             *
+             *  Scoped utility functions
+             *
+             * */
 
   /**
-           * Assembles the source files
-           */
+             * Assembles the source files
+             */
   async function assemble () {
     const pathOutputFolder = join(pathCacheDirectory, 'output')
     const pathOutputFile = join(
@@ -447,11 +447,11 @@ ${error.message}`)
   }
 
   /**
-           * Checks if the file is in the ts/masters folder.
-           * If the ts/masters folder is downloaded, it will check that.
-           * Otherwise it will check Github
-           * @param {string} file
-           */
+             * Checks if the file is in the ts/masters folder.
+             * If the ts/masters folder is downloaded, it will check that.
+             * Otherwise it will check Github
+             * @param {string} file
+             */
   async function isMasterTSFile (file) {
     // If ts folder is downloaded, check that
     if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
@@ -464,9 +464,9 @@ ${error.message}`)
   }
 
   /**
-          * Check if the file is already built, and return it if that is the case
-          * @param {string} file
-          */
+            * Check if the file is already built, and return it if that is the case
+            * @param {string} file
+            */
   function checkFile (file) {
     const compiledFilePath = join(pathCacheDirectory, 'output', file)
     const cachedJSFile =
@@ -500,6 +500,20 @@ async function serveStaticFile (branch, requestURL) {
   // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
     return response.missingFile
+  }
+
+  if (file.endsWith('.css')) {
+    // TODO: add fs check before download
+    const fileLocation = join(PATH_TMP_DIRECTORY, branch, file)
+    if (!existsSync(fileLocation)) {
+      const urlFile = `${URL_DOWNLOAD}${branch}/${file}`
+      const download = await downloadFile(urlFile, fileLocation)
+      if (download.success) {
+        return { status: 200, file: fileLocation }
+      }
+    } else {
+      return { status: 200, file: fileLocation }
+    }
   }
 
   const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
