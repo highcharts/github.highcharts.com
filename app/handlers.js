@@ -42,6 +42,8 @@ const { existsSync } = require('node:fs')
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
 const URL_DOWNLOAD = `https://raw.githubusercontent.com/${repo}/`
 
+const queue = new JobQueue()
+
 /**
  * Tries to look for a remote tsconfig file if the branch/ref is of newer date typically 2019+.
  * If one exists it will return true
@@ -314,17 +316,18 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   let typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation)
   const isAlreadyDownloaded = typescriptJob ? true : (exists(jsMastersDirectory) || exists(tsMastersDirectory))
 
-  const queue = new JobQueue()
-  const downloadPromise =
-        queue.addDownloadJob(
-          branch,
-          isAlreadyDownloaded
-            ? Promise.resolve(true)
-            : downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch)
-        )
-
-  // Await the download
-  await downloadPromise
+  if (!isAlreadyDownloaded) {
+    await queue.addJob(
+      'download',
+      branch,
+      {
+        func: downloadSourceFolder,
+        args: [
+          pathCacheDirectory, URL_DOWNLOAD, branch
+        ]
+      }
+    )
+  }
 
   const buildProject = isMastersQuery
   // Add a typescript job, if the corresponding ts file has been downloaded,
@@ -367,7 +370,6 @@ ${error.message}`)
   // If the file is found, remove download and typescript jobs from the state
   foundFile = checkFile(file)
   if (foundFile) {
-    server.removeDownloadJob(branch)
     server.removeTypescriptJob(branch, TSFileCacheLocation)
     return foundFile
   }
@@ -381,7 +383,6 @@ ${error.message}`)
     return response.invalidBuild
   }).finally(() => {
     log(0, `Finished assembling ${file} for commit ${branch}`)
-    server.removeDownloadJob(branch)
     server.removeTypescriptJob(branch, TSFileCacheLocation)
     server.removeAssemblyJob(assemblyID)
   })))
@@ -389,14 +390,14 @@ ${error.message}`)
   return result
 
   /* *
-             *
-             *  Scoped utility functions
-             *
-             * */
+               *
+               *  Scoped utility functions
+               *
+               * */
 
   /**
-             * Assembles the source files
-             */
+               * Assembles the source files
+               */
   async function assemble () {
     const pathOutputFolder = join(pathCacheDirectory, 'output')
     const pathOutputFile = join(
@@ -447,11 +448,11 @@ ${error.message}`)
   }
 
   /**
-             * Checks if the file is in the ts/masters folder.
-             * If the ts/masters folder is downloaded, it will check that.
-             * Otherwise it will check Github
-             * @param {string} file
-             */
+               * Checks if the file is in the ts/masters folder.
+               * If the ts/masters folder is downloaded, it will check that.
+               * Otherwise it will check Github
+               * @param {string} file
+               */
   async function isMasterTSFile (file) {
     // If ts folder is downloaded, check that
     if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
@@ -464,9 +465,9 @@ ${error.message}`)
   }
 
   /**
-            * Check if the file is already built, and return it if that is the case
-            * @param {string} file
-            */
+              * Check if the file is already built, and return it if that is the case
+              * @param {string} file
+              */
   function checkFile (file) {
     const compiledFilePath = join(pathCacheDirectory, 'output', file)
     const cachedJSFile =

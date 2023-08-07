@@ -103,34 +103,6 @@ function getTypescriptJob (branch, file) {
  * @param {string} branch
  * @returns {Promise<any> | undefined}
  */
-function addDownloadJob (branch, promise) {
-  if (!state.downloads[branch]) {
-    const job = state.downloads[branch] = promise
-    return job
-  }
-}
-
-/**
- * Get a download job from the registry
- * @param {string} branch
- * @returns {Promise<any> | undefined}
- */
-function getDownloadJob (branch) {
-  return state.downloads[branch]
-}
-
-function removeDownloadJob (branch) {
-  setTimeout(() => {
-    if (state.downloads[branch]) delete state.downloads[branch]
-  }, 5000)
-}
-
-/**
- * Sets a download job in the registry
- * or returns an existing job
- * @param {string} branch
- * @returns {Promise<any> | undefined}
- */
 function addAssemblyJob (id, promise) {
   if (!state.downloads[id]) {
     const job = state.assembles[id] = promise
@@ -198,9 +170,6 @@ module.exports = {
   getTypescriptJob,
   addTypescriptJob,
   removeTypescriptJob,
-  addDownloadJob,
-  getDownloadJob,
-  removeDownloadJob,
   getAssemblyJob,
   addAssemblyJob,
   removeAssemblyJob,
