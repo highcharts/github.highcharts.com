@@ -22,7 +22,9 @@ const BRANCH_TYPES = [
   'db',
   'dashboards'
 ]
+
 const PRODUCTS = ['stock', 'maps', 'gantt']
+
 const replaceAll = (str, search, replace) => str.split(search).join(replace)
 
 /**

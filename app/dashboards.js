@@ -105,7 +105,7 @@ async function dashboardsHandler (req, res, next) {
   }
 
   if (!commit && req.params.branch) {
-    const isVersionTag = /v[0-9]+\./.test(req.params.branch)
+    const isVersionTag = /v[0-9]+\./.test(req.params.branch) || req.params.branch.startsWith('dashborads-v')
 
     if (isVersionTag) {
       commit = req.params.branch

@@ -249,8 +249,8 @@ async function handlerUpdate (req, res) {
  * The Promise resolves when a response is sent to client.
  *
  * @param {object} result Object containing information of the response.
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {import('express').Response} response Express response object.
+ * @param {mport('express').Request} request Express request object.
  */
 async function respondToClient (result, response, request) {
   const { body, file, status } = result
@@ -262,7 +262,7 @@ async function respondToClient (result, response, request) {
     'Origin, X-Requested-With, Content-Type, Accept'
   )
 
-  response.header('cache-control', 'no-cache')
+  response.header('Cache-Control', 'no-cache')
 
   // Make sure connection is not lost before attemting a response.
   if (!request.connectionAborted) {
@@ -390,14 +390,14 @@ ${error.message}`)
   return result
 
   /* *
-               *
-               *  Scoped utility functions
-               *
-               * */
+                             *
+                             *  Scoped utility functions
+                             *
+                             * */
 
   /**
-               * Assembles the source files
-               */
+                             * Assembles the source files
+                             */
   async function assemble () {
     const pathOutputFolder = join(pathCacheDirectory, 'output')
     const pathOutputFile = join(
@@ -448,11 +448,11 @@ ${error.message}`)
   }
 
   /**
-               * Checks if the file is in the ts/masters folder.
-               * If the ts/masters folder is downloaded, it will check that.
-               * Otherwise it will check Github
-               * @param {string} file
-               */
+                             * Checks if the file is in the ts/masters folder.
+                             * If the ts/masters folder is downloaded, it will check that.
+                             * Otherwise it will check Github
+                             * @param {string} file
+                             */
   async function isMasterTSFile (file) {
     // If ts folder is downloaded, check that
     if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
@@ -465,9 +465,9 @@ ${error.message}`)
   }
 
   /**
-              * Check if the file is already built, and return it if that is the case
-              * @param {string} file
-              */
+                            * Check if the file is already built, and return it if that is the case
+                            * @param {string} file
+                            */
   function checkFile (file) {
     const compiledFilePath = join(pathCacheDirectory, 'output', file)
     const cachedJSFile =
