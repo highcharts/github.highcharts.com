@@ -15,8 +15,7 @@ const {
     rmdir,
     stat,
     unlink,
-    writeFile,
-    readFile
+    writeFile
   }
 } = require('fs')
 const { dirname, join, normalize, sep } = require('path')
@@ -141,7 +140,7 @@ const { cleanThreshold, tmpLifetime } = require('../config.json')
  */
 async function shouldClean () {
   const files = await readdir(join(__dirname, '../tmp/'))
-  if (files.length > (cleanThreshold || 1000)) return true
+  if (files.length > (cleanThreshold || 100)) return true
 
   return false
 }
@@ -149,13 +148,13 @@ async function shouldClean () {
 /**
  * Cleans up the tmp folder
  */
-async function cleanUp () {
+async function cleanUp (force = false) {
   const path = join(__dirname, '../tmp/')
   const files = await readdir(path)
 
   const cleaned = []
 
-  await Promise.all(files.map(async file => {
+  for (const file of files) {
     const folderpath = join(path, file)
     const fileInfo = await fsStat(folderpath)
 
@@ -165,12 +164,10 @@ async function cleanUp () {
 
     if (fileInfo && fileInfo.isDirectory()) {
       try {
-        const dataPath = join(folderpath, 'info.json')
-        const data = JSON.parse(await readFile(dataPath))
-        const { last_access } = data // eslint-disable-line
-        const diff = new Date() - new Date(last_access)
+        const accessTime = fileInfo.atime || fileInfo.mtime || fileInfo.ctime
+        const diff = new Date() - accessTime
 
-        if (diff > timeToKill) {
+        if ((diff > timeToKill) || force) {
           await removeDirectory(folderpath)
           log(0, `Removing ${folderpath}. Not accessed in ${Math.round(diff / (1000 * 60 * 60))} hours`)
           cleaned.push(file)
@@ -179,8 +176,8 @@ async function cleanUp () {
         log(2, error)
       }
     }
-  })
-  )
+  }
+
   return cleaned
 }
 

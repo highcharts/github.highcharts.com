@@ -85,15 +85,12 @@ describe('tmp folder cleanup function', () => {
     // Make a fake branch that should be deleted
     const fakeBranchPath = join(__dirname, '../tmp/fakebranchhash')
     await fs.promises.mkdir(fakeBranchPath, { recursive: true })
-    await fs.promises.writeFile(join(fakeBranchPath, 'info.json'),
-      JSON.stringify({ last_access: new Date(Date.UTC(2010)) })
-    )
   })
 
   after(cleanFiles)
 
   it('Should delete the branch', async () => {
-    await cleanUp()
+    await cleanUp(true)
 
     const branches = await fs.promises.readdir(join(__dirname, '../tmp/'))
 

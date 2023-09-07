@@ -159,11 +159,14 @@ APP.listen(PORT)
 // Clean up the tmp folder every now and then
 setInterval(async () => {
   // Clean only after a certain amount of branches and when there are no jobs running
-  if ((await shouldClean()) && Object.keys(state.typescriptJobs).length === 0) {
+  if (await shouldClean()) {
     log(0, 'Cleaning up...')
     await cleanUp()
   }
 }, config.cleanInterval || 2 * 60 * 1000)
+
+// Do a cleanup when restarting the server
+cleanUp()
 
 module.exports = {
   default: APP,
