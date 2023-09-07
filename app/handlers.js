@@ -42,6 +42,8 @@ const { existsSync } = require('node:fs')
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
 const URL_DOWNLOAD = `https://raw.githubusercontent.com/${repo}/`
 
+const queue = new JobQueue()
+
 /**
  * Tries to look for a remote tsconfig file if the branch/ref is of newer date typically 2019+.
  * If one exists it will return true
@@ -194,36 +196,6 @@ async function handlerRobots (req, res) {
  * @param {Request} req Express request object.
  */
 async function handlerUpdate (req, res) {
-  // let result
-  //
-  // // Check if the webhook is valid
-  // if (hook.valid) {
-  //   const branch = req.body.ref.replace('refs/heads/', '')
-  //
-  //   // Check if branch name is provided
-  //   if (branch) {
-  //     const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
-  //     const doCacheExist = exists(pathCacheDirectory)
-  //
-  //     // Remove the cache if it exists
-  //     if (doCacheExist) {
-  //       // await removeDirectory(pathCacheDirectory)
-  //     }
-  //
-  //     // Respond with information of if the cache was deleted
-  //     result = doCacheExist ? response.cacheDeleted : response.noCache
-  //   } else {
-  //     // Respond with information of invalid branch
-  //     result = response.invalidBranch
-  //   }
-  // } else {
-  //   // Respond with information of insecure webhook
-  //   result = {
-  //     body: response.insecureWebhook.body + hook.message,
-  //     status: response.insecureWebhook.status
-  //   }
-  // }
-
   let result = response.notFound
 
   // Just check the user agent for now
@@ -247,8 +219,8 @@ async function handlerUpdate (req, res) {
  * The Promise resolves when a response is sent to client.
  *
  * @param {object} result Object containing information of the response.
- * @param {Response} response Express response object.
- * @param {Request} request Express request object.
+ * @param {import('express').Response} response Express response object.
+ * @param {mport('express').Request} request Express request object.
  */
 async function respondToClient (result, response, request) {
   const { body, file, status } = result
@@ -260,14 +232,14 @@ async function respondToClient (result, response, request) {
     'Origin, X-Requested-With, Content-Type, Accept'
   )
 
-  response.header('cache-control', 'no-cache')
+  response.header('Cache-Control', 'no-cache')
 
   // Make sure connection is not lost before attemting a response.
   if (!request.connectionAborted) {
     if (file) {
       await new Promise((resolve, reject) => {
         response.sendFile(file, (err) => {
-          return (err ? reject(err) : resolve())
+          return (err ? reject(err) : resolve(true))
         })
       })
     } else {
@@ -314,17 +286,18 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   let typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation)
   const isAlreadyDownloaded = typescriptJob ? true : (exists(jsMastersDirectory) || exists(tsMastersDirectory))
 
-  const queue = new JobQueue()
-  const downloadPromise =
-        queue.addDownloadJob(
-          branch,
-          isAlreadyDownloaded
-            ? Promise.resolve(true)
-            : downloadSourceFolder(pathCacheDirectory, URL_DOWNLOAD, branch)
-        )
-
-  // Await the download
-  await downloadPromise
+  if (!isAlreadyDownloaded) {
+    await queue.addJob(
+      'download',
+      branch,
+      {
+        func: downloadSourceFolder,
+        args: [
+          pathCacheDirectory, URL_DOWNLOAD, branch
+        ]
+      }
+    )
+  }
 
   const buildProject = isMastersQuery
   // Add a typescript job, if the corresponding ts file has been downloaded,
@@ -335,25 +308,6 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   ) {
     typescriptJob = server.getTypescriptJob(branch, TSFileCacheLocation) || await server.addTypescriptJob(branch, TSFileCacheLocation, buildProject)
   }
-
-  // If it ends with .css and has not already been served, try to compile a matching scss file
-  // if (file.endsWith('.css')) {
-  //     try {
-  //         const sass = require('sass')
-  //
-  //         const { css } = await sass.compileAsync(join(pathCacheDirectory, file.replace('.css', '.scss')))
-  //
-  //         if (css) {
-  //             const cssFilePath = join(pathCacheDirectory, 'output', file)
-  //             await writeFilePromise(cssFilePath, css)
-  //
-  //             return cssFilePath
-  //         }
-  //     } catch (error) {
-  //         log(1, 'Failed to compile SCSS for ' + file)
-  //         log(1, error)
-  //     }
-  // }
 
   // Wait for the Typescript compilation to finish
   await (typescriptJob || server.getTypescriptJob(branch, TSFileCacheLocation) || Promise.resolve())
@@ -367,7 +321,6 @@ ${error.message}`)
   // If the file is found, remove download and typescript jobs from the state
   foundFile = checkFile(file)
   if (foundFile) {
-    server.removeDownloadJob(branch)
     server.removeTypescriptJob(branch, TSFileCacheLocation)
     return foundFile
   }
@@ -381,22 +334,15 @@ ${error.message}`)
     return response.invalidBuild
   }).finally(() => {
     log(0, `Finished assembling ${file} for commit ${branch}`)
-    server.removeDownloadJob(branch)
     server.removeTypescriptJob(branch, TSFileCacheLocation)
     server.removeAssemblyJob(assemblyID)
   })))
 
   return result
 
-  /* *
-             *
-             *  Scoped utility functions
-             *
-             * */
-
   /**
-             * Assembles the source files
-             */
+    * Assembles the source files
+    */
   async function assemble () {
     const pathOutputFolder = join(pathCacheDirectory, 'output')
     const pathOutputFile = join(
@@ -447,11 +393,11 @@ ${error.message}`)
   }
 
   /**
-             * Checks if the file is in the ts/masters folder.
-             * If the ts/masters folder is downloaded, it will check that.
-             * Otherwise it will check Github
-             * @param {string} file
-             */
+   * Checks if the file is in the ts/masters folder.
+   * If the ts/masters folder is downloaded, it will check that.
+   * Otherwise it will check Github
+   * @param {string} file
+   */
   async function isMasterTSFile (file) {
     // If ts folder is downloaded, check that
     if (exists(join(pathCacheDirectory, 'ts', 'masters'))) {
@@ -464,9 +410,9 @@ ${error.message}`)
   }
 
   /**
-            * Check if the file is already built, and return it if that is the case
-            * @param {string} file
-            */
+   * Check if the file is already built, and return it if that is the case
+   * @param {string} file
+   */
   function checkFile (file) {
     const compiledFilePath = join(pathCacheDirectory, 'output', file)
     const cachedJSFile =

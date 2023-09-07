@@ -9,6 +9,7 @@ const { build } = require('@highcharts/highcharts-assembler/src/build')
 const { JobQueue } = require('./JobQueue')
 
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
+const queue = new JobQueue()
 
 /**
  * @param {import('express').Response} res
@@ -52,8 +53,8 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   }
 
   /**
-    * @param {string} dirPath
-    */
+      * @param {string} dirPath
+      */
   async function modifyFiles (dirPath) {
     const dir = await opendir(dirPath)
       .catch(() => null)
@@ -104,7 +105,7 @@ async function dashboardsHandler (req, res, next) {
   }
 
   if (!commit && req.params.branch) {
-    const isVersionTag = /v[0-9]+\./.test(req.params.branch)
+    const isVersionTag = /v[0-9]+\./.test(req.params.branch) || req.params.branch.startsWith('dashborads-v')
 
     if (isVersionTag) {
       commit = req.params.branch
@@ -123,8 +124,6 @@ async function dashboardsHandler (req, res, next) {
     return
   }
 
-  const queue = new JobQueue()
-
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, commit)
   const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
 
@@ -132,13 +131,17 @@ async function dashboardsHandler (req, res, next) {
     await stat(join(pathCacheDirectory, 'js'))
   } catch (err) {
     if (err.code === 'ENOENT') {
-      await queue.addDownloadJob(
+      await queue.addJob(
+        'download',
         commit,
-        downloadSourceFolder(
-          pathCacheDirectory,
-          downloadURL,
-          commit
-        )
+        {
+          func: downloadSourceFolder,
+          args: [
+            pathCacheDirectory,
+            downloadURL,
+            commit
+          ]
+        }
       ).catch(() => {
         res.sendStatus(500)
       })
@@ -176,16 +179,26 @@ async function dashboardsHandler (req, res, next) {
       : Promise.resolve(false),
     // try to build and assemble file
     async () => {
-      await queue.addCompileJob(
-        commit,
-        compileTypeScript(
-          commit,
-          obj.compile.endsWith('.src.js')
-            ? obj.compile
-            : obj.compile.replace('.js', '.src.js')
-        ).then(() =>
-          assembleDashboards(pathCacheDirectory, commit)
-        )
+      await queue.addJob(
+        'compile',
+        commit + filepath,
+        {
+          func: compileTypeScript,
+          args: [
+            commit,
+            obj.compile.endsWith('.src.js')
+              ? obj.compile
+              : obj.compile.replace('.js', '.src.js')
+          ]
+        })
+
+      await queue.addJob(
+        'compile',
+        commit + filepath,
+        {
+          func: assembleDashboards,
+          args: [pathCacheDirectory, commit]
+        }
       )
 
       res.status(201)
