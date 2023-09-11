@@ -46,6 +46,11 @@ ROUTER.post('/*', catchAsyncErrors(handlerUpdate))
 const skip = req => {
   // allow requests with allowed referers
   const referer = req.get('Referer')
+
+  if (referer.includes('.php')) {
+    return false
+  }
+
   const allowedReferer = referer
     ? ['highcharts.local', 'highcharts.com'].some((url) => referer.includes(url))
     : false
