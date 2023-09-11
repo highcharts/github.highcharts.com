@@ -34,17 +34,20 @@ class JobQueue {
   }
 
   async churn (queue) {
-    for (const jobID of queue.keys()) {
-      try {
-        await this.doJob(queue, jobID)
-      } catch (error) {
-        console.error(error)
-      } finally {
-        console.log(jobID, ' is done')
-      }
+    // Base case
+    if (queue.size === 0) {
+      return queue
     }
-    queue.clear()
-    return queue
+    const jobID = queue.keys().next().value
+    try {
+      await this.doJob(queue, jobID)
+    } catch (error) {
+      console.error(error)
+    } finally {
+      console.log(jobID, ' is done')
+    }
+    // Recurse till the queue is empty
+    return this.churn(queue)
   }
 
   makeJob (job) {
