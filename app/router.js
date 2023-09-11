@@ -47,7 +47,7 @@ const skip = req => {
   // allow requests with allowed referers
   const referer = req.get('Referer')
 
-  if (referer.includes('.php')) {
+  if (referer && referer.includes('.php')) {
     return false
   }
 
