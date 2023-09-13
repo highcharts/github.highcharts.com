@@ -161,12 +161,16 @@ setInterval(async () => {
   // Clean only after a certain amount of branches and when there are no jobs running
   if (await shouldClean()) {
     log(0, 'Cleaning up...')
-    await cleanUp()
+    await cleanUp().catch(error => {
+      console.log('Cleanup failed', error)
+    })
   }
 }, config.cleanInterval || 2 * 60 * 1000)
 
 // Do a cleanup when restarting the server
-cleanUp()
+cleanUp().catch(() => {
+  log(0, 'Cleanup failed. Likely nothing to cleanup')
+})
 
 module.exports = {
   default: APP,
