@@ -46,6 +46,8 @@ async function assembleDashboards (pathCacheDirectory, commit) {
       pretty: false,
       version: commit,
       fileOptions,
+      assetPrefix: 'https://code.highcharts.com/dashboards',
+      product: 'Highcharts Dashboards',
       namespace: 'Dashboards'
     })
   } catch (error) {
