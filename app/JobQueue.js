@@ -5,6 +5,9 @@ const __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, '__esModule', { value: true })
 /* eslint-disable camelcase */
 const node_crypto_1 = __importDefault(require('node:crypto'))
+const node_process_1 = require('node:process')
+// Max queue size per queue
+const MAX_QUEUE_SIZE = Number(node_process_1.env.MAX_QUEUE_SIZE) || 10
 class JobQueue {
   static _instance
   static queues = {
@@ -64,6 +67,11 @@ class JobQueue {
 
   addJob (type, jobID, job) {
     const queue = JobQueue.queues[type]
+    if (queue.size >= MAX_QUEUE_SIZE) {
+      const error = new Error('Queue is full. Please wait a few minutes before trying again 😅')
+      error.name = 'QueueFullError'
+      return Promise.reject(error)
+    }
     if (queue.has(jobID)) {
       return queue.get(jobID)?.done
     }
