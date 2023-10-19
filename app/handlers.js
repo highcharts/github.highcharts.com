@@ -287,7 +287,7 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
   const isAlreadyDownloaded = typescriptJob ? true : (exists(jsMastersDirectory) || exists(tsMastersDirectory))
 
   if (!isAlreadyDownloaded) {
-    await queue.addJob(
+    const maybeResponse = await queue.addJob(
       'download',
       branch,
       {
@@ -296,7 +296,17 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
           pathCacheDirectory, URL_DOWNLOAD, branch
         ]
       }
-    )
+    ).catch(error => {
+      if (error.name === 'QueueFullError') {
+        return { status: 503, body: error.message }
+      }
+
+      return { status: 500 }
+    })
+
+    if (maybeResponse.status) {
+      return maybeResponse
+    }
   }
 
   const buildProject = isMastersQuery

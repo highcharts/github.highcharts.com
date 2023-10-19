@@ -11,6 +11,10 @@ export type QueueType = Map<string, JobType>;
 
 /* eslint-disable camelcase */
 import crypto from 'node:crypto';
+import { env } from 'node:process';
+
+// Max queue size per queue
+const MAX_QUEUE_SIZE = Number(env.MAX_QUEUE_SIZE) || 10;
 
 class JobQueue {
     static _instance: JobQueue
@@ -83,12 +87,18 @@ class JobQueue {
     public addJob(type: Queues, jobID: string, job: JobArgs) {
         const queue = JobQueue.queues[type];
 
+        if (queue.size >= MAX_QUEUE_SIZE) {
+            const error = new Error('Queue is full. Please wait a few minutes before trying again 😅');
+            error.name = 'QueueFullError';
+
+            return Promise.reject(error);
+        }
+
         if (queue.has(jobID)) {
             return queue.get(jobID)?.done;
         }
 
         const transformedJob = this.makeJob(job)
-
 
         queue.set(
             jobID,
@@ -104,7 +114,7 @@ class JobQueue {
                 })
         }
 
-        return transformedJob.done
+        return transformedJob.done;
     }
 
     public getJobs(type: Queues) {

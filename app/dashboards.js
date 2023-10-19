@@ -97,6 +97,15 @@ async function dashboardsHandler (req, res, next) {
 
   let commit
 
+  function handleQueueError (error) {
+    res.statusCode = 500
+    if (error.name === 'QueueFullError') {
+      res.statusCode = 503
+    }
+
+    return res.send(error.message)
+  }
+
   if (req.params.commit) commit = req.params.commit
 
   if (commit && commit.length === 7) {
@@ -144,9 +153,7 @@ async function dashboardsHandler (req, res, next) {
             commit
           ]
         }
-      ).catch(() => {
-        res.sendStatus(500)
-      })
+      ).catch(handleQueueError)
     } else {
       return res.sendStatus(404)
     }
@@ -192,7 +199,7 @@ async function dashboardsHandler (req, res, next) {
               ? obj.compile
               : obj.compile.replace('.js', '.src.js')
           ]
-        })
+        }).catch(handleQueueError)
 
       await queue.addJob(
         'compile',
@@ -201,7 +208,7 @@ async function dashboardsHandler (req, res, next) {
           func: assembleDashboards,
           args: [pathCacheDirectory, commit]
         }
-      )
+      ).catch(handleQueueError)
 
       res.status(201)
 
