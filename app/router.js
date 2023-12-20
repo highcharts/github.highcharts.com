@@ -28,7 +28,7 @@ const { Router } = require('express')
 // Middleware
 const rateLimit = require('express-rate-limit')
 const slowDown = require('express-slow-down')
-const { log } = require('./utilities')
+const queue = require('express-queue')
 
 // Constants
 const ROUTER = Router()
@@ -43,29 +43,15 @@ ROUTER.get('/files', catchAsyncErrors(handlerFS))
 ROUTER.delete('/*', catchAsyncErrors(handlerRemoveFiles))
 ROUTER.post('/*', catchAsyncErrors(handlerUpdate))
 
-const skip = req => {
-  // allow requests with allowed referers
-  const referer = req.get('Referer')
-
-  if (referer && referer.includes('.php')) {
-    return false
-  }
-
-  const allowedReferer = referer
-    ? ['highcharts.local', 'highcharts.com'].some((url) => referer.includes(url))
-    : false
-
-  if (allowedReferer) {
-    log(1, `skipping rate limiter for referer ${referer}`)
-    return true
-  }
-  return false
-}
-
 // Separate limit for each file requested
 const keyGenerator = (req) => {
   return req.ip + req.baseUrl
 }
+
+ROUTER.use(queue({
+  activeLimit: 3, // simultaneous requests
+  queuedLimit: -1 // do not reject
+}))
 
 // Slow down after 15 requests
 // Delay is cumulative up to 2s
@@ -73,8 +59,7 @@ ROUTER.use('*', slowDown({
   windowMs: 15 * 60 * 1000,
   delayAfter: 15,
   delayMs: 500,
-  keyGenerator,
-  skip
+  keyGenerator
 }))
 
 // limit after 60 requests (per file) in a 15 minute period
@@ -83,8 +68,7 @@ ROUTER.use('*', rateLimit({
   max: 60,
   message: `github.highcharts.com is intended for testing only.
 Use code.highcharts.com for production environments`,
-  keyGenerator,
-  skip
+  keyGenerator
 }))
 
 // long, shorter, and short commit SHAs

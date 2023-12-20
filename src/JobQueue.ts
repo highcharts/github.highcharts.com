@@ -14,7 +14,7 @@ import crypto from 'node:crypto';
 import { env } from 'node:process';
 
 // Max queue size per queue
-const MAX_QUEUE_SIZE = Number(env.MAX_QUEUE_SIZE) || 10;
+const MAX_QUEUE_SIZE = Number(env.MAX_QUEUE_SIZE) || 3;
 
 class JobQueue {
     static _instance: JobQueue
