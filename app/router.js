@@ -49,23 +49,24 @@ const keyGenerator = (req) => {
 }
 
 ROUTER.use(queue({
-  activeLimit: 3, // simultaneous requests
+  activeLimit: 4, // simultaneous requests
   queuedLimit: -1 // do not reject
 }))
 
 // Slow down after 15 requests
-// Delay is cumulative up to 2s
+// Delay is cumulative up to 3s
 ROUTER.use('*', slowDown({
   windowMs: 15 * 60 * 1000,
   delayAfter: 15,
-  delayMs: 500,
+  delayMs: (hits) => hits * 500,
+  maxDelayMs: 3000,
   keyGenerator
 }))
 
 // limit after 60 requests (per file) in a 15 minute period
 ROUTER.use('*', rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 60,
+  max: 100,
   message: `github.highcharts.com is intended for testing only.
 Use code.highcharts.com for production environments`,
   keyGenerator
