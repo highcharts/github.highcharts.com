@@ -28,7 +28,7 @@ const { Router } = require('express')
 // Middleware
 const rateLimit = require('express-rate-limit')
 const slowDown = require('express-slow-down')
-const queue = require('express-queue')
+// const queue = require('express-queue')
 
 // Constants
 const ROUTER = Router()
@@ -48,10 +48,10 @@ const keyGenerator = (req) => {
   return req.ip + req.baseUrl
 }
 
-ROUTER.use(queue({
-  activeLimit: 4, // simultaneous requests
-  queuedLimit: -1 // do not reject
-}))
+// ROUTER.use(queue({
+//   activeLimit: 4, // simultaneous requests
+//   queuedLimit: -1 // do not reject
+// }))
 
 // Slow down after 15 requests
 // Delay is cumulative up to 3s
