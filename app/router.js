@@ -22,7 +22,6 @@ const {
 } = require('./handlers.js')
 
 const { dashboardsHandler } = require('./dashboards')
-
 const { Router } = require('express')
 
 // Middleware
