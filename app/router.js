@@ -43,7 +43,8 @@ ROUTER.post('/*', catchAsyncErrors(handlerUpdate))
 
 // Separate limit for each file requested
 const keyGenerator = (req) => {
-  return req.ip + req.baseUrl
+  const IP = req.headers['CF-Connecting-IP'] ?? req.ip
+  return IP + req.baseUrl
 }
 
 // Slow down after 15 requests

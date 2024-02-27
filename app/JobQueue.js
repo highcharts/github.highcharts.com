@@ -7,7 +7,7 @@ Object.defineProperty(exports, '__esModule', { value: true })
 const node_crypto_1 = __importDefault(require('node:crypto'))
 const node_process_1 = require('node:process')
 // Max queue size per queue
-const MAX_QUEUE_SIZE = Number(node_process_1.env.MAX_QUEUE_SIZE) || 3
+const MAX_QUEUE_SIZE = Number(node_process_1.env.MAX_QUEUE_SIZE) || 2
 class JobQueue {
   static _instance
   static queues = {
