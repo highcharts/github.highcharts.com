@@ -225,7 +225,7 @@ async function handlerUpdate (req, res) {
 async function respondToClient (result, response, request) {
   const { body, file, status } = result
   // Make sure connection is not lost before attemting a response.
-  if (request.destroyed || !request) {
+  if (request.connectionAborted) {
     console.log('Connection lost')
     return
   }

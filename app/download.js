@@ -33,6 +33,7 @@ async function downloadFile (url, outputPath) {
   }
 
   if (statusCode === 200) {
+    console.log(`Downloading ${url}`)
     await writeFile(outputPath, body)
     result.success = true
   }
@@ -51,10 +52,22 @@ async function downloadFile (url, outputPath) {
  * @param {[string]} subpaths List of pathnames relative to the base URL.
  * @param {string} outputDir The directory to output the content of each URL.
  */
-function downloadFiles (baseURL, subpaths, outputDir) {
-  const promises = subpaths
-    .map(path => downloadFile(`${baseURL}/${path}`, join(outputDir, path)))
-  return Promise.all(promises)
+async function downloadFiles (baseURL, subpaths, outputDir) {
+  const chunkSize = 10
+  const results = []
+
+  for (let i = 0; i < subpaths.length; i += chunkSize) {
+    const chunk = subpaths.slice(i, i + chunkSize)
+
+    const promises = chunk.map(path => downloadFile(
+      `${baseURL}/${path}`,
+      join(outputDir, path)
+    ))
+
+    results.push(...await Promise.all(promises))
+  }
+
+  return results
 }
 
 /**
