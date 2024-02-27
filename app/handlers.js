@@ -220,10 +220,15 @@ async function handlerUpdate (req, res) {
  *
  * @param {object} result Object containing information of the response.
  * @param {import('express').Response} response Express response object.
- * @param {mport('express').Request} request Express request object.
+ * @param {import('express').Request} request Express request object.
  */
 async function respondToClient (result, response, request) {
   const { body, file, status } = result
+  // Make sure connection is not lost before attemting a response.
+  if (request.destroyed || !request) {
+    console.log('Connection lost')
+    return
+  }
 
   // Set response headers to allow all origins.
   response.header('Access-Control-Allow-Origin', '*')
@@ -232,20 +237,21 @@ async function respondToClient (result, response, request) {
     'Origin, X-Requested-With, Content-Type, Accept'
   )
 
-  response.header('Cache-Control', 'no-cache')
+  // max age one hour
+  response.header('Cache-Control', 'max-age=3600')
+  response.header('CDN-Cache-Control', 'max-age=3600')
 
-  // Make sure connection is not lost before attemting a response.
-  if (!request.connectionAborted) {
-    if (file) {
-      await new Promise((resolve, reject) => {
-        response.sendFile(file, (err) => {
-          return (err ? reject(err) : resolve(true))
-        })
+  if (file) {
+    await new Promise((resolve, reject) => {
+      response.sendFile(file, (err) => {
+        return (err ? reject(err) : resolve(true))
       })
-    } else {
-      response.status(status).send(body)
-    }
+    })
+
+    return
   }
+
+  return response.status(status).send(body)
 }
 
 /**

@@ -27,7 +27,6 @@ const { Router } = require('express')
 // Middleware
 const rateLimit = require('express-rate-limit')
 const slowDown = require('express-slow-down')
-// const queue = require('express-queue')
 
 // Constants
 const ROUTER = Router()
@@ -44,21 +43,17 @@ ROUTER.post('/*', catchAsyncErrors(handlerUpdate))
 
 // Separate limit for each file requested
 const keyGenerator = (req) => {
-  return req.ip + req.baseUrl
+  const IP = req.headers['CF-Connecting-IP'] ?? req.ip
+  return IP + req.baseUrl
 }
 
-// ROUTER.use(queue({
-//   activeLimit: 4, // simultaneous requests
-//   queuedLimit: -1 // do not reject
-// }))
-
 // Slow down after 15 requests
-// Delay is cumulative up to 3s
+// Delay is cumulative up to 10s
 ROUTER.use('*', slowDown({
   windowMs: 15 * 60 * 1000,
   delayAfter: 15,
   delayMs: (hits) => hits * 500,
-  maxDelayMs: 3000,
+  maxDelayMs: 10000,
   keyGenerator
 }))
 
