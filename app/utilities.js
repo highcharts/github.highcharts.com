@@ -199,7 +199,7 @@ async function compileTypeScriptProject (branch) {
   try {
     const dir = __dirname
     log(1, { dir })
-    const { stdout, stderr } = await exec(`node ${tscPath} --build ${TS_PATH}`)
+    const { stdout, stderr } = await exec(`node ${tscPath} --build tsconfig.json`, { cwd: TS_PATH })
     log(0, stderr || stdout)
   } catch (error) {
     log(2, error)
