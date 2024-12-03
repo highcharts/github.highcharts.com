@@ -152,19 +152,6 @@ async function handlerIcon (req, res) {
 }
 
 /**
- * Handle requests to index file, responds with index.html.
- * The Promise resolves when a response is sent to client.
- *
- * @todo Use express.static in stead of send file.
- * @param {Response} res Express response object.
- * @param {Request} req Express request object.
- */
-async function handlerIndex (req, res) {
-  const result = { file: join(__dirname, '/../views/index.html') }
-  return respondToClient(result, res, req)
-}
-
-/**
  * Trigger cleanup by a get
  * The Promise resolves when a response is sent to client.
  *
@@ -588,7 +575,6 @@ module.exports = {
   handlerDefault,
   handlerHealth,
   handlerIcon,
-  handlerIndex,
   handlerCleanup,
   handlerRobots,
   handlerUpdate,

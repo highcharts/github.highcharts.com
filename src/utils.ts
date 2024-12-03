@@ -21,7 +21,7 @@ function compileWebpack(srcFolder: string) {
 
   for (const c of configs) {
     const execProm = execAsync(
-      `npx webpack -c ${join(configDir, c)} --output-path ./output`,
+      `npx webpack -c ${join(configDir, c)} --output-path ./output --stats errors-only`,
       { timeout: 7000, cwd: srcFolder }
     ).then(({stdout, stderr}) => {
       if (stderr) {

@@ -16,7 +16,7 @@ function compileWebpack (srcFolder) {
   const execAsync = (0, node_util_1.promisify)(node_child_process_1.exec)
   const promises = []
   for (const c of configs) {
-    const execProm = execAsync(`npx webpack -c ${(0, node_path_1.join)(configDir, c)} --output-path ./output`, { timeout: 7000, cwd: srcFolder }).then(({ stdout, stderr }) => {
+    const execProm = execAsync(`npx webpack -c ${(0, node_path_1.join)(configDir, c)} --output-path ./output --stats errors-only`, { timeout: 7000, cwd: srcFolder }).then(({ stdout, stderr }) => {
       if (stderr) {
         console.error(stderr)
         return

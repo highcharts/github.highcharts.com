@@ -13,7 +13,6 @@ const {
   handlerDefault,
   handlerHealth,
   handlerIcon,
-  handlerIndex,
   handlerRobots,
   handlerCleanup,
   handlerFS,
@@ -22,24 +21,25 @@ const {
 } = require('./handlers.js')
 
 const { dashboardsHandler } = require('./dashboards')
-const { Router } = require('express')
+const express = require('express')
 
 // Middleware
 const rateLimit = require('express-rate-limit')
 const slowDown = require('express-slow-down')
 
 // Constants
-const ROUTER = Router()
+const ROUTER = express.Router()
 
 // Register handlers to the router
 ROUTER.get('/health', catchAsyncErrors(handlerHealth))
 ROUTER.get('/favicon.ico', catchAsyncErrors(handlerIcon))
 ROUTER.get('/robots.txt', catchAsyncErrors(handlerRobots))
-ROUTER.get('/', catchAsyncErrors(handlerIndex))
 ROUTER.get('/cleanup', catchAsyncErrors(handlerCleanup))
 ROUTER.get('/files', catchAsyncErrors(handlerFS))
 ROUTER.delete('/*', catchAsyncErrors(handlerRemoveFiles))
 ROUTER.post('/*', catchAsyncErrors(handlerUpdate))
+
+ROUTER.use(express.static('static'))
 
 // Separate limit for each file requested
 const keyGenerator = (req) => {
