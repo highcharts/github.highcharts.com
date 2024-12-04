@@ -37,6 +37,7 @@ const { join } = require('path')
 const directoryTree = require('directory-tree')
 const { JobQueue } = require('./JobQueue')
 const { existsSync } = require('node:fs')
+const { shouldUseWebpack, compileWebpack } = require('./utils.js')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
@@ -105,17 +106,22 @@ async function handlerDefault (req, res) {
   }
 
   // Serve a file depending on the request URL.
-  let result
-
   // Try to serve  a static file.
-  result = await serveStaticFile(branch, url)
+  let result = await serveStaticFile(branch, url)
 
-  if (result.status !== 200) {
+  if (result?.status !== 200) {
     // Try to build the file
     result = await serveBuildFile(branch, url, useGitDownloader)
   }
 
   // await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
+
+  if (!result) {
+    result = {
+      status: 404,
+      body: 'Not Found'
+    }
+  }
 
   res.header('ETag', branch)
   return respondToClient(result, res, req)
@@ -142,19 +148,6 @@ async function handlerHealth (req, res) {
  */
 async function handlerIcon (req, res) {
   const result = { file: join(__dirname, '/../assets/favicon.ico') }
-  return respondToClient(result, res, req)
-}
-
-/**
- * Handle requests to index file, responds with index.html.
- * The Promise resolves when a response is sent to client.
- *
- * @todo Use express.static in stead of send file.
- * @param {Response} res Express response object.
- * @param {Request} req Express request object.
- */
-async function handlerIndex (req, res) {
-  const result = { file: join(__dirname, '/../views/index.html') }
   return respondToClient(result, res, req)
 }
 
@@ -313,6 +306,8 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
     if (maybeResponse.status) {
       return maybeResponse
     }
+
+    return { status: 404, body: 'could not find' }
   }
 
   const buildProject = isMastersQuery
@@ -364,6 +359,16 @@ ${error.message}`)
     const pathOutputFile = join(
       pathOutputFolder, (type === 'css' ? 'js' : ''), file || ''
     )
+
+    const tsconfig = await readFile(join(__dirname, '../tmp', branch, 'ts/tsconfig.json'), 'utf-8')
+    if (shouldUseWebpack(tsconfig)) {
+      console.log('Running webpack')
+
+      return compileWebpack(join(__dirname, '../tmp', branch)).then(() => {
+        return { status: 200, file: pathOutputFile }
+      })
+    }
+
     // Build the distribution file if it is not found in cache.
     if (!exists(pathOutputFile)) {
       const files = await getFileNamesInDirectory(jsMastersDirectory)
@@ -570,7 +575,6 @@ module.exports = {
   handlerDefault,
   handlerHealth,
   handlerIcon,
-  handlerIndex,
   handlerCleanup,
   handlerRobots,
   handlerUpdate,

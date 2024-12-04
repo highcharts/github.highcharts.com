@@ -188,11 +188,18 @@ function get(options) {
  * @param {string} branch The name of the branch the files are located in.
  */
 async function getDownloadFiles(branch) {
-    const promises = ['css', 'ts', 'js'].map(folder => getFilesInFolder(folder, branch))
+    const promises = [
+      'css',
+      'ts',
+      'js',
+      'tools/webpacks',
+      'tools/libs'
+    ].map(folder => getFilesInFolder(folder, branch))
+
     const folders = await Promise.all(promises)
     const files = [].concat.apply([], folders)
 
-    const extensions = ['ts', 'js', 'css', 'scss', 'json']
+    const extensions = ['ts', 'js', 'css', 'scss', 'json', 'mjs']
 
     const isValidFile = ({ path, size }) =>
         (extensions.some(ext => path.endsWith('.' + ext))) && size > 0

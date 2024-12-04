@@ -18,8 +18,12 @@ const {
 } = require('./middleware.js')
 const router = require('./router.js')
 const { formatDate, log, compileTypeScript, compileTypeScriptProject } = require('./utilities.js')
+const { shouldUseWebpack } = require('./utils.js')
 const express = require('express')
 const { cleanUp, shouldClean } = require('./filesystem')
+
+const { join } = require('node:path')
+const { readFileSync } = require('node:fs')
 
 // Constants
 const APP = express()
@@ -44,6 +48,10 @@ function addTypescriptJob (branch, file, buildProject = false) {
   const existingJob = getTypescriptJob(branch, file)
   if (existingJob) return existingJob
 
+  const tsConfig = readFileSync(join(__dirname, '../tmp', branch, 'ts/tsconfig.json'))
+
+  const outDir = shouldUseWebpack(tsConfig) ? 'code/es-modules' : 'js'
+
   const id = branch + (buildProject ? 'project' : file)
   // Check if there is a job going on the file
   if (!state.typescriptJobs[id]) {
@@ -60,12 +68,12 @@ function addTypescriptJob (branch, file, buildProject = false) {
       ['highcharts', 'highstock', 'highcharts-gantt', 'highmaps']
         .some(masterFile => file.includes(`/${masterFile}.src.ts`))
     ) {
-      state.typescriptJobs[id] = compileTypeScript(branch, file)
+      state.typescriptJobs[id] = compileTypeScript(branch, file, outDir)
     } else {
       // Recursively add a highcharts build before modules
       state.typescriptJobs[id] =
         addTypescriptJob(branch, 'masters/highcharts.src.ts').then(() =>
-          compileTypeScript(branch, file)
+          compileTypeScript(branch, file, outDir)
         )
     }
   }

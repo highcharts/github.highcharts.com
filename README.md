@@ -55,7 +55,7 @@ Each file contains a descriptive header, mentioning its author, purpose and so o
 | scripts | Tooling scripts used for deployment and such. Should not be deployed with the application. |
 | test | Contains all the unit-tests for the application. Should not be deployed with the application. |
 | tmp | Where the temporary files used in the application is written. |
-| views | Where the HTML files are located. |
+| static | Where the HTML files are located. |
 
 ## Update the Highcharts assembler
 Open a CLI and run the following command to install an updated version of the assembler:
