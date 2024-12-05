@@ -92,6 +92,8 @@ function setConnectionAborted (req, res, next) {
     req.on('close', onClose)
   }
 
+  req.on('aborted', onClose)
+
   next()
 }
 

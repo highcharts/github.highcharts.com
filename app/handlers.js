@@ -76,8 +76,8 @@ function catchAsyncErrors (asyncFn) {
  * GitHub, prepares and serves the resulting distribution file.
  * The Promise resolves when a response is sent to client.
  *
- * @param {Response} res Express response object.
- * @param {Request} req Express request object.
+ * @param {import('express').Response} res Express response object.
+ * @param {import('express').Request} req Express request object.
  */
 async function handlerDefault (req, res) {
   let branch = await getBranch(req.path)
@@ -123,7 +123,9 @@ async function handlerDefault (req, res) {
     }
   }
 
-  res.header('ETag', branch)
+  if (!res.headersSent) {
+    res.header('ETag', branch)
+  }
   return respondToClient(result, res, req)
 }
 
@@ -218,7 +220,7 @@ async function handlerUpdate (req, res) {
 async function respondToClient (result, response, request) {
   const { body, file, status } = result
   // Make sure connection is not lost before attemting a response.
-  if (request.connectionAborted) {
+  if (request.connectionAborted || response.headersSent) {
     console.log('Connection lost')
     return
   }
