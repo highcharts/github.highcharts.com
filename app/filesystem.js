@@ -139,7 +139,7 @@ const { cleanThreshold, tmpLifetime } = require('../config.json')
  * set in the config (default to 1000 if not found)
  */
 async function shouldClean () {
-  const files = await readdir(join(__dirname, '../tmp/'))
+  const files = await readdir(join(__dirname, '../tmp/')).catch(() => [])
   if (files.length > (cleanThreshold || 100)) return true
 
   return false
@@ -150,7 +150,7 @@ async function shouldClean () {
  */
 async function cleanUp (force = false) {
   const path = join(__dirname, '../tmp/')
-  const files = await readdir(path)
+  const files = await readdir(path).catch(() => [])
 
   const cleaned = []
 
