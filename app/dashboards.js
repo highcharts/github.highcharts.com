@@ -98,9 +98,9 @@ async function dashboardsHandler (req, res, next) {
   let commit
 
   function handleQueueError (error) {
-    res.statusCode = 500
+    res.statusCode = 200
     if (error.name === 'QueueFullError') {
-      res.statusCode = 503
+      res.statusCode = 202
     }
 
     return res.send(error.message)

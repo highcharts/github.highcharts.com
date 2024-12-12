@@ -299,10 +299,10 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
       }
     ).catch(error => {
       if (error.name === 'QueueFullError') {
-        return { status: 503, body: error.message }
+        return { status: 202, body: error.message }
       }
 
-      return { status: 500 }
+      return { status: 200 }
     })
 
     if (maybeResponse.status) {
