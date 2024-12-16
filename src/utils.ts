@@ -11,32 +11,25 @@ function shouldUseWebpack(tsconfig: string) : boolean {
   return false;
 }
 
-function compileWebpack(srcFolder: string) {
+function compileWebpack(srcFolder: string, config ='highcharts.webpack.mjs') {
   const configDir = 'tools/webpacks';
+  console.log('Compiling webpack for: ', srcFolder)
 
-  const configs = ['highcharts.webpack.mjs'];
   const execAsync = promisify(exec);
 
-  const promises = []
+  return execAsync(
+    `npx webpack -c ${join(configDir, config)} --output-path ./output --stats errors-only`,
+    { timeout: 7000, cwd: srcFolder }
+  ).then(({stdout, stderr}) => {
+    if (stderr) {
+      console.error(stderr);
+      return;
+    }
+    console.log(stdout)
+  }).catch(err => {
+    throw new Error('Failed running webpack', { cause: err })
+  })
 
-  for (const c of configs) {
-    const execProm = execAsync(
-      `npx webpack -c ${join(configDir, c)} --output-path ./output --stats errors-only`,
-      { timeout: 7000, cwd: srcFolder }
-    ).then(({stdout, stderr}) => {
-      if (stderr) {
-        console.error(stderr);
-        return;
-      }
-      console.log(stdout)
-    }).catch(err => {
-      throw new Error('Failed running webpack', { cause: err })
-    })
-
-    promises.push(execProm)
-  }
-
-  return Promise.all(promises)
 }
 
 module.exports = {
