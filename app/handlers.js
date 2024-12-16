@@ -299,10 +299,10 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
       }
     ).catch(error => {
       if (error.name === 'QueueFullError') {
-        return { status: 503, body: error.message }
+        return { status: 202, body: error.message }
       }
 
-      return { status: 500 }
+      return { status: 200 }
     })
 
     if (maybeResponse.status) {
@@ -364,10 +364,17 @@ ${error.message}`)
 
     const tsconfig = await readFile(join(__dirname, '../tmp', branch, 'ts/tsconfig.json'), 'utf-8')
     if (shouldUseWebpack(tsconfig)) {
-      console.log('Running webpack')
-
-      return compileWebpack(join(__dirname, '../tmp', branch)).then(() => {
+      return queue.addJob(
+        'compile',
+        'webpack', // single shared ID to avoid multiple webpack jobs at once
+        {
+          func: compileWebpack,
+          args: [join(__dirname, '../tmp', branch)]
+        }
+      ).then(() => {
         return { status: 200, file: pathOutputFile }
+      }).catch(() => {
+        return { status: 404, body: 'Server busy, try again in a few minutes' }
       })
     }
 
