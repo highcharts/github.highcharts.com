@@ -19,7 +19,7 @@ function compileWebpack(srcFolder: string, config ='highcharts.webpack.mjs') {
 
   return execAsync(
     `npx webpack -c ${join(configDir, config)} --output-path ./output --stats errors-only`,
-    { timeout: 7000, cwd: srcFolder }
+    { timeout: 7500, cwd: srcFolder }
   ).then(({stdout, stderr}) => {
     if (stderr) {
       console.error(stderr);
