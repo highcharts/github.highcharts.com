@@ -6,7 +6,7 @@
       },
       "error": {
           "status": 400,
-          "body": "Something went wrong. Please contact <a href=\"http://www.highcharts.com/support\">Highcharts support</a> if this happens repeatedly."
+          "body": "Something went wrong. Please note that this service is for debugging only. Use our <a href=\"http://code.highcharts.com\">official CDN</a> in production."
       },
       "missingFile": {
         "status": 400,
