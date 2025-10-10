@@ -1,0 +1,40 @@
+name: Run Tests
+
+on:
+  pull_request:
+    branches:
+      - master
+      - develop
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Check TypeScript compilation is up to date
+        run: |
+          npm run tsc
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Error: Files have changed after running 'npm run tsc'. Please run 'npm run tsc' locally and commit the changes."
+            git status
+            git diff
+            exit 1
+          fi
+
+      - name: Setup config.json
+        run: echo '{"token":"","port":"90","repo":"highcharts/highcharts"}' > config.json
+
+      - name: Run tests
+        run: npm test
