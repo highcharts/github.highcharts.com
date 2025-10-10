@@ -79,7 +79,7 @@ async function downloadFile (url, outputPath) {
   }
 
   if (statusCode === 200) {
-    console.log(`Downloading ${url}`)
+    log(0, `Downloading ${url}`)
     await writeFile(outputPath, body)
     result.success = true
   }
