@@ -12,7 +12,6 @@ const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
 const authToken = { Authorization: `token ${token}` }
-const hasOwn = Object.prototype.hasOwnProperty
 
 const degit = require('tiged')
 
@@ -37,7 +36,7 @@ function getWithCache (cache, key, fetcher) {
   const cached = cache.get(key)
 
   if (cached) {
-    if (cached.expires && cached.expires > now && hasOwn.call(cached, 'value')) {
+    if (cached.expires && cached.expires > now && ('value' in cached)) {
       return Promise.resolve(cached.value)
     }
     if (cached.promise) {
