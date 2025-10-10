@@ -12,8 +12,54 @@ const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
 const authToken = { Authorization: `token ${token}` }
+const hasOwn = Object.prototype.hasOwnProperty
 
 const degit = require('tiged')
+
+const DEFAULT_CACHE_TTL = Number(process.env.GITHUB_LOOKUP_CACHE_TTL || 60_000)
+const NEGATIVE_CACHE_TTL = Number(process.env.GITHUB_LOOKUP_NEGATIVE_CACHE_TTL || 10_000)
+
+const branchInfoCache = new Map()
+const commitInfoCache = new Map()
+let githubRequest
+
+/**
+ * Resolve a value from cache or execute the provided fetcher.
+ * Shares in-flight fetches and caches both positive and negative responses.
+ * @template T
+ * @param {Map<string, { expires?: number, value?: T, promise?: Promise<T> }>} cache
+ * @param {string} key
+ * @param {() => Promise<T>} fetcher
+ * @returns {Promise<T>}
+ */
+function getWithCache (cache, key, fetcher) {
+  const now = Date.now()
+  const cached = cache.get(key)
+
+  if (cached) {
+    if (cached.expires && cached.expires > now && hasOwn.call(cached, 'value')) {
+      return Promise.resolve(cached.value)
+    }
+    if (cached.promise) {
+      return cached.promise
+    }
+  }
+
+  const promise = fetcher().then(result => {
+    const ttl = result ? DEFAULT_CACHE_TTL : NEGATIVE_CACHE_TTL
+    cache.set(key, {
+      value: result,
+      expires: Date.now() + ttl
+    })
+    return result
+  }).catch(error => {
+    cache.delete(key)
+    throw error
+  })
+
+  cache.set(key, { promise })
+  return promise
+}
 
 /**
  * Downloads the content of a url and writes it to the given output path.
@@ -180,6 +226,8 @@ function get(options) {
     })
 }
 
+githubRequest = get
+
 /**
  * Gives a list of all the source files in the given branch in the repository.
  * The Promise resolves with a list of objects containing information on each
@@ -273,19 +321,21 @@ async function urlExists(url) {
  * @returns {Promise<({}|false)>}
  * The branch info object, or false if not found
  */
-async function getBranchInfo(branch) {
-    const { body, statusCode } = await get({
-        hostname: 'api.github.com',
-        path: `/repos/${repo}/branches/${branch}`,
-        headers: {
-            'user-agent': 'github.highcharts.com',
-            ...authToken
-        }
+async function getBranchInfo (branch) {
+  return getWithCache(branchInfoCache, branch, async () => {
+    const { body, statusCode } = await githubRequest({
+      hostname: 'api.github.com',
+      path: `/repos/${repo}/branches/${branch}`,
+      headers: {
+        'user-agent': 'github.highcharts.com',
+        ...authToken
+      }
     })
     if (statusCode === 200) {
-        return JSON.parse(body)
+      return JSON.parse(body)
     }
     return false
+  })
 }
 
 
@@ -297,19 +347,30 @@ async function getBranchInfo(branch) {
  * @returns {Promise<({}|false)>}
  * The commit info object, or false if not found
  */
-async function getCommitInfo(commit) {
-    const { body, statusCode } = await get({
-        hostname: 'api.github.com',
-        path: `/repos/${repo}/commits/${commit}`,
-        headers: {
-            'user-agent': 'github.highcharts.com',
-            ...authToken
-        }
+async function getCommitInfo (commit) {
+  return getWithCache(commitInfoCache, commit, async () => {
+    const { body, statusCode } = await githubRequest({
+      hostname: 'api.github.com',
+      path: `/repos/${repo}/commits/${commit}`,
+      headers: {
+        'user-agent': 'github.highcharts.com',
+        ...authToken
+      }
     })
     if (statusCode === 200) {
-        return JSON.parse(body)
+      return JSON.parse(body)
     }
     return false
+  })
+}
+
+function setGitHubRequest (fn) {
+  githubRequest = typeof fn === 'function' ? fn : get
+}
+
+function clearGitHubCache () {
+  branchInfoCache.clear()
+  commitInfoCache.clear()
 }
 
 // Export download functions
@@ -322,5 +383,7 @@ module.exports = {
     httpsGetPromise: get,
     urlExists,
     getBranchInfo,
-    getCommitInfo
+    getCommitInfo,
+    __setGitHubRequest: setGitHubRequest,
+    __clearGitHubCache: clearGitHubCache
 }
