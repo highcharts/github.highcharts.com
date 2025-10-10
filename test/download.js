@@ -1,7 +1,8 @@
 const defaults = require('../app/download.js')
 const { expect } = require('chai')
 const fs = require('fs')
-const { after, before, describe, it } = require('mocha')
+const { after, afterEach, before, describe, it } = require('mocha')
+const sinon = require('sinon')
 
 describe('download.js', () => {
   describe('exported properties', () => {
@@ -14,7 +15,9 @@ describe('download.js', () => {
       'httpsGetPromise',
       'urlExists',
       'getBranchInfo',
-      'getCommitInfo'
+      'getCommitInfo',
+      '__setGitHubRequest',
+      '__clearGitHubCache'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {
@@ -120,5 +123,55 @@ describe('download.js', () => {
   })
   describe('urlExists', () => {
     it('is missings tests')
+  })
+
+  describe('GitHub metadata caching', () => {
+    const {
+      __setGitHubRequest,
+      __clearGitHubCache,
+      getBranchInfo,
+      getCommitInfo
+    } = defaults
+
+    afterEach(() => {
+      __setGitHubRequest()
+      __clearGitHubCache()
+    })
+
+    it('reuses the same request for parallel branch lookups', async () => {
+      const stub = sinon.stub().resolves({
+        statusCode: 200,
+        body: JSON.stringify({ commit: { sha: 'abc123' } })
+      })
+
+      __clearGitHubCache()
+      __setGitHubRequest(stub)
+
+      const [first, second] = await Promise.all([
+        getBranchInfo('feature/test'),
+        getBranchInfo('feature/test')
+      ])
+
+      expect(stub.callCount).to.equal(1)
+      expect(first?.commit?.sha).to.equal('abc123')
+      expect(second?.commit?.sha).to.equal('abc123')
+    })
+
+    it('returns cached commit info on subsequent calls', async () => {
+      const stub = sinon.stub().resolves({
+        statusCode: 200,
+        body: JSON.stringify({ sha: 'deadbeef' })
+      })
+
+      __clearGitHubCache()
+      __setGitHubRequest(stub)
+
+      const first = await getCommitInfo('deadbeef')
+      const second = await getCommitInfo('deadbeef')
+
+      expect(stub.callCount).to.equal(1)
+      expect(first?.sha).to.equal('deadbeef')
+      expect(second?.sha).to.equal('deadbeef')
+    })
   })
 })

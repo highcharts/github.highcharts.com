@@ -55,6 +55,9 @@ const queue = new JobQueue()
 async function shouldDownloadTypeScriptFolders (repoURL, branch) {
   const urlPath = `${repoURL}${branch}/ts/tsconfig.json`
   const tsConfigPath = join(PATH_TMP_DIRECTORY, branch, 'ts', 'tsconfig.json')
+  if (exists(tsConfigPath)) {
+    return true
+  }
   const tsConfigResponse = await downloadFile(urlPath, tsConfigPath)
 
   return (tsConfigResponse.statusCode >= 200 && tsConfigResponse.statusCode < 300)
@@ -302,6 +305,7 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
         return { status: 202, body: error.message }
       }
 
+      log(2, `Queue addJob failed for ${branch}: ${error.message}`)
       return { status: 200 }
     })
 

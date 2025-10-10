@@ -18,7 +18,7 @@ The application requires a configuration file `./config.json` to be able to run.
 
 | Setting | Description |
 |---|---|
-| informationLevel | The level of severity of the information outputted to the log. The severity can be 0 (everything), 1 (warnings and errors), 2 (only errors). Defaults to 2. |
+| informationLevel | The level of severity of the information outputted to the log. The severity can be 0 (everything), 1 (warnings and errors), 2 (only errors). Defaults to 2. You can override this per runtime by setting the `INFORMATION_LEVEL` environment variable. |
 | port | The port the server application will listen to. Defaults to 80. |
 | secureToken | The secret token used to validate the GitHub webhook post to /update. See [GitHub Developer - Securing your webhooks](https://developer.github.com/webhooks/securing/) for more information. |
 | token | Personal access token used to gain access to GitHub API. The token scope is requires only access to public repositories. See [GitHub Help - Creating a personal access token for the command line](https://help.github.com/en/github/authenticating-to-github/creating-a-personal-access-token-for-the-command-line) for more information. |
@@ -37,6 +37,14 @@ Example config file:
     "tmpLifetime": 168
 }
 ```
+
+To override logging without editing `config.json`, set an environment variable before starting the server, for example:
+
+```bash
+INFORMATION_LEVEL=0 npm start
+```
+
+Environment variables take precedence over values in `config.json`.
 
 ## Run the application
 Open a CLI and run the command: `npm start`

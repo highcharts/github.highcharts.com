@@ -22,12 +22,15 @@ const util = require('util')
 console.log(tscPath)
 
 // Import dependencies, sorted by path.
-const config = require('../config.json')
-
 // Constants
-const INFORMATION_LEVEL = typeof config.informationLevel === 'number'
-  ? config.informationLevel
-  : 2
+const envInformationLevel = process.env.INFORMATION_LEVEL
+const INFORMATION_LEVEL = (() => {
+  if (typeof envInformationLevel !== 'undefined') {
+    const parsed = Number(envInformationLevel)
+    return Number.isFinite(parsed) ? parsed : 2
+  }
+  return 2
+})()
 
 /**
  * Format a date as YYYY-MM-DDTHH-MM-SS. Returns a string with date formatted
