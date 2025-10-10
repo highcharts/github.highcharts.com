@@ -57,6 +57,7 @@ async function fsStat (path) {
   try {
     return await stat(path)
   } catch (e) {
+    log(2, `fsStat failed for ${path}: ${e.message}`)
     return false
   }
 }

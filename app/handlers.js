@@ -305,6 +305,7 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
         return { status: 202, body: error.message }
       }
 
+      log(2, `Queue addJob failed for ${branch}: ${error.message}`)
       return { status: 200 }
     })
 
