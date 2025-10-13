@@ -16,6 +16,7 @@ const {
   logErrors,
   setConnectionAborted
 } = require('./middleware.js')
+const { JobQueue } = require('./JobQueue')
 const router = require('./router.js')
 const { formatDate, log, compileTypeScript, compileTypeScriptProject } = require('./utilities.js')
 const { shouldUseWebpack } = require('./utils.js')
@@ -34,6 +35,18 @@ const state = {
   typescriptJobs: {},
   downloads: {},
   assembles: {}
+}
+
+const jobQueue = new JobQueue()
+
+function hasActiveJobs () {
+  const activeTypescriptJobs = Object.keys(state.typescriptJobs).length > 0
+  const activeAssemblyJobs = Object.keys(state.assembles).length > 0
+  const activeQueues =
+    jobQueue.getJobs('download').length > 0 ||
+    jobQueue.getJobs('compile').length > 0
+
+  return activeTypescriptJobs || activeAssemblyJobs || activeQueues
 }
 
 /**
@@ -176,18 +189,24 @@ APP.listen(PORT)
 
 // Clean up the tmp folder every now and then
 setInterval(async () => {
-  // Clean only after a certain amount of branches and when there are no jobs running
-  if (await shouldClean()) {
-    log(0, 'Cleaning up...')
-    await cleanUp().catch(error => {
-      console.log('Cleanup failed', error)
-    })
+  if (hasActiveJobs()) {
+    log(1, 'Skipping cleanup while jobs are active')
+    return
   }
+
+  if (!(await shouldClean())) {
+    return
+  }
+
+  log(0, 'Cleaning up...')
+  await cleanUp().catch(error => {
+    log(2, `Cleanup failed: ${error.message}`)
+  })
 }, config.cleanInterval || 2 * 60 * 1000)
 
 // Do a cleanup when restarting the server
-cleanUp().catch(() => {
-  log(0, 'Cleanup failed. Likely nothing to cleanup')
+cleanUp().catch(error => {
+  log(2, `Cleanup failed on startup: ${error.message}`)
 })
 
 module.exports = {
