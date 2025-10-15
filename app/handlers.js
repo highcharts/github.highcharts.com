@@ -44,6 +44,55 @@ const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
 const URL_DOWNLOAD = `https://raw.githubusercontent.com/${repo}/`
 
 const queue = new JobQueue()
+const RATE_LIMIT_HEADER_REMAINING = 'X-GitHub-RateLimit-Remaining'
+const RATE_LIMIT_HEADER_RESET = 'X-GitHub-RateLimit-Reset'
+
+/**
+ * Extract rate limit metadata from a source object.
+ * @param {{ rateLimitRemaining?: number, rateLimitReset?: number }|null|undefined} source
+ * @returns {{ rateLimitRemaining?: number, rateLimitReset?: number }|null}
+ */
+function extractRateLimitMeta (source) {
+  const remaining = (typeof source?.rateLimitRemaining === 'number') ? source.rateLimitRemaining : undefined
+  const reset = (typeof source?.rateLimitReset === 'number') ? source.rateLimitReset : undefined
+
+  if (remaining === undefined && reset === undefined) {
+    return null
+  }
+
+  return { rateLimitRemaining: remaining, rateLimitReset: reset }
+}
+
+/**
+ * Attach rate limit metadata to a result object without mutating the original.
+ * @template T
+ * @param {T} target
+ * @param {{ rateLimitRemaining?: number, rateLimitReset?: number }|null} meta
+ * @returns {T}
+ */
+function applyRateLimitMeta (target, meta) {
+  if (!target || !meta) {
+    return target
+  }
+
+  const needsRemaining = meta.rateLimitRemaining !== undefined && target.rateLimitRemaining === undefined
+  const needsReset = meta.rateLimitReset !== undefined && target.rateLimitReset === undefined
+
+  if (!needsRemaining && !needsReset) {
+    return target
+  }
+
+  const result = { ...target }
+
+  if (needsRemaining) {
+    result.rateLimitRemaining = meta.rateLimitRemaining
+  }
+  if (needsReset) {
+    result.rateLimitReset = meta.rateLimitReset
+  }
+
+  return result
+}
 
 /**
  * Tries to look for a remote tsconfig file if the branch/ref is of newer date typically 2019+.
@@ -111,19 +160,21 @@ async function handlerDefault (req, res) {
   // Serve a file depending on the request URL.
   // Try to serve  a static file.
   let result = await serveStaticFile(branch, url)
+  const rateLimitMeta = extractRateLimitMeta(result)
 
   if (result?.status !== 200) {
     // Try to build the file
-    result = await serveBuildFile(branch, url, useGitDownloader)
+    const buildResult = await serveBuildFile(branch, url, useGitDownloader)
+    result = applyRateLimitMeta(buildResult, rateLimitMeta)
   }
 
   // await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
 
   if (!result) {
-    result = {
-      status: 404,
+    result = applyRateLimitMeta({
+      status: 200,
       body: 'Not Found'
-    }
+    }, rateLimitMeta)
   }
 
   if (!res.headersSent) {
@@ -221,6 +272,8 @@ async function handlerUpdate (req, res) {
  * @param {import('express').Request} request Express request object.
  */
 async function respondToClient (result, response, request) {
+  const rateLimitRemaining = (typeof result?.rateLimitRemaining === 'number') ? result.rateLimitRemaining : undefined
+  const rateLimitReset = (typeof result?.rateLimitReset === 'number') ? result.rateLimitReset : undefined
   const { body, file, status } = result
   // Make sure connection is not lost before attemting a response.
   if (request.connectionAborted || response.headersSent) {
@@ -238,6 +291,13 @@ async function respondToClient (result, response, request) {
   // max age one hour
   response.header('Cache-Control', 'max-age=3600')
   response.header('CDN-Cache-Control', 'max-age=3600')
+
+  if (rateLimitRemaining !== undefined) {
+    response.header(RATE_LIMIT_HEADER_REMAINING, String(rateLimitRemaining))
+  }
+  if (rateLimitReset !== undefined) {
+    response.header(RATE_LIMIT_HEADER_RESET, String(rateLimitReset))
+  }
 
   if (file) {
     await new Promise((resolve, reject) => {
@@ -313,7 +373,7 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
       return maybeResponse
     }
 
-    return { status: 404, body: 'could not find' }
+    return { status: 200, body: 'could not find' }
   }
 
   const buildProject = isMastersQuery
@@ -378,7 +438,7 @@ ${error.message}`)
       ).then(() => {
         return { status: 200, file: pathOutputFile }
       }).catch(() => {
-        return { status: 404, body: 'Server busy, try again in a few minutes' }
+        return { status: 200, body: 'Server busy, try again in a few minutes' }
       })
     }
 
@@ -476,6 +536,7 @@ ${error.message}`)
  */
 async function serveStaticFile (branch, requestURL) {
   const file = getFile(branch, 'classic', requestURL)
+  let rateLimitMeta = null
 
   // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
@@ -488,11 +549,15 @@ async function serveStaticFile (branch, requestURL) {
     if (!existsSync(fileLocation)) {
       const urlFile = `${URL_DOWNLOAD}${branch}/${file}`
       const download = await downloadFile(urlFile, fileLocation)
+      const downloadMeta = extractRateLimitMeta(download)
+      if (downloadMeta) {
+        rateLimitMeta = downloadMeta
+      }
       if (download.success) {
-        return { status: 200, file: fileLocation }
+        return applyRateLimitMeta({ status: 200, file: fileLocation }, rateLimitMeta)
       }
     } else {
-      return { status: 200, file: fileLocation }
+      return applyRateLimitMeta({ status: 200, file: fileLocation }, rateLimitMeta)
     }
   }
 
@@ -502,18 +567,25 @@ async function serveStaticFile (branch, requestURL) {
   if (!exists(pathFile)) {
     const urlFile = `${URL_DOWNLOAD}${branch}/js/${file}`
     const download = await downloadFile(urlFile, pathFile)
+    const downloadMeta = extractRateLimitMeta(download)
+    if (downloadMeta) {
+      rateLimitMeta = downloadMeta
+    }
     if (download.statusCode !== 200) {
       // we don't always know if it is a static file before we have tried to download it.
       // check if this branch contains TypeScript config (we then need to compile it).
       if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(URL_DOWNLOAD, branch)) {
-        return serveBuildFile(branch, requestURL)
+        const buildResult = await serveBuildFile(branch, requestURL)
+        return applyRateLimitMeta(buildResult, rateLimitMeta)
       }
-      return response.missingFile
+      return applyRateLimitMeta({ ...response.missingFile }, rateLimitMeta)
     }
+
+    return applyRateLimitMeta({ status: 200, file: pathFile }, rateLimitMeta)
   }
 
   // Return path to file location in the cache.
-  return { status: 200, file: pathFile }
+  return applyRateLimitMeta({ status: 200, file: pathFile }, rateLimitMeta)
 }
 
 function printTreeChildren (children, level = 1, carry) {
@@ -545,7 +617,7 @@ async function handlerFS (req, res) {
         return respondToClient({ status: 200, body: `<pre>${textTree}</pre>` }, res, req)
       }
     }
-    return respondToClient({ status: 404, body: 'no output folder found for this commit' }, res, req)
+    return respondToClient({ status: 200, body: 'no output folder found for this commit' }, res, req)
   }
 
   return respondToClient(response.missingFile, res, req)

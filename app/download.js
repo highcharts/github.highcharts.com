@@ -11,7 +11,7 @@ const { writeFile } = require('./filesystem.js')
 const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
-const authToken = { Authorization: `token ${token}` }
+const authToken = token ? { Authorization: `token ${token}` } : {}
 
 const degit = require('tiged')
 
@@ -21,6 +21,46 @@ const NEGATIVE_CACHE_TTL = Number(process.env.GITHUB_LOOKUP_NEGATIVE_CACHE_TTL |
 const branchInfoCache = new Map()
 const commitInfoCache = new Map()
 let githubRequest
+
+/**
+ * Extracts rate limit information from a headers object.
+ * @param {import('http').IncomingHttpHeaders|undefined} headers
+ */
+function getRateLimitInfo (headers) {
+  if (!headers) {
+    return { remaining: undefined, reset: undefined }
+  }
+
+  const remainingHeader = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining']
+  const resetHeader = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset']
+
+  const remaining = Number.parseInt(remainingHeader, 10)
+  const reset = Number.parseInt(resetHeader, 10)
+
+  return {
+    remaining: Number.isNaN(remaining) ? undefined : remaining,
+    reset: Number.isNaN(reset) ? undefined : reset
+  }
+}
+
+/**
+ * Logs a warning when rate limit remaining is depleted.
+ * @param {import('http').IncomingHttpHeaders|undefined} headers
+ * @param {string} context
+ * @returns {{ remaining: number|undefined, reset: number|undefined }}
+ */
+function logRateLimitIfDepleted (headers, context) {
+  const { remaining, reset } = getRateLimitInfo(headers)
+
+  if (remaining === 0) {
+    const resetTime = reset
+      ? new Date(reset * 1000).toISOString()
+      : 'unknown'
+    log(2, `GitHub API rate limit exhausted while ${context}. Next reset: ${resetTime}`)
+  }
+
+  return { remaining, reset }
+}
 
 /**
  * Resolve a value from cache or execute the provided fetcher.
@@ -69,7 +109,7 @@ function getWithCache (cache, key, fetcher) {
  * @param {string} outputPath The path to output the content at the URL.
  */
 async function downloadFile (url, outputPath) {
-  const { body, statusCode } = await get(url)
+  const { body, statusCode, headers } = await get(url)
   const result = {
     outputPath,
     statusCode,
@@ -81,6 +121,13 @@ async function downloadFile (url, outputPath) {
     log(0, `Downloading ${url}`)
     await writeFile(outputPath, body)
     result.success = true
+  }
+  const { remaining, reset } = logRateLimitIfDepleted(headers, `downloading ${url}`)
+  if (typeof remaining === 'number') {
+    result.rateLimitRemaining = remaining
+  }
+  if (typeof reset === 'number') {
+    result.rateLimitReset = reset
   }
 
   return result
@@ -217,7 +264,11 @@ function get(options) {
             response.setEncoding('utf8')
             response.on('data', (data) => { body.push(data) })
             response.on('end', () =>
-                resolve({ statusCode: response.statusCode, body: body.join('') })
+                resolve({
+                    statusCode: response.statusCode,
+                    body: body.join(''),
+                    headers: response.headers
+                })
             )
         })
         request.on('error', reject)

@@ -137,7 +137,7 @@ async function dashboardsHandler (req, res, next) {
   }
 
   if (!commit) {
-    res.sendStatus(404)
+    res.status(200).send('No matching commit or branch found')
     return
   }
 
@@ -164,7 +164,7 @@ async function dashboardsHandler (req, res, next) {
         return handleQueueError(error)
       })
     } else {
-      return res.sendStatus(404)
+      return res.status(200).send('Unable to access cached dashboard files')
     }
   }
 
