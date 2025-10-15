@@ -10,7 +10,7 @@ Clone the repository and install required dependencies by running the following 
 ```
 git clone https://github.com/highcharts/github.highcharts.com.git
 cd github.highcharts.com
-npm install
+npm i
 ```
 
 ### Configure settings
