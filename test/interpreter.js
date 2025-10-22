@@ -47,6 +47,11 @@ describe('interpreter.js', () => {
       expect(await getBranch('/6.0.7'))
         .to.equal('6.0.7')
     })
+
+    it('should ignore query strings', async () => {
+      expect(await getBranch('/feature/new-api/modules/exporting.src.js?cache=123'))
+        .to.equal('feature/new-api')
+    })
   })
 
   describe('getType', () => {
@@ -65,6 +70,11 @@ describe('interpreter.js', () => {
     it('should support custom builds', () => {
       expect(getType('6.0.7', '/6.0.7'))
         .to.equal('classic')
+    })
+
+    it('should ignore query strings', () => {
+      expect(getType('bugfix', '/bugfix/js/modules/exporting.src.js?cache=123'))
+        .to.equal('css')
     })
   })
 
@@ -90,6 +100,11 @@ describe('interpreter.js', () => {
     it('should support custom builds', () => {
       expect(getFile('6.0.7', 'classic', '/6.0.7'))
         .to.equal(false)
+    })
+
+    it('should ignore query strings', () => {
+      expect(getFile('master', 'classic', '/highcharts.js?cache=123'))
+        .to.equal('highcharts.src.js')
     })
   })
 
