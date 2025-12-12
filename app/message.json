@@ -28,6 +28,10 @@
           "status": 200,
           "body": "Not found"
       },
+      "rateLimited": {
+          "status": 429,
+          "body": "GitHub API rate limit exceeded. Please try again later."
+      },
       "noCache": {
           "status": 202,
           "body": "This branch has no cached files, aborting."

@@ -9,7 +9,7 @@
 
 // Import dependencies, sorted by path name.
 const { secureToken, repo } = require('../config.json')
-const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo, getCommitInfo } = require('./download.js')
+const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo, getCommitInfo, isRateLimited } = require('./download.js')
 const { log } = require('./utilities')
 
 const {
@@ -132,6 +132,17 @@ function catchAsyncErrors (asyncFn) {
  * @param {import('express').Request} req Express request object.
  */
 async function handlerDefault (req, res) {
+  // Check if we're currently rate limited before making any GitHub requests
+  const rateLimitCheck = isRateLimited()
+  if (rateLimitCheck.limited) {
+    const result = {
+      ...response.rateLimited,
+      rateLimitRemaining: 0,
+      rateLimitReset: rateLimitCheck.reset
+    }
+    return respondToClient(result, res, req)
+  }
+
   let branch = await getBranch(req.path)
   let url = req.url
   let useGitDownloader = branch === 'master' || /^\/v[0-9]/.test(req.path) // version tags
@@ -288,9 +299,20 @@ async function respondToClient (result, response, request) {
     'Origin, X-Requested-With, Content-Type, Accept'
   )
 
-  // max age one hour
-  response.header('Cache-Control', 'max-age=3600')
-  response.header('CDN-Cache-Control', 'max-age=3600')
+  // For rate limited responses, don't cache and set Retry-After
+  if (status === 429) {
+    response.header('Cache-Control', 'no-store')
+    response.header('CDN-Cache-Control', 'no-store')
+    if (rateLimitReset !== undefined) {
+      const now = Math.floor(Date.now() / 1000)
+      const retryAfter = Math.max(0, rateLimitReset - now)
+      response.header('Retry-After', String(retryAfter))
+    }
+  } else {
+    // max age one hour
+    response.header('Cache-Control', 'max-age=3600')
+    response.header('CDN-Cache-Control', 'max-age=3600')
+  }
 
   if (rateLimitRemaining !== undefined) {
     response.header(RATE_LIMIT_HEADER_REMAINING, String(rateLimitRemaining))

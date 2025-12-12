@@ -23,6 +23,68 @@ const commitInfoCache = new Map()
 let githubRequest
 
 /**
+ * Global rate limit state tracking.
+ * When rate limit is exhausted, we store the reset time to avoid
+ * making unnecessary requests that will fail.
+ */
+const rateLimitState = {
+  remaining: undefined,
+  reset: undefined
+}
+
+/**
+ * Update the global rate limit state from response headers.
+ * @param {number|undefined} remaining
+ * @param {number|undefined} reset
+ */
+function updateRateLimitState (remaining, reset) {
+  if (remaining !== undefined) {
+    rateLimitState.remaining = remaining
+  }
+  if (reset !== undefined) {
+    rateLimitState.reset = reset
+  }
+}
+
+/**
+ * Check if we are currently rate limited.
+ * Returns an object with `limited` boolean and `retryAfter` seconds if limited.
+ * @returns {{ limited: boolean, retryAfter: number|undefined, reset: number|undefined }}
+ */
+function isRateLimited () {
+  const now = Math.floor(Date.now() / 1000)
+
+  // If reset time has passed, we're no longer rate limited
+  if (rateLimitState.reset && now >= rateLimitState.reset) {
+    rateLimitState.remaining = undefined
+    rateLimitState.reset = undefined
+    return { limited: false, retryAfter: undefined, reset: undefined }
+  }
+
+  // If we know we have no remaining requests
+  if (rateLimitState.remaining === 0 && rateLimitState.reset) {
+    const retryAfter = Math.max(0, rateLimitState.reset - now)
+    return { limited: true, retryAfter, reset: rateLimitState.reset }
+  }
+
+  return { limited: false, retryAfter: undefined, reset: undefined }
+}
+
+/**
+ * Get the current rate limit state for external inspection.
+ * @returns {{ remaining: number|undefined, reset: number|undefined, limited: boolean, retryAfter: number|undefined }}
+ */
+function getRateLimitState () {
+  const { limited, retryAfter } = isRateLimited()
+  return {
+    remaining: rateLimitState.remaining,
+    reset: rateLimitState.reset,
+    limited,
+    retryAfter
+  }
+}
+
+/**
  * Extracts rate limit information from a headers object.
  * @param {import('http').IncomingHttpHeaders|undefined} headers
  */
@@ -45,12 +107,16 @@ function getRateLimitInfo (headers) {
 
 /**
  * Logs a warning when rate limit remaining is depleted.
+ * Also updates the global rate limit state.
  * @param {import('http').IncomingHttpHeaders|undefined} headers
  * @param {string} context
  * @returns {{ remaining: number|undefined, reset: number|undefined }}
  */
 function logRateLimitIfDepleted (headers, context) {
   const { remaining, reset } = getRateLimitInfo(headers)
+
+  // Update global state
+  updateRateLimitState(remaining, reset)
 
   if (remaining === 0) {
     const resetTime = reset
@@ -314,7 +380,7 @@ async function getDownloadFiles(branch) {
  * @param {string} branch The name of the branch the files are located in.
  */
 async function getFilesInFolder(path, branch) {
-    const { body, statusCode } = await get({
+    const { body, statusCode, headers } = await get({
         hostname: 'api.github.com',
         path: `/repos/${repo}/contents/${path}?ref=${branch}`,
         headers: {
@@ -322,6 +388,7 @@ async function getFilesInFolder(path, branch) {
             ...authToken
         }
     })
+    logRateLimitIfDepleted(headers, `listing files in ${path} for ${branch}`)
 
     if (statusCode !== 200) {
         console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}. (HTTP ${statusCode})`)
@@ -373,7 +440,7 @@ async function urlExists(url) {
  */
 async function getBranchInfo (branch) {
   return getWithCache(branchInfoCache, branch, async () => {
-    const { body, statusCode } = await githubRequest({
+    const { body, statusCode, headers } = await githubRequest({
       hostname: 'api.github.com',
       path: `/repos/${repo}/branches/${branch}`,
       headers: {
@@ -381,6 +448,7 @@ async function getBranchInfo (branch) {
         ...authToken
       }
     })
+    logRateLimitIfDepleted(headers, `fetching branch info for ${branch}`)
     if (statusCode === 200) {
       return JSON.parse(body)
     }
@@ -399,7 +467,7 @@ async function getBranchInfo (branch) {
  */
 async function getCommitInfo (commit) {
   return getWithCache(commitInfoCache, commit, async () => {
-    const { body, statusCode } = await githubRequest({
+    const { body, statusCode, headers } = await githubRequest({
       hostname: 'api.github.com',
       path: `/repos/${repo}/commits/${commit}`,
       headers: {
@@ -407,6 +475,7 @@ async function getCommitInfo (commit) {
         ...authToken
       }
     })
+    logRateLimitIfDepleted(headers, `fetching commit info for ${commit}`)
     if (statusCode === 200) {
       return JSON.parse(body)
     }
@@ -423,6 +492,24 @@ function clearGitHubCache () {
   commitInfoCache.clear()
 }
 
+/**
+ * Reset the rate limit state. Used for testing.
+ */
+function clearRateLimitState () {
+  rateLimitState.remaining = undefined
+  rateLimitState.reset = undefined
+}
+
+/**
+ * Set rate limit state directly. Used for testing.
+ * @param {number|undefined} remaining
+ * @param {number|undefined} reset
+ */
+function setRateLimitState (remaining, reset) {
+  rateLimitState.remaining = remaining
+  rateLimitState.reset = reset
+}
+
 // Export download functions
 module.exports = {
     downloadFile,
@@ -434,6 +521,10 @@ module.exports = {
     urlExists,
     getBranchInfo,
     getCommitInfo,
+    isRateLimited,
+    getRateLimitState,
     __setGitHubRequest: setGitHubRequest,
-    __clearGitHubCache: clearGitHubCache
+    __clearGitHubCache: clearGitHubCache,
+    __clearRateLimitState: clearRateLimitState,
+    __setRateLimitState: setRateLimitState
 }
