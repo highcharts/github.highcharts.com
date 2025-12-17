@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - feat/platform-action
 jobs:
   flow:
     uses: highsoft-corp/hs-platform-workflows/.github/workflows/flow_docker.yml@main
