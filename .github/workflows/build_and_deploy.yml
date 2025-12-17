@@ -22,4 +22,4 @@ jobs:
       registry: ghcr.io
       folder_name: .
       image_name: ${{ github.repository }}
-      deploy_branch: master
+      #deploy_branch: master
