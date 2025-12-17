@@ -25,8 +25,12 @@
         "body": "Could not assemble this file. It is likely an error located in the source files."
       },
       "notFound": {
-          "status": 404,
+          "status": 200,
           "body": "Not found"
+      },
+      "rateLimited": {
+          "status": 429,
+          "body": "GitHub API rate limit exceeded. Please try again later."
       },
       "noCache": {
           "status": 202,

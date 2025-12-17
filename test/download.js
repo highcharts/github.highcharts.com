@@ -1,7 +1,8 @@
 const defaults = require('../app/download.js')
 const { expect } = require('chai')
 const fs = require('fs')
-const { after, before, describe, it } = require('mocha')
+const { after, afterEach, before, describe, it } = require('mocha')
+const sinon = require('sinon')
 
 describe('download.js', () => {
   describe('exported properties', () => {
@@ -14,7 +15,13 @@ describe('download.js', () => {
       'httpsGetPromise',
       'urlExists',
       'getBranchInfo',
-      'getCommitInfo'
+      'getCommitInfo',
+      'isRateLimited',
+      'getRateLimitState',
+      '__setGitHubRequest',
+      '__clearGitHubCache',
+      '__clearRateLimitState',
+      '__setRateLimitState'
     ]
     it('should have a default export', () => {
       functions.forEach((name) => {
@@ -120,5 +127,114 @@ describe('download.js', () => {
   })
   describe('urlExists', () => {
     it('is missings tests')
+  })
+
+  describe('GitHub metadata caching', () => {
+    const {
+      __setGitHubRequest,
+      __clearGitHubCache,
+      getBranchInfo,
+      getCommitInfo
+    } = defaults
+
+    afterEach(() => {
+      __setGitHubRequest()
+      __clearGitHubCache()
+    })
+
+    it('reuses the same request for parallel branch lookups', async () => {
+      const stub = sinon.stub().resolves({
+        statusCode: 200,
+        body: JSON.stringify({ commit: { sha: 'abc123' } })
+      })
+
+      __clearGitHubCache()
+      __setGitHubRequest(stub)
+
+      const [first, second] = await Promise.all([
+        getBranchInfo('feature/test'),
+        getBranchInfo('feature/test')
+      ])
+
+      expect(stub.callCount).to.equal(1)
+      expect(first?.commit?.sha).to.equal('abc123')
+      expect(second?.commit?.sha).to.equal('abc123')
+    })
+
+    it('returns cached commit info on subsequent calls', async () => {
+      const stub = sinon.stub().resolves({
+        statusCode: 200,
+        body: JSON.stringify({ sha: 'deadbeef' })
+      })
+
+      __clearGitHubCache()
+      __setGitHubRequest(stub)
+
+      const first = await getCommitInfo('deadbeef')
+      const second = await getCommitInfo('deadbeef')
+
+      expect(stub.callCount).to.equal(1)
+      expect(first?.sha).to.equal('deadbeef')
+      expect(second?.sha).to.equal('deadbeef')
+    })
+  })
+
+  describe('rate limiting', () => {
+    const {
+      isRateLimited,
+      getRateLimitState,
+      __clearRateLimitState,
+      __setRateLimitState
+    } = defaults
+
+    afterEach(() => {
+      __clearRateLimitState()
+    })
+
+    it('isRateLimited returns not limited by default', () => {
+      const result = isRateLimited()
+      expect(result.limited).to.equal(false)
+      expect(result.retryAfter).to.equal(undefined)
+    })
+
+    it('getRateLimitState returns state object', () => {
+      const state = getRateLimitState()
+      expect(state).to.have.property('limited')
+      expect(state).to.have.property('remaining')
+      expect(state).to.have.property('reset')
+      expect(state).to.have.property('retryAfter')
+    })
+
+    it('isRateLimited returns limited when remaining is 0 and reset is in future', () => {
+      const futureReset = Math.floor(Date.now() / 1000) + 60 // 60 seconds in future
+      __setRateLimitState(0, futureReset)
+
+      const result = isRateLimited()
+      expect(result.limited).to.equal(true)
+      expect(result.retryAfter).to.be.a('number')
+      expect(result.retryAfter).to.be.greaterThan(0)
+      expect(result.reset).to.equal(futureReset)
+    })
+
+    it('isRateLimited clears state when reset time has passed', () => {
+      const pastReset = Math.floor(Date.now() / 1000) - 10 // 10 seconds in past
+      __setRateLimitState(0, pastReset)
+
+      const result = isRateLimited()
+      expect(result.limited).to.equal(false)
+
+      // State should be cleared
+      const state = getRateLimitState()
+      expect(state.remaining).to.equal(undefined)
+      expect(state.reset).to.equal(undefined)
+    })
+
+    it('isRateLimited returns not limited when remaining is greater than 0', () => {
+      const futureReset = Math.floor(Date.now() / 1000) + 60
+      __setRateLimitState(5, futureReset)
+
+      const result = isRateLimited()
+      expect(result.limited).to.equal(false)
+    })
   })
 })

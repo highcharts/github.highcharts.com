@@ -4,7 +4,7 @@ const { join } = require('node:path')
 const { stat, opendir, readFile, writeFile, symlink } = require('node:fs/promises')
 const { existsSync } = require('node:fs')
 const { downloadSourceFolder, getBranchInfo, getCommitInfo } = require('./download')
-const { compileTypeScript } = require('./utilities')
+const { compileTypeScript, log } = require('./utilities')
 const { build } = require('@highcharts/highcharts-assembler/src/build')
 const { JobQueue } = require('./JobQueue')
 
@@ -51,7 +51,7 @@ async function assembleDashboards (pathCacheDirectory, commit) {
       namespace: 'Dashboards'
     })
   } catch (error) {
-    console.log('assembler error: ', error)
+    log(2, `Dashboards assembler error: ${error.message}`)
   }
 
   /**
@@ -59,7 +59,10 @@ async function assembleDashboards (pathCacheDirectory, commit) {
       */
   async function modifyFiles (dirPath) {
     const dir = await opendir(dirPath)
-      .catch(() => null)
+      .catch(error => {
+        log(2, `Failed to open directory ${dirPath}: ${error.message}`)
+        return null
+      })
 
     if (dir) {
       for await (const dirent of dir) {
@@ -78,7 +81,10 @@ async function assembleDashboards (pathCacheDirectory, commit) {
           await symlink(
             join(dirPath, dirent.name),
             join(dirPath, dirent.name.replace('.src', ''))
-          ).catch(() => null)
+          ).catch(error => {
+            log(2, `Failed to create symlink in ${dirPath}: ${error.message}`)
+            return null
+          })
         }
       }
     }
@@ -131,7 +137,7 @@ async function dashboardsHandler (req, res, next) {
   }
 
   if (!commit) {
-    res.sendStatus(404)
+    res.status(200).send('No matching commit or branch found')
     return
   }
 
@@ -142,7 +148,7 @@ async function dashboardsHandler (req, res, next) {
     await stat(join(pathCacheDirectory, 'js'))
   } catch (err) {
     if (err.code === 'ENOENT') {
-      await queue.addJob(
+      await Promise.resolve().then(() => queue.addJob(
         'download',
         commit,
         {
@@ -153,9 +159,12 @@ async function dashboardsHandler (req, res, next) {
             commit
           ]
         }
-      ).catch(handleQueueError)
+      )).catch(error => {
+        log(2, `Failed to enqueue download for ${commit}: ${error.message}`)
+        return handleQueueError(error)
+      })
     } else {
-      return res.sendStatus(404)
+      return res.status(200).send('Unable to access cached dashboard files')
     }
   }
 
@@ -188,7 +197,7 @@ async function dashboardsHandler (req, res, next) {
       : Promise.resolve(false),
     // try to build and assemble file
     async () => {
-      await queue.addJob(
+      await Promise.resolve().then(() => queue.addJob(
         'compile',
         commit + filepath,
         {
@@ -199,16 +208,23 @@ async function dashboardsHandler (req, res, next) {
               ? obj.compile
               : obj.compile.replace('.js', '.src.js')
           ]
-        }).catch(handleQueueError)
+        }
+      )).catch(error => {
+        log(2, `Failed to enqueue TypeScript compile for ${commit}${filepath}: ${error.message}`)
+        return handleQueueError(error)
+      })
 
-      await queue.addJob(
+      await Promise.resolve().then(() => queue.addJob(
         'compile',
         commit + filepath,
         {
           func: assembleDashboards,
           args: [pathCacheDirectory, commit]
         }
-      ).catch(handleQueueError)
+      )).catch(error => {
+        log(2, `Failed to enqueue dashboard assembly for ${commit}${filepath}: ${error.message}`)
+        return handleQueueError(error)
+      })
 
       res.status(201)
 

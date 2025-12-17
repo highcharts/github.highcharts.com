@@ -24,14 +24,14 @@ class JobQueue {
   async doJob (queue, jobID) {
     const job = queue.get(jobID)
     if (job) {
-      job.func(...job.args)
-        .catch((error) => {
-          console.log(error)
-        })
-        .finally(() => {
-          queue.delete(jobID)
-          job.setDone(true)
-        })
+      try {
+        await Promise.resolve().then(() => job.func(...job.args))
+      } catch (error) {
+        console.log(error)
+      } finally {
+        queue.delete(jobID)
+        job.setDone(true)
+      }
       await job.done
     }
   }

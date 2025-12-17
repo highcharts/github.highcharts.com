@@ -26,6 +26,7 @@ const BRANCH_TYPES = [
 const PRODUCTS = ['stock', 'maps', 'gantt']
 
 const replaceAll = (str, search, replace) => str.split(search).join(replace)
+const stripQuery = (url) => (typeof url === 'string' ? url.split('?')[0] : '')
 
 /**
  * Finds which branch, tag, or commit that is requested by the client. Defaults
@@ -34,6 +35,7 @@ const replaceAll = (str, search, replace) => str.split(search).join(replace)
  * @param  {string} url The request URL.
  */
 async function getBranch (url) {
+  url = stripQuery(url)
   const folders = ['adapters', 'indicators', 'modules', 'parts-3d', 'parts-map',
     'parts-more', 'parts', 'themes']
   const isValidBranchName = (str) => (
@@ -71,6 +73,7 @@ async function getBranch (url) {
  * @param  {string} url The request URL.
  */
 function getFile (branch, type, url) {
+  url = stripQuery(url)
   // Replace branches in url, since we save by commit sha
   url = url.replace(/^\/master/, '')
   url = url.replace(/^\/v[0-9]+\//, '/')
@@ -173,6 +176,7 @@ function getFileOptions (files, pathJS) {
  * @param  {string} url The request URL.
  */
 const getType = (branch, url) => {
+  url = stripQuery(url)
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
     x => x === branch.split('/')[1], // Remove second section of branch name
