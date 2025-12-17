@@ -6,6 +6,11 @@ on:
     branches:
       - master
 jobs:
+  temp:
+    runs-on: ubuntu-latest
+    outputs:
+      ref: ${{ github.repository.ref }}
+      default_branch: ${{ github.event.repository.default_branch }}
   flow:
     uses: highsoft-corp/hs-platform-workflows/.github/workflows/flow_docker.yml@main
     secrets: inherit
@@ -13,3 +18,4 @@ jobs:
       registry: ghcr.io
       folder_name: .
       image_name: ${{ github.repository }}
+      deploy_branch: master
