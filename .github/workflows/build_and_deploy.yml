@@ -8,6 +8,10 @@ on:
 jobs:
   temp:
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
     outputs:
       ref: ${{ github.repository.ref }}
       default_branch: ${{ github.event.repository.default_branch }}
