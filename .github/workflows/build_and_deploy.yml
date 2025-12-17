@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - "**"
+      - master
 jobs:
   flow:
     uses: highsoft-corp/hs-platform-workflows/.github/workflows/flow_docker.yml@main
