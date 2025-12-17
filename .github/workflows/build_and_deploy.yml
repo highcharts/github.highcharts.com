@@ -13,3 +13,4 @@ jobs:
       registry: ghcr.io
       folder_name: .
       image_name: ${{ github.repository }}
+      use_conventional_commits: false
