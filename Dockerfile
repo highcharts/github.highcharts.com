@@ -1,12 +1,29 @@
-FROM node:lts
-WORKDIR /var/app/current
+FROM --platform=$TARGETPLATFORM node:lts-alpine as deps
 
-COPY package*.json ./
+WORKDIR /app
 
-RUN npm install --omit=dev
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
 
+FROM --platform=$TARGETPLATFORM node:lts-alpine as builder
+
+WORKDIR /app
+
+# Install only production dependencies (yarn)
+COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+FROM --platform=$TARGETPLATFORM node:lts-alpine as runner
+
+RUN apk add --no-cache tini
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY --from=builder /app .
 
 EXPOSE 8080
 
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "server.js"]
