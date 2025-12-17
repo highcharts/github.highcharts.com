@@ -3,7 +3,8 @@ name: Create Docker image and deploy
 on:
   workflow_dispatch:
   push:
-    branches: ["*"]
+    branches: 
+      - "**"
 jobs:
   temp:
     runs-on: ubuntu-latest
