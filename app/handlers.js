@@ -38,6 +38,7 @@ const directoryTree = require('directory-tree')
 const { JobQueue } = require('./JobQueue')
 const { existsSync } = require('node:fs')
 const { shouldUseWebpack, compileWebpack } = require('./utils.js')
+const { compileWithEsbuild } = require('./esbuild.js')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
@@ -143,6 +144,9 @@ async function handlerDefault (req, res) {
     return respondToClient(result, res, req)
   }
 
+  // Check for esbuild mode
+  const useEsbuild = /[?&]esbuild(?:[&=]|$)/.test(req.url)
+
   let branch = await getBranch(req.path)
   let url = req.url
   let useGitDownloader = branch === 'master' || /^\/v[0-9]/.test(req.path) // version tags
@@ -166,6 +170,16 @@ async function handlerDefault (req, res) {
       url = url.replace(branch, sha)
       branch = sha
     }
+  }
+
+  // Handle esbuild mode
+  if (useEsbuild) {
+    const result = await serveEsbuildFile(branch, url, useGitDownloader)
+    if (!res.headersSent) {
+      res.header('ETag', branch)
+      res.header('X-Built-With', 'esbuild')
+    }
+    return respondToClient(result, res, req)
   }
 
   // Serve a file depending on the request URL.
@@ -608,6 +622,59 @@ async function serveStaticFile (branch, requestURL) {
 
   // Return path to file location in the cache.
   return applyRateLimitMeta({ status: 200, file: pathFile }, rateLimitMeta)
+}
+
+/**
+ * Interprets the request URL and serves a file compiled with esbuild.
+ * Downloads the source files if needed, then compiles with esbuild.
+ * The Promise resolves with an object containing information on the response.
+ *
+ * @param {string} branch The branch/commit SHA
+ * @param {string} requestURL The url which the request was sent to.
+ * @param {boolean} useGitDownloader Whether to use the git downloader
+ */
+async function serveEsbuildFile (branch, requestURL, useGitDownloader = true) {
+  const type = getType(branch, requestURL)
+  const file = getFile(branch, type, requestURL)
+
+  // Respond with not found if the interpreter can not find a filename.
+  if (file === false) {
+    return response.missingFile
+  }
+
+  const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
+  const tsMastersDirectory = join(pathCacheDirectory, 'ts', 'masters')
+
+  // Check if source files are downloaded
+  const isAlreadyDownloaded = exists(tsMastersDirectory)
+
+  if (!isAlreadyDownloaded) {
+    const maybeResponse = await queue.addJob(
+      'download',
+      branch,
+      {
+        func: downloadSourceFolder,
+        args: [
+          pathCacheDirectory, URL_DOWNLOAD, branch
+        ]
+      }
+    ).catch(error => {
+      if (error.name === 'QueueFullError') {
+        return { status: 202, body: error.message }
+      }
+
+      log(2, `Queue addJob failed for ${branch}: ${error.message}`)
+      return { status: 500, body: 'Download failed' }
+    })
+
+    if (maybeResponse.status && maybeResponse.status !== 200) {
+      return maybeResponse
+    }
+  }
+
+  // Compile with esbuild
+  const result = await compileWithEsbuild(branch, file)
+  return result
 }
 
 function printTreeChildren (children, level = 1, carry) {
