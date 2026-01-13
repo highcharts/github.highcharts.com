@@ -33,7 +33,6 @@
     "ky-universal": "^0.10.1",
     "mocha": "^10.8.2",
     "nyc": "^14.1.1",
-    "rimraf": "^3.0.0",
     "sinon": "^4.0.1",
     "standard": "^17.1.0"
   },
@@ -46,7 +45,7 @@
     "build": "node ./scripts/deploy.js",
     "tsc": "npx tsc -P ./src/tsconfig.json && npm run lint",
     "precommit": "npm test",
-    "pretest": "npm run tsc && rimraf tmp/",
+    "pretest": "npm run tsc && node -e \"fs.rmSync('tmp', {recursive:true, force:true})\"",
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "unit-tests": "mocha test/test.js",
