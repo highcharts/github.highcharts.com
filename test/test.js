@@ -1,4 +1,5 @@
 require('./download.js')
+require('./esbuild.js')
 require('./filesystem.js')
 require('./interpreter.js')
 require('./middleware.js')

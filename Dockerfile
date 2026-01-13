@@ -9,7 +9,7 @@ FROM --platform=$TARGETPLATFORM node:lts-alpine as builder
 
 WORKDIR /app
 
-# Install only production dependencies (yarn)
+# Install only production dependencies
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
