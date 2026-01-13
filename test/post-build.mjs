@@ -14,7 +14,6 @@
  */
 
 import paths from './modules.mjs'
-import ky from 'ky-universal'
 
 const options = {
   baseUrl: 'http://localhost:8080',
@@ -39,6 +38,22 @@ async function waitFor (time) {
   })
 }
 
+async function fetchWithRetry (url, opts, retries) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      const response = await fetch(url, { ...opts, signal: controller.signal })
+      clearTimeout(timeoutId)
+      return response
+    } catch (error) {
+      if (attempt === retries) throw error
+      // Wait before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+}
+
 const urls = paths.map(path => {
   const { baseUrl, branch } = options
   return (branch.length ? [baseUrl, branch, path] : [baseUrl, path]).join('/')
@@ -47,13 +62,11 @@ const urls = paths.map(path => {
 (async () => {
   for (const url of urls) {
     try {
-      const result = await ky(url, {
+      const result = await fetchWithRetry(url, {
         headers: {
           Referer: 'http://highcharts.local'
-        },
-        timeout: 10000,
-        retry: options.retry
-      })
+        }
+      }, options.retry)
 
       console.log(result.url, result.status)
       await waitFor(options.delay)
