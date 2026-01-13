@@ -29,7 +29,7 @@
     "eslint-plugin-import": "^2.28.0",
     "eslint-plugin-n": "^16.0.1",
     "eslint-plugin-promise": "^6.1.1",
-    "husky": "^0.14.3",
+    "husky": "^9.1.7",
     "mocha": "^10.8.2",
     "nyc": "^14.1.1",
     "sinon": "^4.0.1",
@@ -43,12 +43,12 @@
     "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "build": "node ./scripts/deploy.js",
     "tsc": "npx tsc -P ./src/tsconfig.json && npm run lint",
-    "precommit": "npm test",
     "pretest": "npm run tsc && node -e \"fs.rmSync('tmp', {recursive:true, force:true})\"",
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "unit-tests": "mocha test/test.js",
-    "artillery-test": "npx artillery run -o /tmp/artillery-report ./test/artillery-load-test.yml"
+    "artillery-test": "npx artillery run -o /tmp/artillery-report ./test/artillery-load-test.yml",
+    "prepare": "husky"
   },
   "repository": {
     "type": "git",
