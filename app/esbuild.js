@@ -18,6 +18,12 @@ const { log } = require('./utilities')
 let coreModulePromise = null
 
 /**
+ * Cached promise for the dynamically imported esbuild module
+ * @type {Promise<typeof import('esbuild')> | null}
+ */
+let esbuildPromise = null
+
+/**
  * Dynamically import the compile-on-demand-core module (ESM)
  * @returns {Promise<typeof import('@highcharts/highcharts-utils/lib/compile-on-demand-core.js')>}
  */
@@ -26,6 +32,17 @@ async function getCompileCore () {
     coreModulePromise = import('@highcharts/highcharts-utils/lib/compile-on-demand-core.js')
   }
   return coreModulePromise
+}
+
+/**
+ * Dynamically import esbuild (ESM)
+ * @returns {Promise<typeof import('esbuild')>}
+ */
+async function getEsbuild () {
+  if (!esbuildPromise) {
+    esbuildPromise = import('esbuild')
+  }
+  return esbuildPromise
 }
 
 /**
@@ -47,9 +64,12 @@ async function getPackageVersion (highchartsDir) {
  * Compile a file and write it to the output directory
  * @param {string} branch - The branch/commit SHA
  * @param {string} requestFilename - The requested filename (e.g., 'highcharts.src.js')
+ * @param {Object} [options] - Compilation options
+ * @param {boolean} [options.minify=false] - Whether to minify the output
  * @returns {Promise<{file?: string, body?: string, status: number}>} Result with file path or error
  */
-async function compileWithEsbuild (branch, requestFilename) {
+async function compileWithEsbuild (branch, requestFilename, options = {}) {
+  const { minify = false } = options
   const core = await getCompileCore()
 
   const pathCacheDirectory = join(__dirname, '../tmp', branch)
@@ -60,8 +80,13 @@ async function compileWithEsbuild (branch, requestFilename) {
     ? requestFilename
     : `/${requestFilename}`
 
+  // Determine output filename - use .js for minified, .src.js for non-minified
+  const outputFilename = minify
+    ? requestFilename.replace('.src.js', '.js')
+    : requestFilename
+
   // Output file path
-  const outputFilePath = join(outputDir, requestFilename)
+  const outputFilePath = join(outputDir, outputFilename)
 
   // Check if already compiled
   if (existsSync(outputFilePath)) {
@@ -70,7 +95,7 @@ async function compileWithEsbuild (branch, requestFilename) {
   }
 
   // Ensure output directory exists (use try/catch to handle race conditions)
-  const outputFileDir = join(outputDir, ...requestFilename.split('/').slice(0, -1))
+  const outputFileDir = join(outputDir, ...outputFilename.split('/').slice(0, -1))
   try {
     await mkdir(outputFileDir, { recursive: true })
   } catch (error) {
@@ -80,7 +105,7 @@ async function compileWithEsbuild (branch, requestFilename) {
     }
   }
 
-  log(0, `Compiling with esbuild: ${normalizedFilename} for ${branch}`)
+  log(0, `Compiling with esbuild: ${normalizedFilename} for ${branch}${minify ? ' (minified)' : ''}`)
 
   /** @type {{code: string, duration: number}} */
   let result
@@ -91,10 +116,22 @@ async function compileWithEsbuild (branch, requestFilename) {
       getPackageVersion: () => getPackageVersion(pathCacheDirectory)
     })
 
-    // Write to output directory
-    await writeFile(outputFilePath, result.code, 'utf-8')
+    let code = result.code
 
-    log(0, `esbuild compilation complete: ${normalizedFilename} (${result.duration}ms)`)
+    // Minify if requested
+    if (minify) {
+      const esbuild = await getEsbuild()
+      const minifyResult = await esbuild.transform(code, {
+        minify: true,
+        target: 'es2020'
+      })
+      code = minifyResult.code
+    }
+
+    // Write to output directory
+    await writeFile(outputFilePath, code, 'utf-8')
+
+    log(0, `esbuild compilation complete: ${outputFilename} (${result.duration}ms)${minify ? ' [minified]' : ''}`)
 
     return { file: outputFilePath, status: 200 }
   } catch (error) {

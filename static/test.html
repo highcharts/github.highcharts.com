@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test chart please ignore</title>
+  <script src="/highcharts.js?esbuild"></script>
+  <script src="/modules/accessibility.js?esbuild"></script>
+</head>
+<body>
+  <div id="container" style="height: 400px;"></div>
+  <script>
+    Highcharts.chart('container', {
+      title: { text: 'Test chart please ignore' },
+      series: [{
+        data: [1, 3, 2, 4, 5, 4, 6, 2, 3, 5, 6]
+      }]
+    });
+  </script>
+</body>
+</html>

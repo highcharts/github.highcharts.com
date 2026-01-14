@@ -109,6 +109,56 @@ function getFile (branch, type, url) {
 }
 
 /**
+ * Finds the requested filename for esbuild mode. Unlike getFile(), this
+ * preserves the original .js vs .src.js distinction for minification purposes.
+ * Returns an object with filename and whether to minify.
+ *
+ * @param  {string} branch The requested branch.
+ * @param  {string} type The requested mode.
+ * @param  {string} url The request URL.
+ */
+function getFileForEsbuild (branch, type, url) {
+  url = stripQuery(url)
+  // Replace branches in url, since we save by commit sha
+  url = url.replace(/^\/master/, '')
+  url = url.replace(/^\/v[0-9]+\//, '/')
+  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
+  if (regex.test(url)) {
+    url = url.replace(regex, '/')
+  }
+  const sections = [
+    x => x === branch.split('/')[0], // Remove first section of branch name
+    x => x === branch.split('/')[1], // Remove second section of branch name
+    x => PRODUCTS.includes(x), // Remove product folder.
+    x => type === 'css' && x === 'js' // Remove js folder in styled mode.
+  ].reduce((sections, filter) => {
+    if (filter(sections[0])) {
+      sections.splice(0, 1)
+    }
+    return sections
+  }, url.substring(1).split('/'))
+
+  let filename = sections.join('/')
+
+  if (filename.endsWith('.css')) {
+    return { filename, minify: false }
+  }
+
+  // Determine if we should minify based on whether it's .src.js or plain .js
+  const minify = !filename.endsWith('.src.js') && filename.endsWith('.js')
+
+  // Always convert to .src.js for compilation (the source file)
+  if (!filename.endsWith('.src.js')) {
+    filename = filename.replace('.js', '.src.js')
+  }
+
+  // Return the resulting filename and minify flag
+  return filename.endsWith('.js')
+    ? { filename, minify }
+    : { filename: false, minify: false }
+}
+
+/**
  * Get fileOptions used in the build script for the assembler. Returns an object
  * with the resulting file options.
  * @todo Move this functionality to the build script.
@@ -195,6 +245,7 @@ const getType = (branch, url) => {
 module.exports = {
   getBranch,
   getFile,
+  getFileForEsbuild,
   getFileOptions,
   getType
 }

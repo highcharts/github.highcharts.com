@@ -24,6 +24,7 @@ const { readFile } = require('fs/promises')
 const {
   getBranch,
   getFile,
+  getFileForEsbuild,
   getFileOptions,
   getType
 } = require('./interpreter.js')
@@ -635,7 +636,7 @@ async function serveStaticFile (branch, requestURL) {
  */
 async function serveEsbuildFile (branch, requestURL, useGitDownloader = true) {
   const type = getType(branch, requestURL)
-  const file = getFile(branch, type, requestURL)
+  const { filename: file, minify } = getFileForEsbuild(branch, type, requestURL)
 
   // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
@@ -673,7 +674,7 @@ async function serveEsbuildFile (branch, requestURL, useGitDownloader = true) {
   }
 
   // Compile with esbuild
-  const result = await compileWithEsbuild(branch, file)
+  const result = await compileWithEsbuild(branch, file, { minify })
   return result
 }
 
