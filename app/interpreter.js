@@ -26,6 +26,16 @@ const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'master'
 
 const replaceAll = (str, search, replace) => str.split(search).join(replace)
 const stripQuery = (url) => (typeof url === 'string' ? url.split('?')[0] : '')
+const stripBranchPrefix = (url) => {
+  let normalizedUrl = stripQuery(url)
+  normalizedUrl = normalizedUrl.replace(/^\/(master|main)(?=\/|$)/, '')
+  normalizedUrl = normalizedUrl.replace(/^\/v[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?\//, '/')
+  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
+  if (regex.test(normalizedUrl)) {
+    normalizedUrl = normalizedUrl.replace(regex, '/')
+  }
+  return normalizedUrl
+}
 
 /**
  * Finds which branch, tag, or commit that is requested by the client. Defaults
@@ -61,6 +71,7 @@ async function getBranch (url) {
     branch = sections[0]
   }
 
+  // Treat legacy master URLs as alias for the configured default branch.
   if (branch === 'master' && DEFAULT_BRANCH !== 'master') {
     branch = DEFAULT_BRANCH
   }
@@ -77,14 +88,8 @@ async function getBranch (url) {
  * @param  {string} url The request URL.
  */
 function getFile (branch, type, url) {
-  let normalizedUrl = stripQuery(url)
   // Replace branches in url, since we save by commit sha
-  normalizedUrl = normalizedUrl.replace(/^\/(master|main)/, '')
-  normalizedUrl = normalizedUrl.replace(/^\/v[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?\//, '/')
-  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
-  if (regex.test(normalizedUrl)) {
-    normalizedUrl = normalizedUrl.replace(regex, '/')
-  }
+  const normalizedUrl = stripBranchPrefix(url)
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
     x => x === branch.split('/')[1], // Remove second section of branch name
@@ -122,14 +127,8 @@ function getFile (branch, type, url) {
  * @param  {string} url The request URL.
  */
 function getFileForEsbuild (branch, type, url) {
-  let normalizedUrl = stripQuery(url)
   // Replace branches in url, since we save by commit sha
-  normalizedUrl = normalizedUrl.replace(/^\/(master|main)/, '')
-  normalizedUrl = normalizedUrl.replace(/^\/v[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?\//, '/')
-  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
-  if (regex.test(normalizedUrl)) {
-    normalizedUrl = normalizedUrl.replace(regex, '/')
-  }
+  const normalizedUrl = stripBranchPrefix(url)
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
     x => x === branch.split('/')[1], // Remove second section of branch name

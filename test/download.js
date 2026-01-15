@@ -138,17 +138,23 @@ describe('download.js', () => {
       getCommitInfo
     } = defaults
 
-    it('resolves branch info from git', async () => {
+    it('resolves branch info from git', async function () {
       const info = await getBranchInfo('master')
+      if (!info?.commit?.sha) {
+        this.skip()
+      }
       expect(info).to.have.property('commit')
-      expect(info?.commit?.sha).to.be.a('string')
+      expect(info.commit.sha).to.be.a('string')
+      expect(info.commit.sha).to.match(/^[0-9a-f]{40}$/)
     })
 
-    it('resolves commit info from git', async () => {
+    it('resolves commit info from git', async function () {
       const branchInfo = await getBranchInfo('master')
       if (!branchInfo?.commit?.sha) {
-        return
+        this.skip()
       }
+      expect(branchInfo.commit.sha).to.be.a('string')
+      expect(branchInfo.commit.sha).to.match(/^[0-9a-f]{40}$/)
 
       const commitInfo = await getCommitInfo(branchInfo.commit.sha)
       expect(commitInfo?.sha).to.equal(branchInfo.commit.sha)

@@ -93,11 +93,47 @@ function getRateLimitState () {
 }
 
 async function execGit (args, options = {}) {
-  const { stdout } = await execFileAsync('git', args, {
-    maxBuffer: GIT_MAX_BUFFER,
-    ...options
-  })
-  return stdout.trim()
+  const command = `git ${Array.isArray(args) ? args.join(' ') : String(args)}`
+
+  try {
+    const { stdout, stderr } = await execFileAsync('git', args, {
+      maxBuffer: GIT_MAX_BUFFER,
+      ...options
+    })
+
+    if (stderr?.trim()) {
+      log(1, `git stderr for "${command}": ${stderr.trim()}`)
+    }
+
+    return stdout.trim()
+  } catch (error) {
+    const stderr = error?.stderr ? String(error.stderr).trim() : ''
+    const messageParts = [`git command failed: ${command}`]
+
+    if (options?.cwd) {
+      messageParts.push(`cwd: ${options.cwd}`)
+    }
+
+    if (stderr) {
+      messageParts.push(`stderr: ${stderr}`)
+    }
+
+    const message = messageParts.join(' | ')
+
+    if (error instanceof Error) {
+      const originalMessage = error.message ? ` | original error: ${error.message}` : ''
+      error.message = `${message}${originalMessage}`
+      error.command = command
+      if (options?.cwd) {
+        error.cwd = options.cwd
+      }
+      throw error
+    }
+
+    const wrappedError = new Error(message)
+    wrappedError.cause = error
+    throw wrappedError
+  }
 }
 
 async function ensureGitRepo () {
@@ -389,7 +425,9 @@ async function exportGitArchive (ref, outputDir) {
   })
 
   await execFileAsync('tar', ['-xf', archivePath, '-C', outputDir])
-  await unlink(archivePath).catch(() => {})
+  await unlink(archivePath).catch(error => {
+    log(2, `Failed to remove git archive ${archivePath}: ${error.message}`)
+  })
 
   return {
     ref: resolvedRef,

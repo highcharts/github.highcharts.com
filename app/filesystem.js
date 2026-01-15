@@ -142,8 +142,8 @@ const { cleanThreshold, tmpLifetime } = require('../config.json')
  */
 async function shouldClean () {
   const files = await readdir(join(__dirname, '../tmp/')).catch(() => [])
-  const filtered = files.filter(file => file !== 'git-cache')
-  if (filtered.length > (cleanThreshold || 100)) return true
+  const filteredFiles = files.filter(file => file !== 'git-cache')
+  if (filteredFiles.length > (cleanThreshold || 100)) return true
 
   return false
 }
