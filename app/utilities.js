@@ -12,8 +12,7 @@ const {
   promises: {
     readFile,
     stat,
-    writeFile,
-    readdir
+    writeFile
   }
 } = require('fs')
 const tscPath = require.resolve('typescript/lib/tsc.js')
@@ -211,26 +210,15 @@ async function compileTypeScriptProject (branch) {
 
 async function updateBranchAccess (branchPath) {
   const filePath = join(branchPath, 'info.json')
+  const jsonString = JSON.stringify({ last_access: new Date().toISOString() })
 
-  const jsonString = JSON.stringify({ last_access: new Date() })
-
-  if (await stat(branchPath)) {
-    // create file if not existant
-    const isFile = (await readdir(branchPath)).includes('info.json')
-    if (!isFile) {
-      return writeFile(filePath, jsonString)
-    }
-
-    // Only update if the date has changed
-    const data = require(filePath)
-    const splitDate = (date) => date.toISOString().split('T')[0]
-
-    if (splitDate(new Date(data.last_access)) !== splitDate(new Date())) {
-      return writeFile(filePath, jsonString)
-    }
+  try {
+    await stat(branchPath)
+  } catch (error) {
+    return Promise.resolve()
   }
 
-  return Promise.resolve()
+  return writeFile(filePath, jsonString)
 }
 
 async function getGlobalsLocation (filePath) {

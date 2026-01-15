@@ -20,6 +20,7 @@ const { JobQueue } = require('./JobQueue')
 const router = require('./router.js')
 const { formatDate, log, compileTypeScript, compileTypeScriptProject } = require('./utilities.js')
 const { shouldUseWebpack } = require('./utils.js')
+const { syncMaster } = require('./download.js')
 const express = require('express')
 const { cleanUp, shouldClean } = require('./filesystem')
 
@@ -30,6 +31,9 @@ const { readFileSync } = require('node:fs')
 const APP = express()
 const PORT = process.env.PORT || config.port || 80
 const DATE = formatDate(new Date())
+const DEFAULT_GIT_INTERVAL_MS = 30 * 60 * 1000
+const GIT_SYNC_INTERVAL_MS = Number(process.env.GIT_SYNC_INTERVAL_MS || DEFAULT_GIT_INTERVAL_MS)
+const REF_CLEAN_INTERVAL_MS = Number(process.env.GIT_REF_CLEAN_INTERVAL_MS || config.cleanInterval || DEFAULT_GIT_INTERVAL_MS)
 
 const state = {
   typescriptJobs: {},
@@ -187,6 +191,15 @@ APP.use(ignoreSocketErrors)
  */
 APP.listen(PORT)
 
+async function syncGitMaster () {
+  await syncMaster().catch(error => {
+    log(2, `Git sync failed: ${error.message}`)
+  })
+}
+
+syncGitMaster()
+setInterval(syncGitMaster, GIT_SYNC_INTERVAL_MS)
+
 // Clean up the tmp folder every now and then
 setInterval(async () => {
   if (hasActiveJobs()) {
@@ -202,7 +215,7 @@ setInterval(async () => {
   await cleanUp().catch(error => {
     log(2, `Cleanup failed: ${error.message}`)
   })
-}, config.cleanInterval || 2 * 60 * 1000)
+}, REF_CLEAN_INTERVAL_MS)
 
 // Do a cleanup when restarting the server
 cleanUp().catch(error => {

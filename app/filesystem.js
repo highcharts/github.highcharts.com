@@ -15,7 +15,8 @@ const {
     rmdir,
     stat,
     unlink,
-    writeFile
+    writeFile,
+    readFile
   }
 } = require('fs')
 const { dirname, join, normalize, sep } = require('path')
@@ -141,7 +142,8 @@ const { cleanThreshold, tmpLifetime } = require('../config.json')
  */
 async function shouldClean () {
   const files = await readdir(join(__dirname, '../tmp/')).catch(() => [])
-  if (files.length > (cleanThreshold || 100)) return true
+  const filtered = files.filter(file => file !== 'git-cache')
+  if (filtered.length > (cleanThreshold || 100)) return true
 
   return false
 }
@@ -156,6 +158,10 @@ async function cleanUp (force = false) {
   const cleaned = []
 
   for (const file of files) {
+    if (file === 'git-cache') {
+      continue
+    }
+
     const folderpath = join(path, file)
     const fileInfo = await fsStat(folderpath)
 
@@ -165,7 +171,24 @@ async function cleanUp (force = false) {
 
     if (fileInfo && fileInfo.isDirectory()) {
       try {
-        const accessTime = fileInfo.atime || fileInfo.mtime || fileInfo.ctime
+        let accessTime = fileInfo.atime || fileInfo.mtime || fileInfo.ctime
+        const infoPath = join(folderpath, 'info.json')
+        const infoStat = await fsStat(infoPath)
+
+        if (infoStat && infoStat.isFile()) {
+          const contents = await readFile(infoPath, 'utf-8').catch(() => null)
+          if (contents) {
+            try {
+              const parsed = JSON.parse(contents)
+              if (parsed?.last_access) {
+                accessTime = new Date(parsed.last_access)
+              }
+            } catch (parseError) {
+              log(1, `Failed to parse ${infoPath}: ${parseError.message}`)
+            }
+          }
+        }
+
         const diff = new Date() - accessTime
 
         if ((diff > timeToKill) || force) {

@@ -1,8 +1,8 @@
 const mocha = require('mocha')
-const fs = require('fs')
+const fs = require('node:fs')
 const expect = require('chai').expect
 const defaults = require('../app/filesystem.js')
-const { join } = require('path')
+const { join } = require('node:path')
 const describe = mocha.describe
 const it = mocha.it
 const before = mocha.before
@@ -10,7 +10,7 @@ const after = mocha.after
 
 const throwErr = (err) => { if (err) throw err }
 const cleanFiles = () => {
-  [
+  const paths = [
     'tmp/test-empty',
     'tmp/test-files/file.txt',
     'tmp/test-files/subfolder/file.txt',
@@ -19,17 +19,21 @@ const cleanFiles = () => {
     'tmp/fakebranchhash/info.json',
     'tmp/fakebranchhash',
     'tmp'
-  ].forEach(p => {
-    let stat = false
+  ]
+
+  for (const path of paths) {
+    let stat
     try {
-      stat = fs.lstatSync(p)
-    } catch (err) {}
-    if (stat && stat.isFile()) {
-      fs.unlinkSync(p)
-    } else if (stat && stat.isDirectory()) {
-      fs.rmdirSync(p)
+      stat = fs.lstatSync(path)
+    } catch (err) {
+      continue
     }
-  })
+    if (stat.isFile()) {
+      fs.unlinkSync(path)
+    } else if (stat.isDirectory()) {
+      fs.rmSync(path, { recursive: true, force: true })
+    }
+  }
 }
 
 describe('filesystem.js', () => {
@@ -41,10 +45,10 @@ describe('filesystem.js', () => {
       'removeDirectory',
       'writeFile'
     ]
-    functions.forEach((name) => {
+    for (const name of functions) {
       expect(defaults).to.have.property(name)
         .that.is.a('function')
-    })
+    }
   })
 
   describe('getFileNamesInDirectory', () => {

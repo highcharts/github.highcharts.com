@@ -8,9 +8,15 @@
 'use strict'
 
 // Import dependencies, sorted by path name.
-const { secureToken, repo } = require('../config.json')
-const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo, getCommitInfo, isRateLimited } = require('./download.js')
-const { log } = require('./utilities')
+const { secureToken } = require('../config.json')
+const {
+  downloadSourceFolder,
+  getBranchInfo,
+  getCommitInfo,
+  isRateLimited,
+  pathExistsInRepo
+} = require('./download.js')
+const { log, updateBranchAccess } = require('./utilities')
 
 const {
   exists,
@@ -43,7 +49,6 @@ const { compileWithEsbuild } = require('./esbuild.js')
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
-const URL_DOWNLOAD = `https://raw.githubusercontent.com/${repo}/`
 
 const queue = new JobQueue()
 const RATE_LIMIT_HEADER_REMAINING = 'X-GitHub-RateLimit-Remaining'
@@ -99,19 +104,16 @@ function applyRateLimitMeta (target, meta) {
 /**
  * Tries to look for a remote tsconfig file if the branch/ref is of newer date typically 2019+.
  * If one exists it will return true
- * @param {String} repoURL to repository on GitHub
  * @param {String} branch or ref for commit
  * @return {Promise<boolean>} true if a tsconfig.json file exists for the branch/ref
  */
-async function shouldDownloadTypeScriptFolders (repoURL, branch) {
-  const urlPath = `${repoURL}${branch}/ts/tsconfig.json`
+async function shouldDownloadTypeScriptFolders (branch) {
   const tsConfigPath = join(PATH_TMP_DIRECTORY, branch, 'ts', 'tsconfig.json')
   if (exists(tsConfigPath)) {
     return true
   }
-  const tsConfigResponse = await downloadFile(urlPath, tsConfigPath)
 
-  return (tsConfigResponse.statusCode >= 200 && tsConfigResponse.statusCode < 300)
+  return pathExistsInRepo(branch, 'ts/tsconfig.json')
 }
 
 /**
@@ -150,32 +152,24 @@ async function handlerDefault (req, res) {
 
   let branch = await getBranch(req.path)
   let url = req.url
-  let useGitDownloader = branch === 'master' || /^\/v[0-9]/.test(req.path) // version tags
 
   // If we can get it, save by commit sha
-  // This also means we can use the degit downloader
-  // (only works on latest commit in a branch)
   // Only `v8.0.0` gets saved by their proper names
-  const { commit } = await getBranchInfo(branch)
-  if (commit) {
-    branch = commit.sha
-    useGitDownloader = true
-  }
-
-  // If this is still not true, the request may be for a short SHA
-  // Get the long form sha
-  // Todo: find a way to check if it is the latest commit in the branch
-  if (!useGitDownloader) {
-    const { sha } = await getCommitInfo(branch)
-    if (sha) {
-      url = url.replace(branch, sha)
-      branch = sha
+  const branchInfo = await getBranchInfo(branch)
+  if (branchInfo?.commit?.sha) {
+    branch = branchInfo.commit.sha
+  } else {
+    // If the request is for a short SHA, resolve to full SHA
+    const commitInfo = await getCommitInfo(branch)
+    if (commitInfo?.sha) {
+      url = url.replace(branch, commitInfo.sha)
+      branch = commitInfo.sha
     }
   }
 
   // Handle esbuild mode
   if (useEsbuild) {
-    const result = await serveEsbuildFile(branch, url, useGitDownloader)
+    const result = await serveEsbuildFile(branch, url)
     if (!res.headersSent) {
       res.header('ETag', branch)
       res.header('X-Built-With', 'esbuild')
@@ -190,11 +184,13 @@ async function handlerDefault (req, res) {
 
   if (result?.status !== 200) {
     // Try to build the file
-    const buildResult = await serveBuildFile(branch, url, useGitDownloader)
+    const buildResult = await serveBuildFile(branch, url)
     result = applyRateLimitMeta(buildResult, rateLimitMeta)
   }
 
-  // await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch))
+  await updateBranchAccess(join(PATH_TMP_DIRECTORY, branch)).catch(error => {
+    log(1, `Failed to update access for ${branch}: ${error.message}`)
+  })
 
   if (!result) {
     result = applyRateLimitMeta({
@@ -358,7 +354,7 @@ async function respondToClient (result, response, request) {
  * @param {string} branch
  * @param {string} requestURL The url which the request was sent to.
  */
-async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
+async function serveBuildFile (branch, requestURL) {
   const type = getType(branch, requestURL)
   const file = getFile(branch, type, requestURL)
 
@@ -394,7 +390,7 @@ async function serveBuildFile (branch, requestURL, useGitDownloader = true) {
       {
         func: downloadSourceFolder,
         args: [
-          pathCacheDirectory, URL_DOWNLOAD, branch
+          pathCacheDirectory, null, branch
         ]
       }
     ).catch(error => {
@@ -535,9 +531,9 @@ ${error.message}`)
       const masterFiles = await getFileNamesInDirectory(join(pathCacheDirectory, 'ts', 'masters'), true) || []
       return masterFiles.some(product => file.replace(/^masters\//, '').replace('.js', '.ts').startsWith(product))
     }
-    // Otherwise check github
-    const remoteURL = URL_DOWNLOAD + branch + '/ts/masters/' + file.replace('.js', '.ts')
-    return urlExists(remoteURL)
+    // Otherwise check git
+    const repoPath = `ts/masters/${file.replace('.js', '.ts')}`
+    return pathExistsInRepo(branch, repoPath)
   }
 
   /**
@@ -573,56 +569,51 @@ ${error.message}`)
  */
 async function serveStaticFile (branch, requestURL) {
   const file = getFile(branch, 'classic', requestURL)
-  let rateLimitMeta = null
 
   // Respond with not found if the interpreter can not find a filename.
   if (file === false) {
     return response.missingFile
   }
 
+  const pathCacheDirectory = join(PATH_TMP_DIRECTORY, branch)
+
   if (file.endsWith('.css')) {
-    // TODO: add fs check before download
-    const fileLocation = join(PATH_TMP_DIRECTORY, branch, file)
+    const fileLocation = join(pathCacheDirectory, file)
     if (!existsSync(fileLocation)) {
-      const urlFile = `${URL_DOWNLOAD}${branch}/${file}`
-      const download = await downloadFile(urlFile, fileLocation)
-      const downloadMeta = extractRateLimitMeta(download)
-      if (downloadMeta) {
-        rateLimitMeta = downloadMeta
-      }
-      if (download.success) {
-        return applyRateLimitMeta({ status: 200, file: fileLocation }, rateLimitMeta)
-      }
-    } else {
-      return applyRateLimitMeta({ status: 200, file: fileLocation }, rateLimitMeta)
+      await downloadSourceFolder(pathCacheDirectory, null, branch)
+    }
+
+    if (existsSync(fileLocation)) {
+      return { status: 200, file: fileLocation }
     }
   }
 
-  const pathFile = join(PATH_TMP_DIRECTORY, branch, 'output', file)
+  const outputFile = join(pathCacheDirectory, 'output', file)
+  const jsFile = join(pathCacheDirectory, 'js', file)
 
-  // Download the file if it is not already available in cache.
-  if (!exists(pathFile)) {
-    const urlFile = `${URL_DOWNLOAD}${branch}/js/${file}`
-    const download = await downloadFile(urlFile, pathFile)
-    const downloadMeta = extractRateLimitMeta(download)
-    if (downloadMeta) {
-      rateLimitMeta = downloadMeta
-    }
-    if (download.statusCode !== 200) {
-      // we don't always know if it is a static file before we have tried to download it.
-      // check if this branch contains TypeScript config (we then need to compile it).
-      if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(URL_DOWNLOAD, branch)) {
-        const buildResult = await serveBuildFile(branch, requestURL)
-        return applyRateLimitMeta(buildResult, rateLimitMeta)
-      }
-      return applyRateLimitMeta({ ...response.missingFile }, rateLimitMeta)
-    }
-
-    return applyRateLimitMeta({ status: 200, file: pathFile }, rateLimitMeta)
+  if (exists(outputFile)) {
+    return { status: 200, file: outputFile }
   }
 
-  // Return path to file location in the cache.
-  return applyRateLimitMeta({ status: 200, file: pathFile }, rateLimitMeta)
+  if (exists(jsFile)) {
+    return { status: 200, file: jsFile }
+  }
+
+  await downloadSourceFolder(pathCacheDirectory, null, branch)
+
+  if (exists(jsFile)) {
+    return { status: 200, file: jsFile }
+  }
+
+  if (exists(outputFile)) {
+    return { status: 200, file: outputFile }
+  }
+
+  if (file.split('/').length <= 1 || await shouldDownloadTypeScriptFolders(branch)) {
+    return serveBuildFile(branch, requestURL)
+  }
+
+  return { ...response.missingFile }
 }
 
 /**
@@ -632,9 +623,8 @@ async function serveStaticFile (branch, requestURL) {
  *
  * @param {string} branch The branch/commit SHA
  * @param {string} requestURL The url which the request was sent to.
- * @param {boolean} useGitDownloader Whether to use the git downloader
  */
-async function serveEsbuildFile (branch, requestURL, useGitDownloader = true) {
+async function serveEsbuildFile (branch, requestURL) {
   const type = getType(branch, requestURL)
   const { filename: file, minify } = getFileForEsbuild(branch, type, requestURL)
 
@@ -656,7 +646,7 @@ async function serveEsbuildFile (branch, requestURL, useGitDownloader = true) {
       {
         func: downloadSourceFolder,
         args: [
-          pathCacheDirectory, URL_DOWNLOAD, branch
+          pathCacheDirectory, null, branch
         ]
       }
     ).catch(error => {

@@ -15,7 +15,7 @@ COPY . .
 
 FROM --platform=$TARGETPLATFORM node:lts-alpine as runner
 
-RUN apk add --no-cache tini
+RUN apk add --no-cache tini git
 
 WORKDIR /app
 
