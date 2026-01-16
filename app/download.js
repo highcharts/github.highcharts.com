@@ -3,24 +3,46 @@
  * @author Jon Arild Nygard
  * @todo Add license
  */
-'use strict'
-
 // Import dependencies, sorted by path.
-const { token, repo } = require('../config.json')
-const { writeFile } = require('./filesystem.js')
+const { repo } = require('../config.json')
+const { createDirectory, exists, removeDirectory, writeFile } = require('./filesystem.js')
 const { log } = require('./utilities.js')
-const { get: httpsGet } = require('https')
-const { join } = require('path')
-const authToken = token ? { Authorization: `token ${token}` } : {}
-
-const degit = require('tiged')
+const { execFile } = require('node:child_process')
+const { unlink } = require('node:fs/promises')
+const { join } = require('node:path')
+const { promisify } = require('node:util')
 
 const DEFAULT_CACHE_TTL = Number(process.env.GITHUB_LOOKUP_CACHE_TTL || 60_000)
 const NEGATIVE_CACHE_TTL = Number(process.env.GITHUB_LOOKUP_NEGATIVE_CACHE_TTL || 10_000)
+const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'master'
+const GIT_AUTH_TOKEN = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || process.env.GIT_TOKEN
 
 const branchInfoCache = new Map()
 const commitInfoCache = new Map()
+let defaultBranchCache
 let githubRequest
+
+const execFileAsync = promisify(execFile)
+const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
+const GIT_CACHE_DIR = join(PATH_TMP_DIRECTORY, 'git-cache')
+const GIT_REPO_DIR = join(GIT_CACHE_DIR, 'repo')
+const REQUIRED_GIT_PATHS = ['css', 'js', 'ts', 'tools/webpacks', 'tools/libs']
+const GIT_MAX_BUFFER = 50 * 1024 * 1024
+
+function getRepoUrl () {
+  if (!GIT_AUTH_TOKEN) {
+    return `https://github.com/${repo}.git`
+  }
+
+  const token = encodeURIComponent(GIT_AUTH_TOKEN)
+  return `https://x-access-token:${token}@github.com/${repo}.git`
+}
+
+const disabledGitHubRequest = () => Promise.reject(
+  new Error('GitHub API requests are disabled')
+)
+
+githubRequest = disabledGitHubRequest
 
 /**
  * Global rate limit state tracking.
@@ -30,20 +52,6 @@ let githubRequest
 const rateLimitState = {
   remaining: undefined,
   reset: undefined
-}
-
-/**
- * Update the global rate limit state from response headers.
- * @param {number|undefined} remaining
- * @param {number|undefined} reset
- */
-function updateRateLimitState (remaining, reset) {
-  if (remaining !== undefined) {
-    rateLimitState.remaining = remaining
-  }
-  if (reset !== undefined) {
-    rateLimitState.reset = reset
-  }
 }
 
 /**
@@ -84,48 +92,366 @@ function getRateLimitState () {
   }
 }
 
-/**
- * Extracts rate limit information from a headers object.
- * @param {import('http').IncomingHttpHeaders|undefined} headers
- */
-function getRateLimitInfo (headers) {
-  if (!headers) {
-    return { remaining: undefined, reset: undefined }
-  }
+async function execGit (args, options = {}) {
+  const command = `git ${Array.isArray(args) ? args.join(' ') : String(args)}`
 
-  const remainingHeader = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining']
-  const resetHeader = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset']
+  try {
+    const { stdout, stderr } = await execFileAsync('git', args, {
+      maxBuffer: GIT_MAX_BUFFER,
+      ...options
+    })
 
-  const remaining = Number.parseInt(remainingHeader, 10)
-  const reset = Number.parseInt(resetHeader, 10)
+    if (stderr?.trim()) {
+      log(1, `git stderr for "${command}": ${stderr.trim()}`)
+    }
 
-  return {
-    remaining: Number.isNaN(remaining) ? undefined : remaining,
-    reset: Number.isNaN(reset) ? undefined : reset
+    return stdout.trim()
+  } catch (error) {
+    const stderr = error?.stderr ? String(error.stderr).trim() : ''
+    const messageParts = [`git command failed: ${command}`]
+
+    if (options?.cwd) {
+      messageParts.push(`cwd: ${options.cwd}`)
+    }
+
+    if (stderr) {
+      messageParts.push(`stderr: ${stderr}`)
+    }
+
+    const message = messageParts.join(' | ')
+
+    if (error instanceof Error) {
+      const originalMessage = error.message ? ` | original error: ${error.message}` : ''
+      error.message = `${message}${originalMessage}`
+      error.command = command
+      if (options?.cwd) {
+        error.cwd = options.cwd
+      }
+      throw error
+    }
+
+    const wrappedError = new Error(message)
+    wrappedError.cause = error
+    throw wrappedError
   }
 }
 
-/**
- * Logs a warning when rate limit remaining is depleted.
- * Also updates the global rate limit state.
- * @param {import('http').IncomingHttpHeaders|undefined} headers
- * @param {string} context
- * @returns {{ remaining: number|undefined, reset: number|undefined }}
- */
-function logRateLimitIfDepleted (headers, context) {
-  const { remaining, reset } = getRateLimitInfo(headers)
-
-  // Update global state
-  updateRateLimitState(remaining, reset)
-
-  if (remaining === 0) {
-    const resetTime = reset
-      ? new Date(reset * 1000).toISOString()
-      : 'unknown'
-    log(2, `GitHub API rate limit exhausted while ${context}. Next reset: ${resetTime}`)
+async function ensureGitRepo () {
+  const gitDir = join(GIT_REPO_DIR, '.git')
+  if (exists(gitDir)) {
+    return
   }
 
-  return { remaining, reset }
+  if (exists(GIT_REPO_DIR)) {
+    await removeDirectory(GIT_REPO_DIR)
+  }
+
+  await createDirectory(GIT_CACHE_DIR)
+
+  // Clone with filter to avoid downloading blobs upfront (partial clone)
+  await execGit([
+    'clone',
+    '--no-checkout',
+    '--filter=blob:none',
+    getRepoUrl(),
+    GIT_REPO_DIR
+  ], {
+    cwd: GIT_CACHE_DIR
+  })
+
+  // Enable sparse checkout for the paths we need
+  await execGit(['sparse-checkout', 'init', '--cone'], {
+    cwd: GIT_REPO_DIR
+  })
+
+  await execGit(['sparse-checkout', 'set', ...REQUIRED_GIT_PATHS], {
+    cwd: GIT_REPO_DIR
+  })
+}
+
+async function getDefaultBranchName () {
+  if (defaultBranchCache) {
+    return defaultBranchCache
+  }
+
+  await ensureGitRepo()
+
+  const headRef = await execGit(['symbolic-ref', 'refs/remotes/origin/HEAD'], {
+    cwd: GIT_REPO_DIR
+  }).catch(() => '')
+
+  const match = headRef.match(/refs\/remotes\/origin\/(.+)$/)
+  let branch = match ? match[1] : ''
+
+  if (!branch) {
+    const candidates = [DEFAULT_BRANCH, 'main', 'master']
+      .filter((candidate, index, list) => list.indexOf(candidate) === index)
+
+    for (const candidate of candidates) {
+      const exists = await execGit(
+        ['show-ref', '--verify', `refs/remotes/origin/${candidate}`],
+        { cwd: GIT_REPO_DIR }
+      ).then(() => true).catch(() => false)
+
+      if (exists) {
+        branch = candidate
+        break
+      }
+    }
+  }
+
+  defaultBranchCache = branch || DEFAULT_BRANCH
+  return defaultBranchCache
+}
+
+async function syncMaster () {
+  await ensureGitRepo()
+  await execGit(['fetch', 'origin', '--prune', '--tags'], {
+    cwd: GIT_REPO_DIR
+  })
+  const defaultBranch = await getDefaultBranchName()
+  await execGit(['checkout', '-B', defaultBranch, `origin/${defaultBranch}`], {
+    cwd: GIT_REPO_DIR
+  })
+}
+
+function isCommitHash (ref) {
+  return /^[0-9a-f]{7,40}$/i.test(ref)
+}
+
+function getUnqualifiedRef (ref) {
+  return ref
+    .replace(/^origin\//, '')
+    .replace(/^refs\/heads\//, '')
+    .replace(/^refs\/remotes\/origin\//, '')
+    .replace(/^refs\/tags\//, '')
+}
+
+function getRemoteRefCandidates (ref) {
+  if (ref.startsWith('refs/')) {
+    return [ref]
+  }
+
+  const name = getUnqualifiedRef(ref)
+
+  if (ref.startsWith('origin/')) {
+    return [`refs/remotes/origin/${name}`]
+  }
+
+  return [
+    `refs/remotes/origin/${name}`,
+    `refs/tags/${name}`
+  ]
+}
+
+async function remoteRefExists (ref) {
+  const candidates = getRemoteRefCandidates(ref)
+
+  for (const candidate of candidates) {
+    const exists = await execGit(['show-ref', '--verify', candidate], {
+      cwd: GIT_REPO_DIR
+    }).then(() => true).catch(() => false)
+
+    if (exists) {
+      return true
+    }
+  }
+
+  return false
+}
+
+async function fetchRef (ref) {
+  await ensureGitRepo()
+
+  if (!ref) {
+    return false
+  }
+
+  const unqualifiedRef = getUnqualifiedRef(ref)
+  const isTagRef = ref.startsWith('refs/tags/')
+  const isRemoteRef = ref.startsWith('origin/') || ref.startsWith('refs/remotes/')
+
+  if (!isCommitHash(ref) && !isTagRef && !isRemoteRef) {
+    const refspec = `+refs/heads/${unqualifiedRef}:refs/remotes/origin/${unqualifiedRef}`
+    const fetched = await execGit(['fetch', 'origin', '--prune', '--tags', refspec], {
+      cwd: GIT_REPO_DIR
+    }).then(() => true).catch(() => false)
+
+    if (fetched && await remoteRefExists(unqualifiedRef)) {
+      return true
+    }
+  }
+
+  if (!isCommitHash(ref)) {
+    const tagRefspec = `+refs/tags/${unqualifiedRef}:refs/tags/${unqualifiedRef}`
+    const tagFetched = await execGit(['fetch', 'origin', '--prune', tagRefspec], {
+      cwd: GIT_REPO_DIR
+    }).then(() => true).catch(() => false)
+
+    if (tagFetched && await remoteRefExists(`refs/tags/${unqualifiedRef}`)) {
+      return true
+    }
+  }
+
+  const fetched = await execGit(['fetch', 'origin', '--prune', '--tags', ref], {
+    cwd: GIT_REPO_DIR
+  }).then(() => true).catch(() => false)
+
+  if (!fetched) {
+    return false
+  }
+
+  if (isCommitHash(ref)) {
+    return true
+  }
+
+  return remoteRefExists(ref)
+}
+
+async function resolveGitRef (ref) {
+  if (!ref) {
+    return null
+  }
+
+  await ensureGitRepo()
+
+  const candidates = new Set([ref])
+  if (ref === 'master' || ref === 'main') {
+    const defaultBranch = await getDefaultBranchName()
+    if (defaultBranch) {
+      candidates.add(defaultBranch)
+    }
+    if (ref === 'master') {
+      candidates.add('main')
+    }
+    if (ref === 'main') {
+      candidates.add('master')
+    }
+  }
+
+  const resolveCandidates = []
+  const resolveCandidateSet = new Set()
+  const addResolveCandidate = (candidate) => {
+    if (!resolveCandidateSet.has(candidate)) {
+      resolveCandidateSet.add(candidate)
+      resolveCandidates.push(candidate)
+    }
+  }
+
+  for (const candidate of candidates) {
+    addResolveCandidate(candidate)
+
+    if (candidate.startsWith('origin/')) {
+      addResolveCandidate(`refs/remotes/${candidate}`)
+      continue
+    }
+
+    if (!isCommitHash(candidate)) {
+      addResolveCandidate(`origin/${candidate}`)
+      addResolveCandidate(`refs/remotes/origin/${candidate}`)
+      addResolveCandidate(`refs/tags/${candidate}`)
+    }
+  }
+
+  for (const candidate of resolveCandidates) {
+    try {
+      return await execGit(['rev-parse', '--verify', `${candidate}^{commit}`], {
+        cwd: GIT_REPO_DIR
+      })
+    } catch (error) {
+    }
+  }
+
+  if (await fetchRef(ref)) {
+    for (const candidate of resolveCandidates) {
+      try {
+        return await execGit(['rev-parse', '--verify', `${candidate}^{commit}`], {
+          cwd: GIT_REPO_DIR
+        })
+      } catch (error) {
+      }
+    }
+  }
+
+  log(1, `Failed resolving ref ${ref}`)
+  return null
+}
+
+async function pathExistsInRepo (ref, path) {
+  const resolvedRef = await resolveGitRef(ref)
+  if (!resolvedRef) {
+    return false
+  }
+
+  try {
+    await execGit(['cat-file', '-e', `${resolvedRef}:${path}`], {
+      cwd: GIT_REPO_DIR
+    })
+    return true
+  } catch (error) {
+    return false
+  }
+}
+
+async function exportGitArchive (ref, outputDir) {
+  const resolvedRef = await resolveGitRef(ref)
+  if (!resolvedRef) {
+    throw new Error(`Unable to resolve git ref ${ref}`)
+  }
+
+  const existingPaths = []
+  for (const path of REQUIRED_GIT_PATHS) {
+    if (await pathExistsInRepo(resolvedRef, path)) {
+      existingPaths.push(path)
+    }
+  }
+
+  if (!existingPaths.length) {
+    throw new Error(`No exportable paths found for ${resolvedRef}`)
+  }
+
+  await createDirectory(outputDir)
+
+  const archivePath = join(GIT_CACHE_DIR, `${resolvedRef}-${Date.now()}.tar`)
+  await execGit([
+    'archive',
+    '--format=tar',
+    '--output',
+    archivePath,
+    resolvedRef,
+    ...existingPaths
+  ], {
+    cwd: GIT_REPO_DIR
+  })
+
+  await execFileAsync('tar', ['-xf', archivePath, '-C', outputDir])
+  await unlink(archivePath).catch(error => {
+    log(2, `Failed to remove git archive ${archivePath}: ${error.message}`)
+  })
+
+  return {
+    ref: resolvedRef,
+    paths: existingPaths
+  }
+}
+
+async function exportGitFile (ref, filePath, outputPath) {
+  const resolvedRef = await resolveGitRef(ref)
+  if (!resolvedRef) {
+    return { statusCode: 404, success: false }
+  }
+
+  const existsInRepo = await pathExistsInRepo(resolvedRef, filePath)
+  if (!existsInRepo) {
+    return { statusCode: 404, success: false }
+  }
+
+  const contents = await execGit(['show', `${resolvedRef}:${filePath}`], {
+    cwd: GIT_REPO_DIR
+  })
+  await writeFile(outputPath, contents)
+
+  return { statusCode: 200, success: true }
 }
 
 /**
@@ -166,6 +492,23 @@ function getWithCache (cache, key, fetcher) {
   return promise
 }
 
+function parseGitRawUrl (url) {
+  try {
+    const parsed = new URL(url)
+    const parts = parsed.pathname.split('/').filter(Boolean)
+    if (parts.length < 4) {
+      return null
+    }
+
+    const ref = parts[2]
+    const filePath = parts.slice(3).join('/')
+
+    return { ref, filePath }
+  } catch (error) {
+    return null
+  }
+}
+
 /**
  * Downloads the content of a url and writes it to the given output path.
  * The Promise is resolved with an object containing information of the result
@@ -175,28 +518,25 @@ function getWithCache (cache, key, fetcher) {
  * @param {string} outputPath The path to output the content at the URL.
  */
 async function downloadFile (url, outputPath) {
-  const { body, statusCode, headers } = await get(url)
-  const result = {
+  if (!url || !outputPath) {
+    throw new Error('Invalid download request')
+  }
+
+  const parsed = parseGitRawUrl(url)
+  if (!parsed) {
+    throw new Error('Invalid download request')
+  }
+
+  const { ref, filePath } = parsed
+  log(0, `Downloading ${filePath} from ${ref} using git`)
+
+  const result = await exportGitFile(ref, filePath, outputPath)
+  return {
     outputPath,
-    statusCode,
-    success: false,
+    statusCode: result.statusCode,
+    success: result.success,
     url
   }
-
-  if (statusCode === 200) {
-    log(0, `Downloading ${url}`)
-    await writeFile(outputPath, body)
-    result.success = true
-  }
-  const { remaining, reset } = logRateLimitIfDepleted(headers, `downloading ${url}`)
-  if (typeof remaining === 'number') {
-    result.rateLimitRemaining = remaining
-  }
-  if (typeof reset === 'number') {
-    result.rateLimitReset = reset
-  }
-
-  return result
 }
 
 /**
@@ -239,80 +579,29 @@ async function downloadFiles (baseURL, subpaths, outputDir) {
  * @param {string} branch The name of the branch the files are located in.
  */
 async function downloadSourceFolder (outputDir, repositoryURL, branch) {
-  log(0, `Downloading source for commit ${branch} using GH api`)
-  const url = `${repositoryURL}${branch}`
-  const files = await getDownloadFiles(branch)
-  const responses = await downloadFiles(url, files, outputDir)
-  const errors = responses
-    .filter(({ statusCode }) => statusCode !== 200)
-    .map(({ url, statusCode }) => `${statusCode}: ${url}`)
+  log(0, `Downloading source for commit ${branch} using git`)
 
-  // Log possible errors
-  if (errors.length) {
-    log(2, `Some files did not download in branch "${branch}"\n${errors.join('\n')
-            }`)
+  const hasSources = exists(join(outputDir, 'ts')) || exists(join(outputDir, 'js'))
+  if (hasSources) {
+    return { statusCode: 200, success: true }
+  }
+
+  const result = await exportGitArchive(branch, outputDir)
+  return {
+    statusCode: 200,
+    success: true,
+    ref: result.ref
   }
 }
 
 /**
- * Download the source folder using git (via https://github.com/tiged/tiged)
+ * Download the source folder using git.
  * @param {string} outputDir
  * @param {string} branch
  * @returns Promise<[{}]>
  */
-async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
-  log(0, `Downloading source for commit ${branch} using git`)
-
-  const responses = []
-  const promises = ['css', 'js', 'ts'].map(folder => {
-    const outputPath = join(outputDir, folder)
-    const uri = `${repo}/${folder}#${branch}`
-    return new Promise((resolve, reject) => {
-      const result = {
-        success: false,
-        statusCode: 400,
-        url: uri
-      }
-      try {
-        const emitter = degit(uri, {
-          cache: false,
-          force: true,
-          verbose: false,
-          mode
-        })
-        emitter.clone(outputPath).then(() => {
-          result.success = true
-          result.statusCode = 200
-        }).catch((error) => {
-          // Error here is mostly degit not finding the branch
-          log(0, error.message)
-        }).finally(() => {
-          return resolve(result)
-        })
-      } catch (error) {
-        log(0, error)
-        return resolve(result)
-      }
-    })
-  })
-
-  /* eslint-disable */
-    for await (const promise of promises) {
-        responses.push(promise)
-    }
-    /* eslint-disable */
-
-    const errors = responses
-        .filter(({ statusCode }) => statusCode !== 200)
-        .map(({ url, statusCode }) => `${statusCode}: ${url}`)
-
-    // Log possible errors
-    if (errors.length) {
-        log(2, `Some files did not download in branch "${branch}"\n${errors.join('\n')
-            }`)
-    }
-
-    return responses
+async function downloadSourceFolderGit (outputDir, branch) {
+  return downloadSourceFolder(outputDir, null, branch)
 }
 
 /**
@@ -323,26 +612,9 @@ async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
  * @param {object|string} options Can either be an https request options object,
  * or an url string.
  */
-function get(options) {
-    return new Promise((resolve, reject) => {
-        const request = httpsGet(options, response => {
-            const body = []
-            response.setEncoding('utf8')
-            response.on('data', (data) => { body.push(data) })
-            response.on('end', () =>
-                resolve({
-                    statusCode: response.statusCode,
-                    body: body.join(''),
-                    headers: response.headers
-                })
-            )
-        })
-        request.on('error', reject)
-        request.end()
-    })
+function get (options) {
+  return githubRequest(options)
 }
-
-githubRequest = get
 
 /**
  * Gives a list of all the source files in the given branch in the repository.
@@ -351,23 +623,17 @@ githubRequest = get
  *
  * @param {string} branch The name of the branch the files are located in.
  */
-async function getDownloadFiles(branch) {
-    const promises = [
-      'css',
-      'ts',
-      'js',
-      'tools/webpacks',
-      'tools/libs'
-    ].map(folder => getFilesInFolder(folder, branch))
+async function getDownloadFiles (branch) {
+  const promises = REQUIRED_GIT_PATHS.map(folder => getFilesInFolder(folder, branch))
 
-    const folders = await Promise.all(promises)
-    const files = [].concat.apply([], folders)
+  const folders = await Promise.all(promises)
+  const files = [].concat.apply([], folders)
 
-    const extensions = ['ts', 'js', 'css', 'scss', 'json', 'mjs']
+  const extensions = ['ts', 'js', 'css', 'scss', 'json', 'mjs']
 
-    const isValidFile = ({ path, size }) =>
-        (extensions.some(ext => path.endsWith('.' + ext))) && size > 0
-    return files.filter(isValidFile).map(({ path }) => path)
+  const isValidFile = ({ path, size }) =>
+    (extensions.some(ext => path.endsWith(`.${ext}`))) && size > 0
+  return files.filter(isValidFile).map(({ path }) => path)
 }
 
 /**
@@ -379,39 +645,30 @@ async function getDownloadFiles(branch) {
  * @param {string} path The path to the directory.
  * @param {string} branch The name of the branch the files are located in.
  */
-async function getFilesInFolder(path, branch) {
-    const { body, statusCode, headers } = await get({
-        hostname: 'api.github.com',
-        path: `/repos/${repo}/contents/${path}?ref=${branch}`,
-        headers: {
-            'user-agent': 'github.highcharts.com',
-            ...authToken
-        }
-    })
-    logRateLimitIfDepleted(headers, `listing files in ${path} for ${branch}`)
+async function getFilesInFolder (path, branch) {
+  const resolvedRef = await resolveGitRef(branch)
+  if (!resolvedRef) {
+    return []
+  }
 
-    if (statusCode !== 200) {
-        console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}. (HTTP ${statusCode})`)
-    }
+  const output = await execGit(['ls-tree', '-r', '-l', resolvedRef, path], {
+    cwd: GIT_REPO_DIR
+  }).catch(() => '')
 
-    let promises = []
-    if (statusCode === 200) {
-        promises = JSON.parse(body).map(obj => {
-            const name = path + '/' + obj.name
-            return (
-                (obj.type === 'dir')
-                    ? getFilesInFolder(name, branch)
-                    : [{
-                        download: obj.download_url,
-                        path: name,
-                        size: obj.size,
-                        type: obj.type
-                    }]
-            )
-        })
+  if (!output) {
+    return []
+  }
+
+  return output.split('\n').filter(Boolean).map(line => {
+    const [meta, filePath] = line.split('\t')
+    const parts = meta.split(' ')
+    const size = Number(parts[3])
+    return {
+      path: filePath,
+      size: Number.isFinite(size) ? size : 0,
+      type: parts[1]
     }
-    const arr = await Promise.all(promises)
-    return arr.reduce((arr1, arr2) => arr1.concat(arr2), [])
+  })
 }
 
 /**
@@ -421,17 +678,17 @@ async function getFilesInFolder(path, branch) {
  *
  * @param  {string} url The URL to check if exists.
  */
-async function urlExists(url) {
-    try {
-        const response = await get(url)
-        return response.statusCode === 200
-    } catch (e) {
-        return false
-    }
+async function urlExists (url) {
+  const parsed = parseGitRawUrl(url)
+  if (!parsed) {
+    return false
+  }
+
+  return pathExistsInRepo(parsed.ref, parsed.filePath)
 }
 
 /**
- * Gets branch info from the github api.
+ * Gets branch info from git.
  * @param {string} branch
  * The branch name
  *
@@ -440,25 +697,16 @@ async function urlExists(url) {
  */
 async function getBranchInfo (branch) {
   return getWithCache(branchInfoCache, branch, async () => {
-    const { body, statusCode, headers } = await githubRequest({
-      hostname: 'api.github.com',
-      path: `/repos/${repo}/branches/${branch}`,
-      headers: {
-        'user-agent': 'github.highcharts.com',
-        ...authToken
-      }
-    })
-    logRateLimitIfDepleted(headers, `fetching branch info for ${branch}`)
-    if (statusCode === 200) {
-      return JSON.parse(body)
+    const sha = await resolveGitRef(branch)
+    if (!sha) {
+      return false
     }
-    return false
+    return { commit: { sha } }
   })
 }
 
-
 /**
- * Gets commit info from the github api.
+ * Gets commit info from git.
  * @param {string} commit
  * The commit sha, long or short
  *
@@ -467,29 +715,22 @@ async function getBranchInfo (branch) {
  */
 async function getCommitInfo (commit) {
   return getWithCache(commitInfoCache, commit, async () => {
-    const { body, statusCode, headers } = await githubRequest({
-      hostname: 'api.github.com',
-      path: `/repos/${repo}/commits/${commit}`,
-      headers: {
-        'user-agent': 'github.highcharts.com',
-        ...authToken
-      }
-    })
-    logRateLimitIfDepleted(headers, `fetching commit info for ${commit}`)
-    if (statusCode === 200) {
-      return JSON.parse(body)
+    const sha = await resolveGitRef(commit)
+    if (!sha) {
+      return false
     }
-    return false
+    return { sha }
   })
 }
 
 function setGitHubRequest (fn) {
-  githubRequest = typeof fn === 'function' ? fn : get
+  githubRequest = typeof fn === 'function' ? fn : disabledGitHubRequest
 }
 
 function clearGitHubCache () {
   branchInfoCache.clear()
   commitInfoCache.clear()
+  defaultBranchCache = undefined
 }
 
 /**
@@ -512,19 +753,23 @@ function setRateLimitState (remaining, reset) {
 
 // Export download functions
 module.exports = {
-    downloadFile,
-    downloadFiles,
-    downloadSourceFolder,
-    downloadSourceFolderGit,
-    getDownloadFiles,
-    httpsGetPromise: get,
-    urlExists,
-    getBranchInfo,
-    getCommitInfo,
-    isRateLimited,
-    getRateLimitState,
-    __setGitHubRequest: setGitHubRequest,
-    __clearGitHubCache: clearGitHubCache,
-    __clearRateLimitState: clearRateLimitState,
-    __setRateLimitState: setRateLimitState
+  downloadFile,
+  downloadFiles,
+  downloadSourceFolder,
+  downloadSourceFolderGit,
+  ensureGitRepo,
+  syncMaster,
+  resolveGitRef,
+  pathExistsInRepo,
+  getDownloadFiles,
+  httpsGetPromise: get,
+  urlExists,
+  getBranchInfo,
+  getCommitInfo,
+  isRateLimited,
+  getRateLimitState,
+  __setGitHubRequest: setGitHubRequest,
+  __clearGitHubCache: clearGitHubCache,
+  __clearRateLimitState: clearRateLimitState,
+  __setRateLimitState: setRateLimitState
 }

@@ -4,13 +4,11 @@
  * @author Jon Arild Nygard
  * @todo Add license
  */
-'use strict'
-
 // Import dependencies, sorted by path name.
 const {
   getOrderedDependencies
 } = require('@highcharts/highcharts-assembler/src/dependencies.js')
-const { join, sep, relative } = require('path')
+const { join, sep, relative } = require('node:path')
 
 // Constants
 const BRANCH_TYPES = [
@@ -24,18 +22,29 @@ const BRANCH_TYPES = [
 ]
 
 const PRODUCTS = ['stock', 'maps', 'gantt']
+const DEFAULT_BRANCH = process.env.DEFAULT_BRANCH || 'master'
 
 const replaceAll = (str, search, replace) => str.split(search).join(replace)
 const stripQuery = (url) => (typeof url === 'string' ? url.split('?')[0] : '')
+const stripBranchPrefix = (url) => {
+  let normalizedUrl = stripQuery(url)
+  normalizedUrl = normalizedUrl.replace(/^\/(master|main)(?=\/|$)/, '')
+  normalizedUrl = normalizedUrl.replace(/^\/v[0-9]+(\.[0-9]+)*(-[a-zA-Z0-9.]+)?\//, '/')
+  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
+  if (regex.test(normalizedUrl)) {
+    normalizedUrl = normalizedUrl.replace(regex, '/')
+  }
+  return normalizedUrl
+}
 
 /**
  * Finds which branch, tag, or commit that is requested by the client. Defaults
- * to master. Returns a string with the resulting reference.
+ * to the configured branch name. Returns a string with the resulting reference.
  *
  * @param  {string} url The request URL.
  */
 async function getBranch (url) {
-  url = stripQuery(url)
+  const normalizedUrl = stripQuery(url)
   const folders = ['adapters', 'indicators', 'modules', 'parts-3d', 'parts-map',
     'parts-more', 'parts', 'themes']
   const isValidBranchName = (str) => (
@@ -45,13 +54,13 @@ async function getBranch (url) {
     !(str.endsWith('.js') || str.endsWith('.css')) // Not a file
   )
 
-  let branch = 'master'
-  const sections = url.substring(1).split('/')
+  let branch = DEFAULT_BRANCH
+  const sections = normalizedUrl.substring(1).split('/')
   // We have more than one section
   if (sections.length > 1 && BRANCH_TYPES.includes(sections[0])) {
     branch = (
       (sections.length > 2 && isValidBranchName(sections[1]))
-        ? sections[0] + '/' + sections[1]
+        ? `${sections[0]}/${sections[1]}`
         : sections[0]
     )
   /**
@@ -61,6 +70,12 @@ async function getBranch (url) {
   } else if (isValidBranchName(sections[0])) {
     branch = sections[0]
   }
+
+  // Treat legacy master URLs as alias for the configured default branch.
+  if (branch === 'master' && DEFAULT_BRANCH !== 'master') {
+    branch = DEFAULT_BRANCH
+  }
+
   return branch
 }
 
@@ -73,14 +88,8 @@ async function getBranch (url) {
  * @param  {string} url The request URL.
  */
 function getFile (branch, type, url) {
-  url = stripQuery(url)
   // Replace branches in url, since we save by commit sha
-  url = url.replace(/^\/master/, '')
-  url = url.replace(/^\/v[0-9]+\//, '/')
-  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
-  if (regex.test(url)) {
-    url = url.replace(regex, '/')
-  }
+  const normalizedUrl = stripBranchPrefix(url)
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
     x => x === branch.split('/')[1], // Remove second section of branch name
@@ -91,7 +100,7 @@ function getFile (branch, type, url) {
       sections.splice(0, 1)
     }
     return sections
-  }, url.substring(1).split('/'))
+  }, normalizedUrl.substring(1).split('/'))
 
   let filename = sections.join('/')
 
@@ -118,14 +127,8 @@ function getFile (branch, type, url) {
  * @param  {string} url The request URL.
  */
 function getFileForEsbuild (branch, type, url) {
-  url = stripQuery(url)
   // Replace branches in url, since we save by commit sha
-  url = url.replace(/^\/master/, '')
-  url = url.replace(/^\/v[0-9]+\//, '/')
-  const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
-  if (regex.test(url)) {
-    url = url.replace(regex, '/')
-  }
+  const normalizedUrl = stripBranchPrefix(url)
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
     x => x === branch.split('/')[1], // Remove second section of branch name
@@ -136,7 +139,7 @@ function getFileForEsbuild (branch, type, url) {
       sections.splice(0, 1)
     }
     return sections
-  }, url.substring(1).split('/'))
+  }, normalizedUrl.substring(1).split('/'))
 
   let filename = sections.join('/')
 
@@ -226,7 +229,7 @@ function getFileOptions (files, pathJS) {
  * @param  {string} url The request URL.
  */
 const getType = (branch, url) => {
-  url = stripQuery(url)
+  const normalizedUrl = stripQuery(url)
   const sections = [
     x => x === branch.split('/')[0], // Remove first section of branch name
     x => x === branch.split('/')[1], // Remove second section of branch name
@@ -236,7 +239,7 @@ const getType = (branch, url) => {
       sections.splice(0, 1)
     }
     return sections
-  }, url.substring(1).split('/'))
+  }, normalizedUrl.substring(1).split('/'))
 
   return sections[0] === 'js' ? 'css' : 'classic'
 }

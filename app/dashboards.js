@@ -4,7 +4,7 @@ const { join } = require('node:path')
 const { stat, opendir, readFile, writeFile, symlink } = require('node:fs/promises')
 const { existsSync } = require('node:fs')
 const { downloadSourceFolder, getBranchInfo, getCommitInfo } = require('./download')
-const { compileTypeScript, log } = require('./utilities')
+const { compileTypeScript, log, updateBranchAccess } = require('./utilities')
 const { build } = require('@highcharts/highcharts-assembler/src/build')
 const { JobQueue } = require('./JobQueue')
 
@@ -41,7 +41,7 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   try {
     build({
       // TODO: Remove trailing slash when assembler has fixed path concatenation
-      base: jsMastersDirectory + '/',
+      base: `${jsMastersDirectory}/`,
       output: pathOutputFolder,
       pretty: false,
       version: commit,
@@ -70,7 +70,7 @@ async function assembleDashboards (pathCacheDirectory, commit) {
           await modifyFiles(join(dirPath, dirent.name))
         } else if (dirent.name.endsWith('.src.js')) {
           const contents = await readFile(join(dirPath, dirent.name), 'utf-8')
-                    const toReplace = 'code.highcharts.com.*' + commit + '\/' // eslint-disable-line
+                    const toReplace = `code.highcharts.com.*${commit}\/` // eslint-disable-line
           if (contents) {
             await writeFile(
               join(dirPath, dirent.name),
@@ -142,7 +142,10 @@ async function dashboardsHandler (req, res, next) {
   }
 
   const pathCacheDirectory = join(PATH_TMP_DIRECTORY, commit)
-  const downloadURL = 'https://raw.githubusercontent.com/highcharts/highcharts/'
+
+  await updateBranchAccess(pathCacheDirectory).catch(error => {
+    log(1, `Failed to update access for ${commit}: ${error.message}`)
+  })
 
   try {
     await stat(join(pathCacheDirectory, 'js'))
@@ -155,7 +158,7 @@ async function dashboardsHandler (req, res, next) {
           func: downloadSourceFolder,
           args: [
             pathCacheDirectory,
-            downloadURL,
+            null,
             commit
           ]
         }
@@ -199,7 +202,7 @@ async function dashboardsHandler (req, res, next) {
     async () => {
       await Promise.resolve().then(() => queue.addJob(
         'compile',
-        commit + filepath,
+        `${commit}/${filepath}`,
         {
           func: compileTypeScript,
           args: [
@@ -210,19 +213,19 @@ async function dashboardsHandler (req, res, next) {
           ]
         }
       )).catch(error => {
-        log(2, `Failed to enqueue TypeScript compile for ${commit}${filepath}: ${error.message}`)
+        log(2, `Failed to enqueue TypeScript compile for ${commit}/${filepath}: ${error.message}`)
         return handleQueueError(error)
       })
 
       await Promise.resolve().then(() => queue.addJob(
         'compile',
-        commit + filepath,
+        `${commit}/${filepath}`,
         {
           func: assembleDashboards,
           args: [pathCacheDirectory, commit]
         }
       )).catch(error => {
-        log(2, `Failed to enqueue dashboard assembly for ${commit}${filepath}: ${error.message}`)
+        log(2, `Failed to enqueue dashboard assembly for ${commit}/${filepath}: ${error.message}`)
         return handleQueueError(error)
       })
 
