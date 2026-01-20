@@ -12,6 +12,8 @@ const {
 } = require('@highcharts/highcharts-assembler/src/dependencies.js')
 const { join, sep, relative } = require('path')
 
+const { DEFAULT_BRANCH } = require('./defaults')
+
 // Constants
 const BRANCH_TYPES = [
   'bugfix',
@@ -29,8 +31,10 @@ const replaceAll = (str, search, replace) => str.split(search).join(replace)
 const stripQuery = (url) => (typeof url === 'string' ? url.split('?')[0] : '')
 
 /**
- * Finds which branch, tag, or commit that is requested by the client. Defaults
- * to master. Returns a string with the resulting reference.
+ * Finds which branch, tag, or commit that is requested by the client,
+ * or responds with the default branch
+ *
+ * Returns a string with the resulting reference.
  *
  * @param  {string} url The request URL.
  */
@@ -45,7 +49,7 @@ async function getBranch (url) {
     !(str.endsWith('.js') || str.endsWith('.css')) // Not a file
   )
 
-  let branch = 'master'
+  let branch = DEFAULT_BRANCH
   const sections = url.substring(1).split('/')
   // We have more than one section
   if (sections.length > 1 && BRANCH_TYPES.includes(sections[0])) {
@@ -75,7 +79,10 @@ async function getBranch (url) {
 function getFile (branch, type, url) {
   url = stripQuery(url)
   // Replace branches in url, since we save by commit sha
-  url = url.replace(/^\/master/, '')
+  if (url.startsWith('/' + DEFAULT_BRANCH)) {
+    url = url.replace('/' + DEFAULT_BRANCH, '')
+  }
+
   url = url.replace(/^\/v[0-9]+\//, '/')
   const regex = new RegExp(`^\\/(${BRANCH_TYPES.join('|')})\\/([A-Za-z]|[0-9]|-)+\\/`)
   if (regex.test(url)) {
