@@ -82,6 +82,20 @@ https://github.highcharts.com/master/highcharts-gantt.src.js
 
 ### esbuild Mode
 
+For **Highcharts v13+ branches**, esbuild is used automatically. Version 13 introduced dynamic `import()`, ES2020 module syntax, and a restructured module system that the legacy Highcharts Assembler cannot handle, so the server detects these branches and routes them through esbuild without any configuration.
+
+For **older branches**, append `?esbuild` to any request URL to opt in manually:
+
+```
+http://localhost:8080/master/highcharts.src.js?esbuild
+```
+
+To confirm that esbuild was used, check the response header:
+
+```
+X-Built-With: esbuild
+```
+
 Add `?esbuild` to any request to use esbuild compilation instead of the standard TypeScript + assembler pipeline:
 
 ```

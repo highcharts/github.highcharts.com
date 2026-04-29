@@ -8,7 +8,7 @@
 'use strict'
 
 // Import dependencies, sorted by path name.
-const { secureToken, repo } = require('../config.json')
+const { secureToken, repo, token } = require('../config.json')
 const { downloadFile, downloadSourceFolder, urlExists, getBranchInfo, getCommitInfo, isRateLimited } = require('./download.js')
 const { log } = require('./utilities')
 
@@ -40,6 +40,51 @@ const { JobQueue } = require('./JobQueue')
 const { existsSync } = require('node:fs')
 const { shouldUseWebpack, compileWebpack } = require('./utils.js')
 const { compileWithEsbuild } = require('./esbuild.js')
+
+const esbuildCache = new Map()
+const ESBUILD_DETECTION_FILE = 'ts/masters/highcharts-autoload.src.ts'
+
+/**
+ * Check if a branch requires esbuild by looking for the autoload master file.
+ * @param {string} ref - Branch name or commit SHA
+ * @returns {Promise<boolean>} true if the branch needs esbuild
+ */
+async function branchNeedsEsbuild (ref) {
+  if (esbuildCache.has(ref)) {
+    return esbuildCache.get(ref)
+  }
+
+  if (/\.\./.test(ref)) {
+    esbuildCache.set(ref, false)
+    return false
+  }
+
+  try {
+    const url = `https://raw.githubusercontent.com/${repo}/${ref}/${ESBUILD_DETECTION_FILE}`
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+
+    try {
+      const res = await fetch(url, {
+        method: 'HEAD',
+        signal: controller.signal,
+        headers: token ? { Authorization: `token ${token}` } : {}
+      })
+      if (!res.ok && res.status !== 404) {
+        console.warn(`branchNeedsEsbuild: GitHub returned ${res.status} for ${ref}`)
+      }
+      const result = res.ok
+      esbuildCache.set(ref, result)
+      return result
+    } finally {
+      clearTimeout(timeout)
+    }
+  } catch (e) {
+    console.warn(`branchNeedsEsbuild: failed to check ${ref}:`, e.message)
+    esbuildCache.set(ref, false)
+    return false
+  }
+}
 
 // Constants
 const PATH_TMP_DIRECTORY = join(__dirname, '../tmp')
@@ -146,11 +191,12 @@ async function handlerDefault (req, res) {
   }
 
   // Check for esbuild mode
-  const useEsbuild = /[?&]esbuild(?:[&=]|$)/.test(req.url)
+  let useEsbuild = /[?&]esbuild(?:[&=]|$)/.test(req.url)
 
   let branch = await getBranch(req.path)
   let url = req.url
   let useGitDownloader = branch === 'master' || /^\/v[0-9]/.test(req.path) // version tags
+  const originalBranch = branch
 
   // If we can get it, save by commit sha
   // This also means we can use the degit downloader
@@ -158,6 +204,7 @@ async function handlerDefault (req, res) {
   // Only `v8.0.0` gets saved by their proper names
   const { commit } = await getBranchInfo(branch)
   if (commit) {
+    url = url.replace(`/${originalBranch}/`, `/${commit.sha}/`)
     branch = commit.sha
     useGitDownloader = true
   }
@@ -168,8 +215,15 @@ async function handlerDefault (req, res) {
   if (!useGitDownloader) {
     const { sha } = await getCommitInfo(branch)
     if (sha) {
-      url = url.replace(branch, sha)
+      url = url.replace(`/${branch}/`, `/${sha}/`)
       branch = sha
+    }
+  }
+
+  if (!useEsbuild) {
+    const needsEsbuild = await branchNeedsEsbuild(branch)
+    if (needsEsbuild) {
+      useEsbuild = true
     }
   }
 

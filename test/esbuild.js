@@ -65,6 +65,10 @@ describe('esbuild.js', () => {
     it('should contain highcharts-gantt.src.js', () => {
       expect(core.PRIMARY_FILES).to.include('/highcharts-gantt.src.js')
     })
+
+    it('should contain highcharts-autoload.src.js', () => {
+      expect(core.PRIMARY_FILES).to.include('/highcharts-autoload.src.js')
+    })
   })
 
   describe('isPrimaryFile', () => {
@@ -84,8 +88,16 @@ describe('esbuild.js', () => {
       expect(core.isPrimaryFile('/modules/exporting.src.js')).to.equal(false)
     })
 
+    it('should return false for /modules/data-sorting.src.js', () => {
+      expect(core.isPrimaryFile('/modules/data-sorting.src.js')).to.equal(false)
+    })
+
     it('should return false for random files', () => {
       expect(core.isPrimaryFile('/some-random-file.js')).to.equal(false)
+    })
+
+    it('should return true for /highcharts-autoload.src.js', () => {
+      expect(core.isPrimaryFile('/highcharts-autoload.src.js')).to.equal(true)
     })
   })
 
@@ -105,6 +117,16 @@ describe('esbuild.js', () => {
       const result = core.getMasterPath('/modules/exporting.src.js', '/path/to/highcharts')
       expect(result).to.include('ts/masters/modules/exporting.src.ts')
     })
+
+    it('should handle data-sorting module files', () => {
+      const result = core.getMasterPath('/modules/data-sorting.src.js', '/path/to/highcharts')
+      expect(result).to.include('ts/masters/modules/data-sorting.src.ts')
+    })
+
+    it('should handle highcharts-autoload file', () => {
+      const result = core.getMasterPath('/highcharts-autoload.src.js', '/path/to/highcharts')
+      expect(result).to.include('ts/masters/highcharts-autoload.src.ts')
+    })
   })
 
   describe('getUMDConfig', () => {
@@ -116,6 +138,16 @@ describe('esbuild.js', () => {
 
     it('should return Highcharts config for module files', () => {
       const config = core.getUMDConfig('/modules/exporting.src.js')
+      expect(config.name).to.equal('Highcharts')
+    })
+
+    it('should return Highcharts config for data-sorting module files', () => {
+      const config = core.getUMDConfig('/modules/data-sorting.src.js')
+      expect(config.name).to.equal('Highcharts')
+    })
+
+    it('should return Highcharts config for highcharts-autoload files', () => {
+      const config = core.getUMDConfig('/highcharts-autoload.src.js')
       expect(config.name).to.equal('Highcharts')
     })
 
@@ -293,6 +325,30 @@ describe('esbuild.js', () => {
       )
 
       expect(config.banner.js).to.equal('')
+    })
+
+    it('should generate config for highcharts-autoload', () => {
+      const config = core.buildEsbuildConfig(
+        '/path/to/highcharts/ts/masters/highcharts-autoload.src.ts',
+        { name: 'Highcharts', isEsModules: false, filename: '/highcharts-autoload.src.js' },
+        true,
+        []
+      )
+
+      expect(config).to.have.property('entryPoints')
+      expect(config).to.have.property('bundle')
+    })
+
+    it('should generate config for data-sorting as a non-primary module', () => {
+      const config = core.buildEsbuildConfig(
+        '/path/to/highcharts/ts/masters/modules/data-sorting.src.ts',
+        { name: 'Highcharts', isEsModules: false, filename: '/modules/data-sorting.src.js' },
+        false,
+        []
+      )
+
+      expect(config).to.have.property('entryPoints')
+      expect(config).to.have.property('bundle')
     })
   })
 
