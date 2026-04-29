@@ -226,7 +226,7 @@ async function dashboardsHandler (req, res, next) {
         return handleQueueError(error)
       })
 
-      res.status(201)
+      res.status(200)
 
       return serveIfExists(res, obj.assembled)
     },
