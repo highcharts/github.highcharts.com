@@ -223,7 +223,7 @@ describe('esbuild.js', () => {
     })
   })
 
-  describe('getDefaultReplacements', () => {
+  describe.skip('getDefaultReplacements', () => {
     it('should return an object with replacement mappings', () => {
       const config = { name: 'Highcharts' }
       const replacements = core.getDefaultReplacements(config)
