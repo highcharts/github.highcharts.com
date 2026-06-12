@@ -7,10 +7,12 @@ on:
       - "*"
 jobs:
   flow:
-    uses: highsoft-corp/hs-platform-workflows/.github/workflows/flow_docker.yml@main
+    name: Highsoft Flow
+    uses: ./.github/workflows/flow_docker.yml
     secrets: inherit
     with:
       registry: ghcr.io
       folder_name: .
       image_name: ${{ github.repository }}
-      use_conventional_commits: false
+      platforms: linux/amd64
+      deploy_branch: master
