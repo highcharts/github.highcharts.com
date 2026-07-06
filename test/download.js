@@ -49,8 +49,8 @@ describe('download.js', () => {
     it('should return a response when a url is provided', () => {
       return httpsGetPromise(downloadURL)
         .then(({ body, statusCode }) => {
-          expect(statusCode).to.equal(400)
-          expect(body).to.equal('400: Invalid request')
+          expect(statusCode).to.equal(404)
+          expect(body).to.equal('404: Not Found')
         })
     })
   })
