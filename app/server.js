@@ -168,19 +168,18 @@ Date: ${DATE}
  */
 APP.use(setConnectionAborted)
 APP.use(bodyJSONParser)
+APP.use(ignoreSocketErrors)
 APP.use(router)
 APP.use(clientErrorHandler)
 APP.use(logErrors)
 
 function ignoreSocketErrors (req, res, next) {
   const noop = () => {}
-  req.socket.on('error', noop)
-  res.socket.on('error', noop)
+  req.socket?.on('error', noop)
+  res.socket?.on('error', noop)
 
   next()
 }
-
-APP.use(ignoreSocketErrors)
 
 /**
  * Start the server

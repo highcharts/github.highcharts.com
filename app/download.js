@@ -323,11 +323,12 @@ async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
  * @param {object|string} options Can either be an https request options object,
  * or an url string.
  */
-function get(options) {
+function get(options, _retried) {
     return new Promise((resolve, reject) => {
         const request = httpsGet(options, response => {
             const body = []
             response.setEncoding('utf8')
+            response.on('error', reject)
             response.on('data', (data) => { body.push(data) })
             response.on('end', () =>
                 resolve({
@@ -337,7 +338,18 @@ function get(options) {
                 })
             )
         })
-        request.on('error', reject)
+        request.on('error', (err) => {
+            // ponytail: retry once on stale keep-alive socket, upgrade to dedicated Agent with scheduling:'lifo' if this recurs often
+            if (!_retried && request.reusedSocket && err.code === 'ECONNRESET') {
+                log(1, 'ECONNRESET retry on reused socket:', typeof options === 'string' ? options : options.hostname + (options.path || ''))
+                resolve(get(options, true))
+                return
+            }
+            reject(err)
+        })
+        request.setTimeout(30000, () => {
+            request.destroy(new Error('Request timeout'))
+        })
         request.end()
     })
 }
