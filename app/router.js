@@ -22,6 +22,9 @@ const {
 
 const { dashboardsHandler } = require('./dashboards')
 const express = require('express')
+const { readFile } = require('fs/promises')
+const { join } = require('path')
+const { version } = require('../package.json')
 
 // Middleware
 const rateLimit = require('express-rate-limit')
@@ -29,6 +32,7 @@ const slowDown = require('express-slow-down')
 
 // Constants
 const ROUTER = express.Router()
+const indexPath = join(__dirname, '..', 'static', 'index.html')
 
 // Register handlers to the router
 ROUTER.get('/health', catchAsyncErrors(handlerHealth))
@@ -38,6 +42,11 @@ ROUTER.get('/cleanup', catchAsyncErrors(handlerCleanup))
 ROUTER.get('/files', catchAsyncErrors(handlerFS))
 ROUTER.delete('/*', catchAsyncErrors(handlerRemoveFiles))
 ROUTER.post('/*', catchAsyncErrors(handlerUpdate))
+ROUTER.get('/', catchAsyncErrors(async (_, response) => {
+  const html = await readFile(indexPath, 'utf-8')
+  response.type('html')
+  response.send(html.replace('{{APP_VERSION}}', version))
+}))
 
 ROUTER.use(express.static('static'))
 
