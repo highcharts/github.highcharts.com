@@ -347,9 +347,6 @@ function get(options, _retried) {
             }
             reject(err)
         })
-        request.setTimeout(30000, () => {
-            request.destroy(new Error('Request timeout'))
-        })
         request.end()
     })
 }
