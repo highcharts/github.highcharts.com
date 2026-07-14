@@ -14,9 +14,13 @@ on:
         required: false
         type: string
       folder_name:
-        description: "The folder where the Dockerfile is located"
+        description: "The Docker build context and VERSION working directory"
         default: .
         required: false
+        type: string
+      dockerfile:
+        description: "The explicit Dockerfile path"
+        required: true
         type: string
       deploy_branch:
         description: "The branch that will be deployed"
@@ -63,6 +67,7 @@ jobs:
       registry: ${{ inputs.registry }}
       image_name: ${{ inputs.image_name }}
       folder_name: ${{ inputs.folder_name }}
+      dockerfile: ${{ inputs.dockerfile }}
       version: ${{ needs.version.outputs.version }}
       run_number: ${{ github.run_number }}
       user_name: ${{ github.actor }}

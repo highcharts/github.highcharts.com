@@ -71,8 +71,10 @@ function validSignature (signature, body, secret) {
   if (isString(signature) && isString(body) && isString(secret)) {
     const sha = sha1(secret, body)
     if (isString(sha)) {
-      const hash = 'sha1=' + sha
-      result = signature === hash
+      const signatureBuffer = Buffer.from(signature)
+      const hashBuffer = Buffer.from('sha1=' + sha)
+      result = signatureBuffer.length === hashBuffer.length &&
+        crypto.timingSafeEqual(signatureBuffer, hashBuffer)
     }
   }
   return result

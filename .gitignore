@@ -1,6 +1,7 @@
 # custom ignores
 tmp
 config.json
+.env
 .ebextensions
 .idea
 .editorconfig

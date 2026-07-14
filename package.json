@@ -39,6 +39,9 @@
     "node": ">=24.0.0"
   },
   "scripts": {
+    "start:router": "node server.js",
+    "start:downloader": "node downloader-server.js",
+    "start:builder": "node builder-server.js",
     "coverage": "nyc npm run unit-tests",
     "lint": "standard --fix \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "build": "node ./scripts/deploy.js",

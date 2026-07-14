@@ -169,16 +169,16 @@ function padStart (str, length = 0, char) {
  * @param {string} branch to specific commit, tag or branch
  * @param {string} file the file to compile
  */
-async function compileTypeScript (branch, file = 'masters/highcharts.src.ts', outDir = 'js') {
+async function compileTypeScript (branch, file = 'masters/highcharts.src.ts', outDir = 'js', workspaceRoot = join(__dirname, '../tmp', branch)) {
   log(0, `Compiling ${file} for commit ${branch}`)
   const exec = util.promisify(childProcess.exec)
-  const TS_PATH = join(__dirname, '../tmp', branch, 'ts')
-  const OUT_PATH = join(__dirname, '../tmp', branch, outDir)
+  const TS_PATH = join(workspaceRoot, 'ts')
+  const OUT_PATH = join(workspaceRoot, outDir)
   const jsFilePath = join(OUT_PATH, file.replace('.ts', '.js'))
 
   // This will fail, but the js-files should still be output
   try {
-    const args = `--outDir ${OUT_PATH} --allowJS true --module es6 --target es5 --skipLibCheck --esModuleInterop`
+    const args = `--outDir ${OUT_PATH} --rootDir ${TS_PATH} --allowJS true --module es6 --target es5 --skipLibCheck --esModuleInterop --ignoreDeprecations 5.0`
     const { stdout, stderr } = await exec(`node ${tscPath} ${join(TS_PATH, file.replace(/\.js$/, '.ts'))} ${args}`)
     log(0, stderr || stdout)
   } catch (error) {
@@ -195,14 +195,14 @@ ${error.message}
  * Compiles the full project based on the tsconfig.
  * @param {string} branch
  */
-async function compileTypeScriptProject (branch) {
+async function compileTypeScriptProject (branch, workspaceRoot = join(__dirname, '../tmp', branch)) {
   log(0, `Compiling TypeScript for downloaded folder ${branch}..`)
   const exec = util.promisify(childProcess.exec)
-  const TS_PATH = join(__dirname, '../tmp', branch, 'ts')
+  const TS_PATH = join(workspaceRoot, 'ts')
   try {
     const dir = __dirname
     log(1, { dir })
-    const { stdout, stderr } = await exec(`node ${tscPath} --build tsconfig.json`, { cwd: TS_PATH })
+    const { stdout, stderr } = await exec(`node ${tscPath} --project tsconfig.json --ignoreDeprecations 5.0`, { cwd: TS_PATH })
     log(0, stderr || stdout)
   } catch (error) {
     log(2, error)

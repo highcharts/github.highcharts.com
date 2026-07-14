@@ -17,7 +17,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Install dependencies
@@ -34,7 +34,7 @@ jobs:
           fi
 
       - name: Setup config.json
-        run: echo '{"token":"","port":"90","repo":"highcharts/highcharts"}' > config.json
+        run: echo '{"token":"ci-token","port":"90","repo":"highcharts/highcharts","secureToken":"ci-secret","publicDownloaderTimeout":60000,"builderDownloaderTimeout":30000,"publicBuilderTimeout":90000}' > config.json
 
       - name: Run tests
         run: npm test

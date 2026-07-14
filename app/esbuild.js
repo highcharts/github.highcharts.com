@@ -66,14 +66,14 @@ async function getPackageVersion (highchartsDir) {
  * @param {string} requestFilename - The requested filename (e.g., 'highcharts.src.js')
  * @param {Object} [options] - Compilation options
  * @param {boolean} [options.minify=false] - Whether to minify the output
+ * @param {string} [options.workspaceRoot] - Path to the downloaded source
  * @returns {Promise<{file?: string, body?: string, status: number}>} Result with file path or error
  */
 async function compileWithEsbuild (branch, requestFilename, options = {}) {
-  const { minify = false } = options
+  const { minify = false, workspaceRoot = join(__dirname, '../tmp', branch) } = options
   const core = await getCompileCore()
 
-  const pathCacheDirectory = join(__dirname, '../tmp', branch)
-  const outputDir = join(pathCacheDirectory, 'output-esbuild')
+  const outputDir = join(workspaceRoot, 'output-esbuild')
 
   // Normalize the filename to have a leading slash for the compile function
   const normalizedFilename = requestFilename.startsWith('/')
@@ -111,9 +111,9 @@ async function compileWithEsbuild (branch, requestFilename, options = {}) {
   let result
   try {
     result = await core.compile(normalizedFilename, {
-      highchartsDir: pathCacheDirectory,
+      highchartsDir: workspaceRoot,
       branchName: branch,
-      getPackageVersion: () => getPackageVersion(pathCacheDirectory)
+      getPackageVersion: () => getPackageVersion(workspaceRoot)
     })
 
     let code = result.code

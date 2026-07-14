@@ -93,6 +93,32 @@ async function assembleDashboards (pathCacheDirectory, commit) {
   await modifyFiles(pathOutputFolder)
 }
 
+async function buildDashboards (pathCacheDirectory, commit, filepath, buildQueue = queue) {
+  const mastersDirName = 'masters-dashboards'
+  const source = filepath.replace(/\.js|.src\.js/, '.src.ts')
+  const compile = existsSync(join(pathCacheDirectory, 'ts', mastersDirName, source))
+    ? join(mastersDirName, filepath)
+    : filepath
+  const assembled = join(pathCacheDirectory, 'dashboards-output', filepath)
+  if (existsSync(assembled)) return assembled
+
+  await buildQueue.addJob('compile', commit + filepath, {
+    func: compileTypeScript,
+    args: [commit, compile.endsWith('.src.js') ? compile : compile.replace('.js', '.src.js'), 'js', pathCacheDirectory]
+  })
+  await buildQueue.addJob('compile', commit + filepath, {
+    func: assembleDashboards,
+    args: [pathCacheDirectory, commit]
+  })
+  if (existsSync(assembled)) return assembled
+
+  const compiled = join(pathCacheDirectory, 'js', compile)
+  if (existsSync(compiled)) return compiled
+  const plain = join(pathCacheDirectory, 'js', filepath)
+  if (!filepath.endsWith('.src.js') && existsSync(plain)) return plain
+  throw new Error(`Dashboards build did not output ${filepath}`)
+}
+
 /**
  * @param {import('express').Request} req
  * @param {import('express').Response} res
@@ -254,5 +280,6 @@ async function dashboardsHandler (req, res, next) {
 }
 
 module.exports = {
+  buildDashboards,
   dashboardsHandler
 }

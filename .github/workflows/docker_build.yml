@@ -19,9 +19,13 @@ on:
         required: false
         type: string
       folder_name:
-        description: "The folder where the Dockerfile is located"
+        description: "The Docker build context"
         default: .
         required: false
+        type: string
+      dockerfile:
+        description: "The explicit Dockerfile path"
+        required: true
         type: string
       user_name:
         description: "The name of the user to login to the registry"
@@ -98,6 +102,7 @@ jobs:
         uses: docker/build-push-action@v7.0.0
         with:
           context: ${{ inputs.folder_name }}
+          file: ${{ inputs.dockerfile }}
           push: true
           tags: ${{ inputs.registry }}/${{ inputs.image_name }}:${{ inputs.version }}${{ inputs.environment && format('-{0}', inputs.environment) || '' }}-build.${{ inputs.run_number }}
           labels: ${{ steps.meta.outputs.labels }}

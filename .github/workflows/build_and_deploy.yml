@@ -6,13 +6,36 @@ on:
     branches:
       - "*"
 jobs:
-  flow:
-    name: Highsoft Flow
+  router:
+    name: Router Flow
     uses: ./.github/workflows/flow_docker.yml
     secrets: inherit
     with:
       registry: ghcr.io
       folder_name: .
       image_name: ${{ github.repository }}
+      dockerfile: Dockerfile.router
+      platforms: linux/amd64
+      deploy_branch: master
+  downloader:
+    name: Downloader Flow
+    uses: ./.github/workflows/flow_docker.yml
+    secrets: inherit
+    with:
+      registry: ghcr.io
+      folder_name: .
+      image_name: ${{ github.repository }}-downloader
+      dockerfile: Dockerfile.downloader
+      platforms: linux/amd64
+      deploy_branch: master
+  builder:
+    name: Builder Flow
+    uses: ./.github/workflows/flow_docker.yml
+    secrets: inherit
+    with:
+      registry: ghcr.io
+      folder_name: .
+      image_name: ${{ github.repository }}-builder
+      dockerfile: Dockerfile.builder
       platforms: linux/amd64
       deploy_branch: master

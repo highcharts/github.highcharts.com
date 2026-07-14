@@ -1,10 +1,16 @@
 const mocha = require('mocha')
 const expect = require('chai').expect
+const childProcess = require('child_process')
+const sinon = require('sinon')
 const defaults = require('../app/utilities.js')
 const describe = mocha.describe
 const it = mocha.it
+const afterEach = mocha.afterEach
 
 describe('utilities.js', () => {
+  let exec
+  afterEach(() => exec && exec.restore())
+
   describe('exported properties', () => {
     const functions = [
       'formatDate',
@@ -275,6 +281,57 @@ describe('utilities.js', () => {
     it('should return the string padded with char and correct length', () => {
       expect(padStart('string', 10, 'x')).to.equal('xxxxstring')
       expect(padStart('string', 10, 'xo')).to.equal('xoxostring')
+    })
+  })
+
+  describe('TypeScript compilation', () => {
+    it('should preserve nested paths when compiling a file', async () => {
+      exec = sinon.stub(childProcess, 'exec').callsFake((command, callback) => {
+        callback(null, '', '')
+      })
+
+      await defaults.compileTypeScript('branch', 'modules/dashboards-plugin.src.ts', 'js')
+
+      const root = require('path').join(__dirname, '../tmp/branch')
+      const TS_PATH = require('path').join(root, 'ts')
+      expect(exec.firstCall.args[0]).to.equal(
+        `node ${require.resolve('typescript/lib/tsc.js')} ${require('path').join(TS_PATH, 'modules/dashboards-plugin.src.ts')} --outDir ${require('path').join(root, 'js')} --rootDir ${TS_PATH} --allowJS true --module es6 --target es5 --skipLibCheck --esModuleInterop --ignoreDeprecations 5.0`
+      )
+    })
+
+    it('should compile a file from an explicit workspace root', async () => {
+      exec = sinon.stub(childProcess, 'exec').callsFake((command, callback) => callback(null, '', ''))
+      const root = require('path').join(require('os').tmpdir(), 'custom-builder-root')
+
+      await defaults.compileTypeScript('branch', 'masters/highcharts.src.ts', 'js', root)
+
+      expect(exec.firstCall.args[0]).to.include(require('path').join(root, 'ts/masters/highcharts.src.ts'))
+      expect(exec.firstCall.args[0]).to.include(`--outDir ${require('path').join(root, 'js')}`)
+    })
+
+    it('should ignore TypeScript 5.0 deprecations when building a project', async () => {
+      exec = sinon.stub(childProcess, 'exec').callsFake((command, options, callback) => {
+        callback(null, '', '')
+      })
+
+      await defaults.compileTypeScriptProject('branch')
+
+      expect(exec.firstCall.args[0]).to.equal(
+        `node ${require.resolve('typescript/lib/tsc.js')} --project tsconfig.json --ignoreDeprecations 5.0`
+      )
+      expect(exec.firstCall.args[0]).not.to.include('--build')
+      expect(exec.firstCall.args[1]).to.deep.equal({
+        cwd: require('path').join(__dirname, '../tmp/branch/ts')
+      })
+    })
+
+    it('should compile a project from an explicit workspace root', async () => {
+      exec = sinon.stub(childProcess, 'exec').callsFake((command, options, callback) => callback(null, '', ''))
+      const root = require('path').join(require('os').tmpdir(), 'custom-builder-root')
+
+      await defaults.compileTypeScriptProject('branch', root)
+
+      expect(exec.firstCall.args[1]).to.deep.equal({ cwd: require('path').join(root, 'ts') })
     })
   })
 })
