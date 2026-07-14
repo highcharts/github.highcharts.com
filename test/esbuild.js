@@ -1,6 +1,9 @@
 const { getCompileCore, compileWithEsbuild } = require('../app/esbuild.js')
 const { expect } = require('chai')
 const { describe, it, before } = require('mocha')
+const fs = require('node:fs')
+const os = require('node:os')
+const { join } = require('node:path')
 
 describe('esbuild.js', () => {
   /** @type {Awaited<ReturnType<typeof getCompileCore>>} */
@@ -42,6 +45,18 @@ describe('esbuild.js', () => {
 
     it('should export getCompileCore', () => {
       expect(getCompileCore).to.be.a('function')
+    })
+
+    it('should use an explicit workspace root', async () => {
+      const workspaceRoot = await fs.promises.mkdtemp(join(os.tmpdir(), 'esbuild-root-'))
+      const output = join(workspaceRoot, 'output-esbuild/highcharts.src.js')
+      try {
+        await fs.promises.mkdir(join(output, '..'), { recursive: true })
+        await fs.promises.writeFile(output, 'cached')
+        expect(await compileWithEsbuild('branch', 'highcharts.src.js', { workspaceRoot })).to.deep.equal({ file: output, status: 200 })
+      } finally {
+        await fs.promises.rm(workspaceRoot, { recursive: true, force: true })
+      }
     })
   })
 

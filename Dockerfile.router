@@ -1,0 +1,25 @@
+FROM --platform=$TARGETPLATFORM node:lts-alpine AS deps
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+FROM --platform=$TARGETPLATFORM node:lts-alpine AS runner
+
+RUN apk add --no-cache tini
+
+WORKDIR /app
+ENV NODE_ENV=production PORT=8080
+RUN printf '{}\n' > config.json && chown node:node config.json
+
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json server.js ./
+COPY --chown=node:node app ./app
+COPY --chown=node:node assets ./assets
+COPY --chown=node:node static ./static
+
+USER node
+EXPOSE 8080
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["npm", "run", "start:router"]

@@ -150,5 +150,15 @@ describe('webhook.js', () => {
         'mysecret'
       )).to.equal(true)
     })
+    it('should return false when signature has the expected length but differs', () => {
+      expect(validSignature(
+        'sha1=09ddafb4017e0e33cb6c0f9e9ddd6539c5f1d3cc',
+        'mydata',
+        'mysecret'
+      )).to.equal(false)
+    })
+    it('should return false when signature length differs', () => {
+      expect(validSignature('sha1=invalid', 'mydata', 'mysecret')).to.equal(false)
+    })
   })
 })

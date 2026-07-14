@@ -1,4 +1,5 @@
 const defaults = require('../app/download.js')
+const { token } = require('../config.json')
 const { expect } = require('chai')
 const fs = require('fs')
 const { after, afterEach, before, describe, it } = require('mocha')
@@ -123,7 +124,37 @@ describe('download.js', () => {
     it('is missing tests')
   })
   describe('getDownloadFiles', () => {
-    it('is missings tests')
+    const { __clearGitHubCache, __setGitHubRequest, getDownloadFiles } = defaults
+
+    afterEach(() => {
+      __setGitHubRequest()
+      __clearGitHubCache()
+    })
+
+    it('allows root 404s only for optional source folders', async () => {
+      const stub = sinon.stub().callsFake(({ path }) => Promise.resolve({
+        statusCode: /\/contents\/(js|tools\/webpacks|tools\/libs)\?/.test(path) ? 404 : 200,
+        body: '[]',
+        headers: {}
+      }))
+      __setGitHubRequest(stub)
+
+      expect(await getDownloadFiles('modern')).to.deep.equal([])
+      expect(stub.callCount).to.equal(5)
+    })
+
+    it('propagates required-root and non-404 upstream failures', async () => {
+      for (const [failedPath, statusCode] of [['ts', 404], ['js', 403]]) {
+        __setGitHubRequest(sinon.stub().callsFake(({ path }) => Promise.resolve({
+          statusCode: path.includes(`/contents/${failedPath}?`) ? statusCode : 200,
+          body: '[]',
+          headers: {}
+        })))
+        let error
+        try { await getDownloadFiles('broken') } catch (e) { error = e }
+        expect(error).to.include({ path: failedPath, statusCode })
+      }
+    })
   })
   describe('urlExists', () => {
     it('is missings tests')
@@ -140,6 +171,7 @@ describe('download.js', () => {
     afterEach(() => {
       __setGitHubRequest()
       __clearGitHubCache()
+      delete process.env.GITHUB_TOKEN
     })
 
     it('reuses the same request for parallel branch lookups', async () => {
@@ -176,6 +208,26 @@ describe('download.js', () => {
       expect(stub.callCount).to.equal(1)
       expect(first?.sha).to.equal('deadbeef')
       expect(second?.sha).to.equal('deadbeef')
+    })
+
+    it('uses a non-empty environment token before the config token', async () => {
+      const stub = sinon.stub().resolves({ statusCode: 404 })
+      process.env.GITHUB_TOKEN = 'environment-token'
+      __setGitHubRequest(stub)
+
+      await getBranchInfo('environment-token-test')
+
+      expect(stub.firstCall.args[0].headers.Authorization).to.equal('token environment-token')
+    })
+
+    it('falls back to the config token for an empty environment value', async () => {
+      const stub = sinon.stub().resolves({ statusCode: 404 })
+      process.env.GITHUB_TOKEN = ''
+      __setGitHubRequest(stub)
+
+      await getCommitInfo('config-token-test')
+
+      expect(stub.firstCall.args[0].headers.Authorization).to.equal(`token ${token}`)
     })
   })
 

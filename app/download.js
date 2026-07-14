@@ -11,7 +11,11 @@ const { writeFile } = require('./filesystem.js')
 const { log } = require('./utilities.js')
 const { get: httpsGet } = require('https')
 const { join } = require('path')
-const authToken = token ? { Authorization: `token ${token}` } : {}
+
+function githubAuthHeader () {
+  const githubToken = process.env.GITHUB_TOKEN || token
+  return githubToken ? { Authorization: `token ${githubToken}` } : {}
+}
 
 const degit = require('tiged')
 
@@ -90,16 +94,19 @@ function getRateLimitState () {
  */
 function getRateLimitInfo (headers) {
   if (!headers) {
-    return { remaining: undefined, reset: undefined }
+    return { limit: undefined, remaining: undefined, reset: undefined }
   }
 
+  const limitHeader = headers['x-ratelimit-limit'] ?? headers['X-RateLimit-Limit']
   const remainingHeader = headers['x-ratelimit-remaining'] ?? headers['X-RateLimit-Remaining']
   const resetHeader = headers['x-ratelimit-reset'] ?? headers['X-RateLimit-Reset']
 
+  const limit = Number.parseInt(limitHeader, 10)
   const remaining = Number.parseInt(remainingHeader, 10)
   const reset = Number.parseInt(resetHeader, 10)
 
   return {
+    limit: Number.isNaN(limit) ? undefined : limit,
     remaining: Number.isNaN(remaining) ? undefined : remaining,
     reset: Number.isNaN(reset) ? undefined : reset
   }
@@ -113,7 +120,7 @@ function getRateLimitInfo (headers) {
  * @returns {{ remaining: number|undefined, reset: number|undefined }}
  */
 function logRateLimitIfDepleted (headers, context) {
-  const { remaining, reset } = getRateLimitInfo(headers)
+  const { limit, remaining, reset } = getRateLimitInfo(headers)
 
   // Update global state
   updateRateLimitState(remaining, reset)
@@ -125,7 +132,18 @@ function logRateLimitIfDepleted (headers, context) {
     log(2, `GitHub API rate limit exhausted while ${context}. Next reset: ${resetTime}`)
   }
 
-  return { remaining, reset }
+  return { limit, remaining, reset }
+}
+
+function throwIfRateLimited (rate, statusCode) {
+  if (rate.remaining !== 0) return
+  const error = new Error(`GitHub returned ${statusCode}`)
+  error.code = 'RATE_LIMITED'
+  error.status = 429
+  error.rateLimitLimit = rate.limit
+  error.rateLimitRemaining = rate.remaining
+  error.rateLimitReset = rate.reset
+  throw error
 }
 
 /**
@@ -252,6 +270,7 @@ async function downloadSourceFolder (outputDir, repositoryURL, branch) {
     log(2, `Some files did not download in branch "${branch}"\n${errors.join('\n')
             }`)
   }
+  return responses
 }
 
 /**
@@ -361,13 +380,17 @@ githubRequest = get
  * @param {string} branch The name of the branch the files are located in.
  */
 async function getDownloadFiles(branch) {
-    const promises = [
-      'css',
-      'ts',
-      'js',
-      'tools/webpacks',
-      'tools/libs'
-    ].map(folder => getFilesInFolder(folder, branch))
+    const optionalFolders = new Set(['js', 'tools/webpacks', 'tools/libs'])
+    const promises = ['css', 'ts', ...optionalFolders].map(async folder => {
+        try {
+            return await getFilesInFolder(folder, branch)
+        } catch (error) {
+            if (optionalFolders.has(folder) && error.statusCode === 404 && error.path === folder) {
+                return []
+            }
+            throw error
+        }
+    })
 
     const folders = await Promise.all(promises)
     const files = [].concat.apply([], folders)
@@ -389,36 +412,36 @@ async function getDownloadFiles(branch) {
  * @param {string} branch The name of the branch the files are located in.
  */
 async function getFilesInFolder(path, branch) {
-    const { body, statusCode, headers } = await get({
+    const { body, statusCode, headers } = await githubRequest({
         hostname: 'api.github.com',
         path: `/repos/${repo}/contents/${path}?ref=${branch}`,
         headers: {
             'user-agent': 'github.highcharts.com',
-            ...authToken
+            ...githubAuthHeader()
         }
     })
     logRateLimitIfDepleted(headers, `listing files in ${path} for ${branch}`)
 
     if (statusCode !== 200) {
-        console.warn(`Could not get files in folder ${path}. This is only an issue if the requested path exists in the branch ${branch}. (HTTP ${statusCode})`)
+        const error = new Error(`Could not get files in folder ${path} (HTTP ${statusCode})`)
+        error.path = path
+        error.statusCode = statusCode
+        throw error
     }
 
-    let promises = []
-    if (statusCode === 200) {
-        promises = JSON.parse(body).map(obj => {
-            const name = path + '/' + obj.name
-            return (
-                (obj.type === 'dir')
-                    ? getFilesInFolder(name, branch)
-                    : [{
-                        download: obj.download_url,
-                        path: name,
-                        size: obj.size,
-                        type: obj.type
-                    }]
-            )
-        })
-    }
+    const promises = JSON.parse(body).map(obj => {
+        const name = path + '/' + obj.name
+        return (
+            (obj.type === 'dir')
+                ? getFilesInFolder(name, branch)
+                : [{
+                    download: obj.download_url,
+                    path: name,
+                    size: obj.size,
+                    type: obj.type
+                }]
+        )
+    })
     const arr = await Promise.all(promises)
     return arr.reduce((arr1, arr2) => arr1.concat(arr2), [])
 }
@@ -454,10 +477,11 @@ async function getBranchInfo (branch) {
       path: `/repos/${repo}/branches/${branch}`,
       headers: {
         'user-agent': 'github.highcharts.com',
-        ...authToken
+        ...githubAuthHeader()
       }
     })
-    logRateLimitIfDepleted(headers, `fetching branch info for ${branch}`)
+    const rate = logRateLimitIfDepleted(headers, `fetching branch info for ${branch}`)
+    throwIfRateLimited(rate, statusCode)
     if (statusCode === 200) {
       return JSON.parse(body)
     }
@@ -481,10 +505,11 @@ async function getCommitInfo (commit) {
       path: `/repos/${repo}/commits/${commit}`,
       headers: {
         'user-agent': 'github.highcharts.com',
-        ...authToken
+        ...githubAuthHeader()
       }
     })
-    logRateLimitIfDepleted(headers, `fetching commit info for ${commit}`)
+    const rate = logRateLimitIfDepleted(headers, `fetching commit info for ${commit}`)
+    throwIfRateLimited(rate, statusCode)
     if (statusCode === 200) {
       return JSON.parse(body)
     }

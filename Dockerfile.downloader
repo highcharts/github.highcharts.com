@@ -1,0 +1,26 @@
+FROM --platform=$TARGETPLATFORM node:lts-alpine AS deps
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts
+
+FROM --platform=$TARGETPLATFORM node:lts-alpine AS runner
+
+RUN apk add --no-cache tini tar gzip && \
+    mkdir -p /app/downloader-cache && \
+    printf '{"repo":"highcharts/highcharts"}\n' > /app/config.json && \
+    chown node:node /app/config.json /app/downloader-cache
+
+WORKDIR /app
+ENV NODE_ENV=production DOWNLOADER_PORT=8080 \
+    DOWNLOADER_CACHE_ROOT=/app/downloader-cache
+
+COPY --from=deps --chown=node:node /app/node_modules ./node_modules
+COPY --chown=node:node package.json downloader-server.js ./
+COPY --chown=node:node app ./app
+
+USER node
+EXPOSE 8080
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["npm", "run", "start:downloader"]

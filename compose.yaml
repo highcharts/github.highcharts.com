@@ -1,0 +1,75 @@
+services:
+  router:
+    build:
+      context: .
+      dockerfile: Dockerfile.router
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
+      WEBHOOK_SECRET: ${WEBHOOK_SECRET-}
+      DOWNLOADER_URL: http://downloader:8080
+      BUILDER_URL: http://builder:8080
+      PUBLIC_DOWNLOADER_TIMEOUT: ${PUBLIC_DOWNLOADER_TIMEOUT:-15000}
+      PUBLIC_BUILDER_TIMEOUT: ${PUBLIC_BUILDER_TIMEOUT:-180000}
+    ports:
+      - "${ROUTER_PORT:-8080}:8080"
+    depends_on:
+      downloader:
+        condition: service_healthy
+      builder:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [services]
+
+  downloader:
+    build:
+      context: .
+      dockerfile: Dockerfile.downloader
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
+      GITHUB_TOKEN: ${GITHUB_TOKEN-}
+      DOWNLOADER_CACHE_ROOT: /app/downloader-cache
+      DOWNLOADER_CACHE_LIFETIME: ${DOWNLOADER_CACHE_LIFETIME:-604800000}
+      DOWNLOADER_CLEAN_INTERVAL: ${DOWNLOADER_CLEAN_INTERVAL:-120000}
+      DOWNLOADER_SOURCE_URL: ${DOWNLOADER_SOURCE_URL:-https://raw.githubusercontent.com/highcharts/highcharts/}
+      GITHUB_LOOKUP_CACHE_TTL: ${GITHUB_LOOKUP_CACHE_TTL:-60000}
+      GITHUB_LOOKUP_NEGATIVE_CACHE_TTL: ${GITHUB_LOOKUP_NEGATIVE_CACHE_TTL:-10000}
+      MAX_QUEUE_SIZE: ${DOWNLOADER_MAX_QUEUE_SIZE:-2}
+    tmpfs:
+      - /app/downloader-cache:uid=1000,gid=1000,mode=0700
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [services]
+
+  builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.builder
+    environment:
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?Set INTERNAL_SERVICE_TOKEN in .env}
+      DOWNLOADER_URL: http://downloader:8080
+      BUILDER_CACHE_ROOT: /app/tmp
+      BUILDER_DOWNLOADER_TIMEOUT: ${BUILDER_DOWNLOADER_TIMEOUT:-120000}
+      BUILDER_CACHE_LIFETIME: ${BUILDER_CACHE_LIFETIME:-604800000}
+      BUILDER_CLEAN_INTERVAL: ${BUILDER_CLEAN_INTERVAL:-120000}
+      MAX_QUEUE_SIZE: ${BUILDER_MAX_QUEUE_SIZE:-2}
+    tmpfs:
+      - /app/tmp:uid=1000,gid=1000,mode=0700
+    depends_on:
+      downloader:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [services]
+
+networks:
+  services:
