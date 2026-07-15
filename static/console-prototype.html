@@ -1,0 +1,345 @@
+<!doctype html>
+<!-- THROWAWAY PROTOTYPE: three operations-console IA variants for review only. -->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>THROWAWAY PROTOTYPE — Operations Console</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #f7f0dc;
+      --muted: #c7b98c;
+      --paper: #19130f;
+      --panel: rgba(42, 31, 24, .88);
+      --panel2: rgba(15, 33, 40, .9);
+      --line: rgba(247, 240, 220, .18);
+      --good: #77f0aa;
+      --warn: #ffd166;
+      --bad: #ff6b6b;
+      --unknown: #9cc9ff;
+      --accent: #ff8a3d;
+      --violet: #b493ff;
+      --shadow: 0 24px 80px rgba(0, 0, 0, .38);
+      --focus: 0 0 0 3px #19130f, 0 0 0 6px #ffd166;
+    }
+    * { box-sizing: border-box; }
+    html { background: var(--paper); }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      font: 16px/1.45 Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+      background:
+        radial-gradient(circle at 10% 8%, rgba(255, 138, 61, .25), transparent 28rem),
+        radial-gradient(circle at 88% 12%, rgba(180, 147, 255, .22), transparent 27rem),
+        linear-gradient(135deg, #100b09 0%, #1c1510 45%, #071a20 100%);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .26;
+      background-image: repeating-linear-gradient(115deg, rgba(255,255,255,.05) 0 1px, transparent 1px 15px);
+      mix-blend-mode: overlay;
+    }
+    h1, h2, h3, .display {
+      font-family: Rockwell, "Courier New", monospace;
+      letter-spacing: -.035em;
+      line-height: .95;
+      margin: 0;
+    }
+    h1 { font-size: clamp(2.5rem, 8vw, 7rem); max-width: 12ch; }
+    h2 { font-size: clamp(1.7rem, 4vw, 3.4rem); }
+    h3 { font-size: 1.1rem; letter-spacing: -.01em; }
+    p { margin: .35rem 0 0; color: var(--muted); }
+    a { color: var(--unknown); }
+    button, select, input {
+      font: inherit;
+      color: inherit;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.08);
+      padding: .65rem .9rem;
+    }
+    button { cursor: pointer; }
+    button:hover { border-color: rgba(255, 209, 102, .8); transform: translateY(-1px); }
+    button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: none; box-shadow: var(--focus); }
+    button[aria-pressed="true"], .primary { background: var(--accent); color: #160d08; border-color: transparent; font-weight: 700; }
+    input { min-width: 15rem; }
+    table { width: 100%; border-collapse: collapse; min-width: 44rem; }
+    caption { text-align: left; color: var(--muted); margin-bottom: .5rem; }
+    th, td { text-align: left; padding: .7rem .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th { color: var(--ink); font-family: Rockwell, "Courier New", monospace; }
+    code, .mono { font-family: "Courier New", monospace; }
+    .skip-link { position: fixed; left: 1rem; top: -5rem; z-index: 20; background: var(--ink); color: #111; padding: .7rem 1rem; border-radius: 1rem; }
+    .skip-link:focus { top: 1rem; }
+    .prototype-flag {
+      position: fixed; top: 1rem; right: 1rem; z-index: 10;
+      background: #ffd166; color: #201206; border: 2px solid #201206;
+      border-radius: 999px; padding: .45rem .75rem; font: 700 .8rem Rockwell, "Courier New", monospace;
+    }
+    .page { position: relative; isolation: isolate; padding: clamp(1rem, 3vw, 2rem) clamp(1rem, 4vw, 3rem) 8rem; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 1.4rem; box-shadow: var(--shadow); padding: 1rem; }
+    .panel.alt { background: var(--panel2); }
+    .stack { display: grid; gap: 1rem; }
+    .cluster { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; }
+    .spread { display: flex; justify-content: space-between; gap: 1rem; align-items: start; }
+    .muted { color: var(--muted); }
+    .big { font-size: clamp(2rem, 6vw, 5rem); line-height: .9; }
+    .pill, .status {
+      display: inline-flex; align-items: center; gap: .35rem; white-space: nowrap;
+      border: 1px solid var(--line); border-radius: 999px; padding: .25rem .55rem; background: rgba(0,0,0,.18);
+      font-size: .88rem;
+    }
+    .status::before { content: ""; width: .65rem; height: .65rem; border-radius: 99px; background: currentColor; box-shadow: 0 0 0 2px rgba(255,255,255,.12); }
+    .ok { color: var(--good); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+    .unknown { color: var(--unknown); }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+    .grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(18rem, .75fr); gap: 1rem; }
+    .scroll { overflow-x: auto; border-radius: 1rem; }
+    .meter { height: .7rem; background: rgba(255,255,255,.12); border-radius: 999px; overflow: hidden; }
+    .meter span { display: block; height: 100%; width: var(--value); background: linear-gradient(90deg, var(--good), var(--warn), var(--bad)); }
+    .hero { display: grid; grid-template-columns: 1.2fr .8fr; gap: 1rem; align-items: end; margin-bottom: 1.2rem; }
+    .hero-note { transform: rotate(-2deg); border: 2px solid var(--accent); }
+    .dashboard .service-card:nth-child(2) { transform: translateY(1.2rem); }
+    .dashboard .service-card:nth-child(3) { transform: translateY(-.4rem); }
+    .workbench { display: grid; grid-template-columns: minmax(13rem, 18rem) minmax(0, 1fr); min-height: calc(100vh - 10rem); gap: 1rem; }
+    .rail { position: sticky; top: 1rem; align-self: start; }
+    .rail button { width: 100%; justify-content: space-between; display: flex; margin-top: .55rem; border-radius: 1rem; }
+    .service-focus { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .timeline { display: grid; grid-template-columns: minmax(0, 1fr) minmax(17rem, .45fr); gap: 1rem; }
+    .event-list { position: relative; padding-left: 1rem; }
+    .event-list::before { content: ""; position: absolute; left: .25rem; top: .3rem; bottom: .3rem; width: 2px; background: linear-gradient(var(--bad), var(--warn), var(--unknown)); }
+    .event { position: relative; margin: 0 0 1rem; padding: 1rem; border-radius: 1rem; background: rgba(255,255,255,.07); border: 1px solid var(--line); }
+    .event::before { content: ""; position: absolute; left: -1.05rem; top: 1.2rem; width: .75rem; height: .75rem; border-radius: 99px; background: var(--accent); }
+    .evaluator {
+      position: fixed; z-index: 30; left: 50%; bottom: 1rem; transform: translateX(-50%);
+      width: min(72rem, calc(100% - 1rem)); padding: .75rem; border: 2px solid #ffd166; border-radius: 1.3rem;
+      background: rgba(8, 8, 10, .94); box-shadow: 0 20px 80px rgba(0,0,0,.55); backdrop-filter: blur(12px);
+    }
+    .evaluator .cluster { justify-content: center; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    .flash { animation: reveal .45s ease-out both; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; } button:hover { transform: none; } }
+    @media (max-width: 850px) {
+      .hero, .grid-2, .grid-3, .workbench, .service-focus, .timeline { grid-template-columns: 1fr; }
+      .dashboard .service-card { transform: none !important; }
+      .rail { position: static; }
+      .prototype-flag { position: static; display: inline-flex; margin: .75rem; }
+      .page { padding-top: .5rem; }
+      input { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to prototype content</a>
+  <div class="prototype-flag">THROWAWAY PROTOTYPE</div>
+  <main id="main" class="page" tabindex="-1"></main>
+  <aside class="evaluator" aria-label="Prototype evaluator controls">
+    <div class="cluster">
+      <button id="prev" type="button" aria-label="Previous variant">←</button>
+      <strong id="variantLabel" class="display"></strong>
+      <button id="next" type="button" aria-label="Next variant">→</button>
+      <label>Scenario
+        <select id="scenarioSelect"></select>
+      </label>
+      <span id="scenarioHint" class="muted"></span>
+    </div>
+  </aside>
+  <script>
+    // THROWAWAY PROTOTYPE: in-memory sanitized data, no fetches/storage/real mutations.
+    const variants = {
+      A: 'Overview command deck',
+      B: 'Service workbench',
+      C: 'Incident timeline'
+    };
+    const scenarios = {
+      normal: 'Normal: active session, healthy services, active work',
+      loading: 'Loading: skeleton-style unknowns while snapshot refreshes',
+      empty: 'Empty: healthy but no current work or failures',
+      degraded: 'Stale/degraded: dependency and capability warnings',
+      partial: 'Partial/failure: bounded skips and sanitized failures',
+      login: 'Login required: visual token field only',
+      expiring: 'Session expiring: active session warning',
+      expired: 'Expired/invalid session: re-auth view',
+      forbidden: 'Rate-limited/forbidden: access blocked without secrets'
+    };
+    const base = {
+      snapshot: '2026-07-15T10:22:48Z',
+      session: { state: 'active', user: 'ops@example.invalid', expires: '18 min', rate: '88/100 router checks left' },
+      services: [
+        { name: 'router', health: 'healthy', capability: 'Public routes, webhook compatibility', dependency: 'downloader + builder reachable', latency: 34, queue: 4, active: 'req_8H3K / hc-main@a83f9de', recent: 18 },
+        { name: 'downloader', health: 'healthy', capability: 'Canonical refs, source archives, immutable file cache', dependency: 'GitHub API ok', latency: 96, queue: 7, active: 'dl_19Q / highcharts@271a6b1', recent: 42 },
+        { name: 'builder', health: 'healthy', capability: 'Build modes and workspaces', dependency: 'tar source cache ok', latency: 141, queue: 11, active: 'bd_4PZ / stock@271a6b1', recent: 35 }
+      ],
+      activities: [
+        { id: 'corr_9f31', service: 'router', text: 'GET /v13/highcharts.js', latency: '183ms', state: 'completed' },
+        { id: 'corr_9f31', service: 'downloader', text: 'resolve canonical ref 271a6b1', latency: '72ms', state: 'completed' },
+        { id: 'corr_8ab2', service: 'builder', text: 'workspace build queued', latency: '1.8s', state: 'active' },
+        { id: 'corr_76ed', service: 'downloader', text: 'cache.evict_commit highcharts@a83f9de', latency: '44ms', state: 'completed' }
+      ],
+      failures: [
+        { when: '10:18:12Z', id: 'corr_71db', service: 'builder', code: 'BUILD_TIMEOUT', field: 'commit=271a6b1 mode=stock', message: 'Build exceeded sanitized time budget' },
+        { when: '10:10:04Z', id: 'corr_5cc0', service: 'downloader', code: 'GITHUB_502', field: 'repo=highcharts/highcharts ref=master', message: 'Upstream unavailable; token redacted' }
+      ],
+      cache: [
+        { commit: '271a6b1', service: 'downloader', status: 'warm', inFlight: true, changed: 0, age: '4m idle', files: 83 },
+        { commit: '271a6b1', service: 'builder', status: 'warm', inFlight: false, changed: 1, age: '9m idle', files: 12 },
+        { commit: 'a83f9de', service: 'downloader', status: 'expired', inFlight: false, changed: 0, age: '2h idle', files: 51 },
+        { commit: 'b1d09aa', service: 'builder', status: 'absent', inFlight: false, changed: 0, age: '—', files: 0 }
+      ],
+      cacheOutcomes: [
+        { op: 'cache.evict_commit', target: 'downloader + builder', outcome: 'partial', skippedInUse: 1, skippedChanged: 1, note: 'Whole commit-level entry; in-flight skipped, never cancelled/deferred.' },
+        { op: 'cache.purge_expired', target: 'downloader', outcome: 'completed', skippedInUse: null, skippedChanged: null, note: 'Expired idle entries rechecked under per-entry exclusion.' },
+        { op: 'cache.clear', target: 'builder', outcome: 'unknown', skippedInUse: 2, skippedChanged: null, note: 'Router audit emitted; final state unknown.' },
+        { op: 'cache.evict_commit', target: 'builder', outcome: 'no_op', skippedInUse: null, skippedChanged: null, note: 'Entry absent is neutral.' },
+        { op: 'cache.clear', target: 'downloader', outcome: 'failed', skippedInUse: 0, skippedChanged: 0, note: 'Sanitized failure; no extra clear authorization in this prototype.' }
+      ]
+    };
+    let state = {
+      variant: cleanVariant(new URLSearchParams(location.search).get('variant')),
+      scenario: scenarios[new URLSearchParams(location.search).get('scenario')] ? new URLSearchParams(location.search).get('scenario') : 'normal',
+      selectedService: 'router',
+      lastAction: base.cacheOutcomes[0]
+    };
+    function cleanVariant(value) { return variants[value] ? value : 'A'; }
+    function dataset() {
+      const d = JSON.parse(JSON.stringify(base));
+      if (state.scenario === 'loading') {
+        d.snapshot = 'refreshing…';
+        d.services.forEach(s => { s.health = 'unknown'; s.capability = 'checking'; s.dependency = 'checking'; s.latency = '—'; s.queue = '—'; s.active = 'loading'; });
+        d.activities = [{ id: 'pending', service: 'router', text: 'Snapshot loading, no conclusion yet', latency: '—', state: 'unknown' }];
+        d.failures = [];
+      }
+      if (state.scenario === 'empty') {
+        d.snapshot = '2026-07-15T10:24:00Z';
+        d.services.forEach(s => { s.queue = 0; s.active = 'none'; s.recent = 0; });
+        d.activities = [];
+        d.failures = [];
+        d.cache = [{ commit: 'b1d09aa', service: 'builder', status: 'absent', inFlight: false, changed: 0, age: '—', files: 0 }];
+        d.cacheOutcomes = [base.cacheOutcomes[3]];
+      }
+      if (state.scenario === 'degraded') {
+        d.snapshot = '2026-07-15T10:05:12Z (stale 17m)';
+        d.services[1].health = 'degraded'; d.services[1].dependency = 'GitHub API rate pressure'; d.services[1].latency = 944;
+        d.services[2].health = 'unknown'; d.services[2].capability = 'workspace health stale'; d.services[2].dependency = 'source cache stale';
+        d.activities.unshift({ id: 'corr_stale', service: 'router', text: 'serving stale capability snapshot', latency: '—', state: 'unknown' });
+      }
+      if (state.scenario === 'partial') {
+        d.services[2].health = 'degraded'; d.services[2].queue = 29;
+        d.failures.push({ when: '10:22:21Z', id: 'corr_00af', service: 'router', code: 'CACHE_PARTIAL', field: 'commit=271a6b1 service=both', message: 'Partial cache eviction; skippedInUse=1 skippedChanged=1' });
+        d.cacheOutcomes = base.cacheOutcomes;
+      }
+      if (state.scenario === 'expiring') d.session = { state: 'expiring', user: 'ops@example.invalid', expires: '2 min', rate: '41/100 router checks left' };
+      if (state.scenario === 'login') d.session = { state: 'login required', user: 'anonymous', expires: '—', rate: 'not available' };
+      if (state.scenario === 'expired') d.session = { state: 'expired/invalid', user: 'anonymous', expires: 'expired', rate: 'not available' };
+      if (state.scenario === 'forbidden') d.session = { state: 'rate-limited/forbidden', user: 'ops@example.invalid', expires: '12 min', rate: '0/100 checks left' };
+      return d;
+    }
+    const esc = value => String(value).replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+    const statusClass = value => value === 'healthy' || value === 'completed' || value === 'warm' || value === 'active' ? 'ok' : value === 'degraded' || value === 'partial' || value === 'expired' || value === 'expiring' ? 'warn' : value === 'failed' || value === 'rate-limited/forbidden' || value === 'expired/invalid' ? 'bad' : 'unknown';
+    const status = value => `<span class="status ${statusClass(value)}">${esc(value)}</span>`;
+    function sessionView(d) {
+      const blocked = ['login required','expired/invalid','rate-limited/forbidden'].includes(d.session.state);
+      return `<section class="panel alt" aria-labelledby="session-title">
+        <div class="spread"><div><h2 id="session-title">Access session</h2><p>Visual only. Token material is never stored, sent, or persisted.</p></div>${status(d.session.state)}</div>
+        <div class="cluster" style="margin-top:.8rem"><span class="pill">User ${esc(d.session.user)}</span><span class="pill">Expires ${esc(d.session.expires)}</span><span class="pill">Rate ${esc(d.session.rate)}</span></div>
+        ${blocked ? `<form class="cluster" onsubmit="return false" style="margin-top:1rem"><label class="sr-only" for="token">Prototype bearer token</label><input id="token" type="password" value="visual-only-token" aria-describedby="tokenNote"><button class="primary" type="button">Stub login</button><span id="tokenNote" class="muted">No request will be made.</span></form>` : ''}
+        <button type="button" data-logout style="margin-top:1rem">Stub logout</button>
+      </section>`;
+    }
+    function healthCards(d) {
+      return d.services.map(s => `<article class="panel service-card">
+        <div class="spread"><h3>${esc(s.name)}</h3>${status(s.health)}</div>
+        <p>${esc(s.capability)}</p><p><strong>Dependency:</strong> ${esc(s.dependency)}</p>
+        <div class="cluster"><span class="pill">Latency ${esc(s.latency)}ms</span><span class="pill">Queue ${esc(s.queue)}</span><span class="pill">Recent ${esc(s.recent)}</span></div>
+        <p><strong>Active:</strong> <span class="mono">${esc(s.active)}</span></p>
+      </article>`).join('');
+    }
+    function activityList(d) {
+      if (!d.activities.length) return `<p class="panel">Healthy empty data: no active or recent work in this snapshot.</p>`;
+      return `<div class="scroll"><table><caption>Correlated request/activity tracing</caption><thead><tr><th scope="col">Correlation</th><th scope="col">Service</th><th scope="col">Activity</th><th scope="col">Latency</th><th scope="col">State</th></tr></thead><tbody>${d.activities.map(a => `<tr><td class="mono">${esc(a.id)}</td><td>${esc(a.service)}</td><td>${esc(a.text)}</td><td>${esc(a.latency)}</td><td>${status(a.state)}</td></tr>`).join('')}</tbody></table></div>`;
+    }
+    function failures(d) {
+      if (!d.failures.length) return `<p class="panel">No sanitized failures in the bounded recent window.</p>`;
+      return d.failures.map(f => `<article class="panel"><div class="spread"><strong>${esc(f.code)}</strong><span class="mono">${esc(f.id)}</span></div><p>${esc(f.message)}</p><p><span class="pill">${esc(f.when)}</span> <span class="pill">${esc(f.service)}</span> <span class="pill">${esc(f.field)}</span></p></article>`).join('');
+    }
+    function cachePanel(d) {
+      return `<section class="panel" aria-labelledby="cache-title"><div class="spread"><div><h2 id="cache-title">Commit-level cache</h2><p>Actions are stubs. Entries are whole commit-level state; in-flight entries are skipped, never cancelled/deferred.</p></div>${state.lastAction ? status(state.lastAction.outcome) : ''}</div>
+        <div class="scroll"><table><caption>Cache inspection</caption><thead><tr><th scope="col">Commit</th><th scope="col">Service</th><th scope="col">Status</th><th scope="col">Idle age</th><th scope="col">Files</th><th scope="col">Skipped risk</th></tr></thead><tbody>${d.cache.map(c => `<tr><td class="mono">${esc(c.commit)}</td><td>${esc(c.service)}</td><td>${status(c.status)}</td><td>${esc(c.age)}</td><td>${esc(c.files)}</td><td>${c.inFlight ? 'in use' : c.changed ? 'changed' : 'none'}</td></tr>`).join('')}</tbody></table></div>
+        <div class="cluster" style="margin-top:1rem">
+          <button type="button" data-cache="cache.evict_commit" data-target="downloader">cache.evict_commit downloader</button>
+          <button type="button" data-cache="cache.evict_commit" data-target="builder">cache.evict_commit builder</button>
+          <button type="button" data-cache="cache.evict_commit" data-target="both">cache.evict_commit both</button>
+          <button type="button" data-cache="cache.purge_expired" data-target="downloader">cache.purge_expired downloader</button>
+          <button type="button" data-cache="cache.clear" data-target="builder">cache.clear builder</button>
+          <button type="button" data-cache="cache.clear" data-target="downloader">cache.clear downloader</button>
+        </div>
+        <div class="scroll" style="margin-top:1rem"><table><caption>Representative stub outcomes</caption><thead><tr><th scope="col">Operation</th><th scope="col">Target</th><th scope="col">Outcome</th><th scope="col">Bounded counts</th></tr></thead><tbody>${d.cacheOutcomes.map(o => `<tr><td class="mono">${esc(o.op)}</td><td>${esc(o.target)}</td><td>${status(o.outcome)}</td><td>${o.skippedInUse == null && o.skippedChanged == null ? 'absent neutral' : `skippedInUse=${esc(o.skippedInUse)} skippedChanged=${esc(o.skippedChanged)}`}</td></tr>`).join('')}</tbody></table></div>
+        ${outcomeCard(state.lastAction)}
+      </section>`;
+    }
+    function outcomeCard(o) {
+      if (!o) return '';
+      const absent = o.skippedInUse == null && o.skippedChanged == null ? 'absent counts neutral' : `skippedInUse=${o.skippedInUse} skippedChanged=${o.skippedChanged}`;
+      return `<div class="panel alt" aria-live="polite" style="margin-top:1rem"><strong>${esc(o.op)}</strong> <span class="pill">${esc(o.target)}</span> ${status(o.outcome)}<p>${esc(absent)} — ${esc(o.note)}</p><p class="muted">One sanitized router stdout audit event would be emitted.</p></div>`;
+    }
+    function variantA(d) {
+      return `<div class="dashboard flash"><section class="hero"><div><p class="pill">Question: dashboard-first operations console?</p><h1>Command deck</h1><p>Snapshot ${esc(d.snapshot)}. Start with cross-service triage, then drill into queues, traces, failures, and cache actions.</p></div><div class="panel hero-note"><h2>${esc(d.services.filter(s => s.health !== 'healthy').length)} signals</h2><p>Healthy empty, stale, unknown, unavailable, and degraded states are deliberately separated.</p></div></section>${sessionView(d)}<section class="grid-3" aria-label="Service health and capability">${healthCards(d)}</section><section class="grid-2" style="margin-top:1rem"><div class="panel"><h2>Capacity and active work</h2>${activityList(d)}</div><div class="stack"><h2>Recent sanitized failures</h2>${failures(d)}</div></section>${cachePanel(d)}</div>`;
+    }
+    function variantB(d) {
+      const service = d.services.find(s => s.name === state.selectedService) || d.services[0];
+      return `<div class="workbench flash"><nav class="panel rail" aria-label="Service workbench"><p class="pill">Workbench-first hypothesis</p><h1 style="font-size:clamp(2rem,5vw,4rem)">By service</h1>${d.services.map(s => `<button type="button" data-service="${esc(s.name)}" aria-pressed="${s.name === service.name}"><span>${esc(s.name)}</span>${status(s.health)}</button>`).join('')}<p class="muted">Snapshot ${esc(d.snapshot)}</p></nav><div class="stack"><div class="service-focus"><section class="panel alt"><h2>${esc(service.name)} workbench</h2><p>${esc(service.capability)}</p><p><strong>Dependency:</strong> ${esc(service.dependency)}</p><div class="meter" aria-label="Queue pressure"><span style="--value:${Math.min(Number(service.queue) || 0, 30) / 30 * 100}%"></span></div><div class="cluster"><span class="pill">Queue ${esc(service.queue)}</span><span class="pill">Latency ${esc(service.latency)}ms</span><span class="pill">Active ${esc(service.active)}</span></div></section>${sessionView(d)}</div><section class="panel"><h2>Trace lane for ${esc(service.name)}</h2>${activityList({...d, activities: d.activities.filter(a => a.service === service.name || a.id === 'corr_9f31')})}</section><section class="grid-2"><div class="stack"><h2>Failures for focus service</h2>${failures({...d, failures: d.failures.filter(f => f.service === service.name)})}</div>${cachePanel(d)}</section></div></div>`;
+    }
+    function variantC(d) {
+      const events = [...d.failures.map(f => ({ kind: 'failure', title: f.code, text: f.message, meta: `${f.when} ${f.service} ${f.id}`, state: 'failed' })), ...d.activities.map(a => ({ kind: 'activity', title: a.text, text: `${a.service} · ${a.latency}`, meta: a.id, state: a.state })), ...d.cacheOutcomes.slice(0, 3).map(c => ({ kind: 'cache', title: c.op, text: `${c.target}: ${c.note}`, meta: `${c.outcome} skippedInUse=${c.skippedInUse ?? 'absent'} skippedChanged=${c.skippedChanged ?? 'absent'}`, state: c.outcome }))];
+      return `<div class="timeline flash"><section class="stack"><p class="pill">Incident/timeline-first hypothesis</p><h1>Follow the thread</h1><p>Snapshot ${esc(d.snapshot)}. Correlations, failures, capability degradation, and cache outcomes appear in one narrative.</p><div class="event-list" aria-label="Incident timeline">${events.length ? events.map(e => `<article class="event"><div class="spread"><h3>${esc(e.title)}</h3>${status(e.state)}</div><p>${esc(e.text)}</p><p class="mono muted">${esc(e.meta)}</p></article>`).join('') : '<article class="event"><h3>Healthy empty window</h3><p>No active/recent work and no failures; services are still reachable.</p></article>'}</div></section><aside class="stack"><section class="panel alt"><h2>Service strip</h2>${healthCards(d)}</section>${sessionView(d)}${cachePanel(d)}</aside></div>`;
+    }
+    function render() {
+      const d = dataset();
+      document.getElementById('main').innerHTML = ({A: variantA, B: variantB, C: variantC}[state.variant])(d);
+      document.getElementById('variantLabel').textContent = `${state.variant} — ${variants[state.variant]}`;
+      document.getElementById('scenarioHint').textContent = scenarios[state.scenario];
+      document.getElementById('scenarioSelect').value = state.scenario;
+      bindPage();
+    }
+    function bindPage() {
+      document.querySelectorAll('[data-service]').forEach(btn => btn.addEventListener('click', () => { state.selectedService = btn.dataset.service; render(); }));
+      document.querySelectorAll('[data-cache]').forEach(btn => btn.addEventListener('click', () => {
+        const outcomes = dataset().cacheOutcomes;
+        state.lastAction = outcomes.find(o => o.op === btn.dataset.cache && o.target.includes(btn.dataset.target)) || outcomes[0];
+        render();
+      }));
+      document.querySelectorAll('[data-logout]').forEach(btn => btn.addEventListener('click', () => { state.scenario = 'login'; syncUrl(); render(); }));
+    }
+    function cycle(step) {
+      const keys = Object.keys(variants); const i = keys.indexOf(state.variant);
+      state.variant = keys[(i + step + keys.length) % keys.length];
+      syncUrl(); render();
+    }
+    function syncUrl() {
+      const params = new URLSearchParams(location.search);
+      params.set('variant', state.variant); params.set('scenario', state.scenario);
+      history.replaceState(null, '', `${location.pathname}?${params}`);
+    }
+    const select = document.getElementById('scenarioSelect');
+    select.innerHTML = Object.keys(scenarios).map(k => `<option value="${k}">${scenarios[k]}</option>`).join('');
+    select.addEventListener('change', () => { state.scenario = select.value; syncUrl(); render(); });
+    document.getElementById('prev').addEventListener('click', () => cycle(-1));
+    document.getElementById('next').addEventListener('click', () => cycle(1));
+    document.addEventListener('keydown', event => {
+      const tag = document.activeElement && document.activeElement.tagName;
+      if (['INPUT','TEXTAREA','SELECT'].includes(tag) || document.activeElement?.isContentEditable) return;
+      if (event.key === 'ArrowLeft') { event.preventDefault(); cycle(-1); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); cycle(1); }
+    });
+    syncUrl();
+    render();
+  </script>
+</body>
+</html>
