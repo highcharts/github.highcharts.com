@@ -3,6 +3,11 @@
 
 Node.js server that serves Highcharts distribution files built on demand from any branch, tag, or commit in the Highcharts repository. Intended for testing and development; use code.highcharts.com for production.
 
+## Operations console
+
+A **development-only** secured operations console is specified for the router.
+See [docs/operations-console.md](docs/operations-console.md) for the full specification.
+
 ## Architecture
 
 The application is split into three cooperating services. Only the router is reachable from the public internet. The downloader and builder are internal and communicate over a private Docker network.
