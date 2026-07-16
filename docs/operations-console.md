@@ -1448,20 +1448,20 @@ screenshots must be redacted before storage.
 ## 20. Non-normative provenance
 
 This specification consolidates decisions reached in the following Wayfinder
-issues. These links are provided for historical context; the normative body
-above does not depend on them.
+issues and topics as historical context; the normative body above does not
+depend on them.
 
-| Issue | Topic | Resolution comment |
-|---|---|---|
-| #24 | Operator journeys | https://github.com/goransle/opencode-setup/issues/24#issuecomment-4978072249 |
-| #25 | Shared-token security research | https://github.com/goransle/opencode-setup/issues/25#issuecomment-4977920997 |
-| #26 | Shared-token access contract | https://github.com/goransle/opencode-setup/issues/26#issuecomment-4978615129 |
-| #28 | Operational signal model | https://github.com/goransle/opencode-setup/issues/28#issuecomment-4978411911 |
-| #29 | Safe cache-control semantics | https://github.com/goransle/opencode-setup/issues/29#issuecomment-4978854142 |
-| #30 | Admin API and UI contract | https://github.com/goransle/opencode-setup/issues/30#issuecomment-4991036912 |
-| #31 | Verification and development rollout | https://github.com/goransle/opencode-setup/issues/31#issuecomment-4991261621 |
-| #32 | Console and telemetry architecture | https://github.com/goransle/opencode-setup/issues/32#issuecomment-4980778263 |
-| #33 | Prototype workflows and information architecture | https://github.com/goransle/opencode-setup/issues/33#issuecomment-4980616998 |
+| Issue | Topic |
+|---|---|
+| #24 | Operator journeys |
+| #25 | Shared-token security research |
+| #26 | Shared-token access contract |
+| #28 | Operational signal model |
+| #29 | Safe cache-control semantics |
+| #30 | Admin API and UI contract |
+| #31 | Verification and development rollout |
+| #32 | Console and telemetry architecture |
+| #33 | Prototype workflows and information architecture |
 
 Where earlier and later decisions conflicted, the later or more specific
 decision was used. Key supersessions:
