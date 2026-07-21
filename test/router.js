@@ -67,10 +67,25 @@ describe('public router delegation', () => {
 
   it('streams ordinary files from downloader with public cache, ETag, and rate headers', async () => {
     const clients = services()
-    const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/trettan/highcharts.js')
+    const router = createRouter({ ...clients, disableRateLimit: true })
+    const result = await request(router, '/trettan/highcharts.js', { headers: { 'X-Correlation-ID': 'browser-value' } })
     expect(result).to.include({ status: 200, body: 'downloaded' })
     expect(result.headers).to.include({ etag: SHA, 'cache-control': 'max-age=3600', 'cdn-cache-control': 'max-age=3600', 'x-github-ratelimit-remaining': '12' })
+    expect(result.headers['x-correlation-id']).to.match(/^[0-9a-f-]{36}$/).and.not.equal('browser-value')
     expect(clients.downloader.request.firstCall.args[0]).to.equal(`/v1/files/${SHA}/js/highcharts.src.js`)
+    expect(clients.downloader.json.firstCall.args[1].correlationId).to.equal(result.headers['x-correlation-id'])
+    expect(clients.downloader.request.firstCall.args[1].correlationId).to.equal(result.headers['x-correlation-id'])
+    const activity = router.opsSnapshot().activity
+    expect(activity).to.have.length(1)
+    expect(activity[0]).to.nested.include({
+      correlationId: result.headers['x-correlation-id'],
+      state: 'completed',
+      'request.commit': SHA,
+      'request.resource': '/trettan/highcharts.js',
+      'request.buildMode': 'static',
+      'outcome.status': 'succeeded'
+    })
+    expect(JSON.stringify(activity)).not.to.include('browser-value')
   })
 
   it('falls back to explicit legacy builder mode while retaining downloader rate metadata', async () => {
@@ -139,8 +154,49 @@ describe('public router delegation', () => {
     clients.downloader.json.withArgs('/v1/cleanup').resolves({ removed: ['source'] })
     const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/cleanup?true')
     expect(result).to.include({ status: 200, body: '[]' })
-    expect(clients.downloader.json.calledWith('/v1/cleanup', { method: 'POST', body: { force: false } })).to.equal(true)
-    expect(clients.builder.json.calledWith('/v1/cleanup', { method: 'POST', body: { force: false } })).to.equal(true)
+    expect(clients.downloader.json.calledWithMatch('/v1/cleanup', { method: 'POST', body: { force: false }, correlationId: sinon.match.string })).to.equal(true)
+    expect(clients.builder.json.calledWithMatch('/v1/cleanup', { method: 'POST', body: { force: false }, correlationId: sinon.match.string })).to.equal(true)
+  })
+
+  it('disables legacy public cleanup only while the operations console is enabled', async () => {
+    const clients = services()
+    const result = await request(createRouter({ ...clients, disableRateLimit: true, opsConsoleEnabled: true }), '/cleanup?true')
+    expect(result.status).to.equal(404)
+    expect(clients.downloader.json.called).to.equal(false)
+    expect(clients.builder.json.called).to.equal(false)
+  })
+
+  it('never exposes operations-console assets through the public static root', async () => {
+    const paths = [
+      '/ops',
+      '/ops/',
+      '/ops/index.html',
+      '/ops/login.html',
+      '/ops/console.js',
+      '/ops/login.js',
+      '/ops/console.css',
+      '/%6f%70%73/index.html',
+      '/public/../ops/login.html',
+      '/public/%2e%2e/ops/console.js',
+      '/ops%2fconsole.css'
+    ]
+    for (const opsConsoleEnabled of [false, true]) {
+      const clients = services()
+      const router = createRouter({ ...clients, disableRateLimit: true, opsConsoleEnabled })
+      for (const path of paths) {
+        const result = await request(router, path)
+        expect(result, path).to.include({ status: 404, body: 'Not Found' })
+        expect(result.headers['content-type'], path).to.match(/^text\/plain/)
+        expect(result.headers, path).not.to.have.property('location')
+      }
+      expect(clients.downloader.json.called).to.equal(false)
+      expect(clients.builder.request.called).to.equal(false)
+    }
+
+    const clients = services()
+    const router = createRouter({ ...clients, disableRateLimit: true })
+    expect(await request(router, '/test.html')).to.include({ status: 200 })
+    expect(await request(router, '/master/highcharts.js')).to.include({ status: 200, body: 'downloaded' })
   })
 
   it('only inspects cache files for canonical commit SHAs', async () => {

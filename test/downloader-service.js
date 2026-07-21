@@ -14,6 +14,14 @@ const { createApp, start } = require('../downloader-server')
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
 
+function deferred () {
+  const result = {}
+  result.promise = new Promise((resolve, reject) => {
+    Object.assign(result, { reject, resolve })
+  })
+  return result
+}
+
 function request (app, path, options = {}) {
   return new Promise((resolve, reject) => {
     const server = app.listen(0, () => {
@@ -54,21 +62,25 @@ describe('downloader service', () => {
   })
 
   it('exposes unauthenticated health and protects all v1 routes', async () => {
-    const app = createApp({ token: 'secret', service: {} })
+    const service = {
+      resolveRef: sinon.stub(),
+      snapshot: sinon.stub(),
+      cacheManager: { execute: sinon.stub() }
+    }
+    const app = createApp({ token: 'secret', service })
+    const unauthorized = { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
     expect((await request(app, '/health')).status).to.equal(200)
-    expect((await request(app, '/v1/cleanup', { method: 'POST' })).status).to.equal(401)
-    expect((await request(app, '/v1/cleanup', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer wrong' }
-    })).status).to.equal(401)
-    expect((await request(app, '/v1/cleanup', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer secrets' }
-    })).status).to.equal(401)
-    expect((await request(app, '/v1/cleanup', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer wrong!' }
-    })).status).to.equal(401)
+    for (const authorization of [undefined, 'Basic secret', 'Bearer ', 'Bearer x', 'Bearer wrong!', 'Bearer secrets']) {
+      const headers = authorization === undefined ? {} : { Authorization: authorization }
+      for (const [path, method] of [['/v1/resolve', 'POST'], ['/v1/ops/snapshot', 'GET']]) {
+        const response = await request(app, path, { method, headers })
+        expect(response.status).to.equal(401)
+        expect(JSON.parse(response.body)).to.deep.equal(unauthorized)
+      }
+    }
+    expect(service.resolveRef.callCount).to.equal(0)
+    expect(service.snapshot.callCount).to.equal(0)
+    expect(service.cacheManager.execute.callCount).to.equal(0)
   })
 
   it('fails startup without an internal service token', () => {
@@ -129,7 +141,7 @@ describe('downloader service', () => {
     })
 
     expect(response.status).to.equal(429)
-    expect(JSON.parse(response.body)).to.deep.equal({ error: { code: 'RATE_LIMITED', message: 'GitHub returned 403' } })
+    expect(JSON.parse(response.body)).to.deep.equal({ error: { code: 'RATE_LIMITED', message: 'GitHub rate limit is exhausted' } })
     expect(response.headers).to.include({
       'x-github-ratelimit-limit': '5000',
       'x-github-ratelimit-remaining': '0',
@@ -152,20 +164,68 @@ describe('downloader service', () => {
   })
 
   it('returns structured timeout errors', async () => {
-    const clock = sinon.useFakeTimers()
-    const fetch = (url, options) => new Promise((resolve, reject) => {
-      options.signal.addEventListener('abort', () => reject(new Error('aborted')))
+    const clock = sinon.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    try {
+      let fetchStarted
+      const started = new Promise(resolve => { fetchStarted = resolve })
+      const fetch = (url, options) => new Promise((resolve, reject) => {
+        fetchStarted()
+        options.signal.addEventListener('abort', () => reject(new Error('aborted')))
+      })
+      const service = createDownloaderService({ cacheRoot, fetch })
+      const pending = service.needsEsbuild(SHA).catch(error => error)
+      await started
+      clock.tick(ESBUILD_DETECTION_TIMEOUT - 1)
+      expect(await Promise.race([pending, Promise.resolve('pending')])).to.equal('pending')
+      clock.tick(1)
+      const error = await pending
+      expect(error).to.include({ code: 'UPSTREAM_TIMEOUT', status: 504 })
+    } finally {
+      clock.restore()
+    }
+  })
+
+  it('shares one concurrent esbuild detection request and success', async () => {
+    const started = deferred()
+    const response = deferred()
+    const fetch = sinon.stub().callsFake(() => {
+      started.resolve()
+      return response.promise
     })
     const service = createDownloaderService({ cacheRoot, fetch })
-    const pending = service.needsEsbuild(SHA).catch(error => error)
-    clock.tick(ESBUILD_DETECTION_TIMEOUT - 1)
-    await Promise.resolve()
-    expect(await Promise.race([pending, Promise.resolve('pending')])).to.equal('pending')
-    clock.tick(1)
-    await Promise.resolve()
-    const error = await pending
-    clock.restore()
-    expect(error).to.include({ code: 'UPSTREAM_TIMEOUT', status: 504 })
+
+    const first = service.needsEsbuild(SHA)
+    const second = service.needsEsbuild(SHA)
+    await started.promise
+    expect(fetch.callCount).to.equal(1)
+    response.resolve({ ok: true, status: 200 })
+
+    expect(await Promise.all([first, second])).to.deep.equal([true, true])
+    expect(fetch.callCount).to.equal(1)
+  })
+
+  it('shares sanitized esbuild failures and retries after failure', async () => {
+    const started = deferred()
+    const response = deferred()
+    const fetch = sinon.stub()
+    fetch.onFirstCall().callsFake(() => {
+      started.resolve()
+      return response.promise
+    })
+    fetch.onSecondCall().resolves({ ok: false, status: 404 })
+    const service = createDownloaderService({ cacheRoot, fetch })
+
+    const first = service.needsEsbuild(SHA).catch(error => error)
+    const second = service.needsEsbuild(SHA).catch(error => error)
+    await started.promise
+    expect(fetch.callCount).to.equal(1)
+    response.reject(new Error('sensitive upstream failure'))
+    const errors = await Promise.all([first, second])
+
+    expect(errors[0]).to.equal(errors[1])
+    expect(errors[0]).to.include({ code: 'UPSTREAM_ERROR', status: 502, message: 'GitHub request failed' })
+    expect(await service.needsEsbuild(SHA)).to.equal(false)
+    expect(fetch.callCount).to.equal(2)
   })
 
   it('creates absent optional roots and marks complete only after success', async () => {
@@ -183,7 +243,63 @@ describe('downloader service', () => {
     expect(fs.existsSync(join(root, '.complete'))).to.equal(true)
   })
 
+  it('shares one concurrent source population attempt and success', async () => {
+    const started = deferred()
+    const downloadComplete = deferred()
+    const source = sinon.stub(download, 'downloadSourceFolder').callsFake(async root => {
+      started.resolve()
+      await downloadComplete.promise
+      await fs.promises.mkdir(join(root, 'ts'), { recursive: true })
+      await fs.promises.mkdir(join(root, 'css'), { recursive: true })
+      return []
+    })
+    const service = createDownloaderService({ cacheRoot })
+
+    const first = service.ensureSource(SHA)
+    const second = service.ensureSource(SHA)
+    await started.promise
+    expect(source.callCount).to.equal(1)
+    downloadComplete.resolve()
+
+    expect(await Promise.all([first, second])).to.deep.equal([join(cacheRoot, SHA), join(cacheRoot, SHA)])
+    expect(source.callCount).to.equal(1)
+  })
+
+  it('shares sanitized source failures and retries after failure', async () => {
+    const started = deferred()
+    const downloadComplete = deferred()
+    const source = sinon.stub(download, 'downloadSourceFolder')
+    source.onFirstCall().callsFake(async () => {
+      started.resolve()
+      await downloadComplete.promise
+      throw new Error('sensitive source failure')
+    })
+    source.onSecondCall().callsFake(async root => {
+      await fs.promises.mkdir(join(root, 'ts'), { recursive: true })
+      await fs.promises.mkdir(join(root, 'css'), { recursive: true })
+      return []
+    })
+    const service = createDownloaderService({ cacheRoot })
+
+    const first = service.ensureSource(SHA).catch(error => error)
+    const second = service.ensureSource(SHA).catch(error => error)
+    await started.promise
+    expect(source.callCount).to.equal(1)
+    downloadComplete.resolve()
+    const errors = await Promise.all([first, second])
+
+    expect(errors[0]).to.equal(errors[1])
+    expect(errors[0]).to.include({ code: 'INTERNAL_ERROR', status: 500, message: 'An internal error occurred' })
+    expect(await service.ensureSource(SHA)).to.equal(join(cacheRoot, SHA))
+    expect(source.callCount).to.equal(2)
+  })
+
   it('removes partial source and does not mark complete after failure', async () => {
+    const root = join(cacheRoot, SHA)
+    const file = join(root, '.files', 'js/sample.js')
+    await fs.promises.mkdir(join(file, '..'), { recursive: true })
+    await fs.promises.writeFile(file, 'cached file')
+    await fs.promises.writeFile(join(root, '.complete'), '')
     sinon.stub(download, 'downloadSourceFolder').callsFake(async root => {
       await fs.promises.mkdir(join(root, 'ts'), { recursive: true })
       throw Object.assign(new Error('forbidden'), { statusCode: 403 })
@@ -193,8 +309,11 @@ describe('downloader service', () => {
 
     try { await service.ensureSource(SHA) } catch (e) { error = e }
 
-    expect(error).to.include({ statusCode: 403 })
-    expect(fs.existsSync(join(cacheRoot, SHA))).to.equal(false)
+    expect(error).to.include({ code: 'INTERNAL_ERROR', status: 500, message: 'An internal error occurred' })
+    expect(fs.existsSync(join(root, 'ts'))).to.equal(false)
+    expect(fs.existsSync(join(root, '.source-complete'))).to.equal(false)
+    expect(fs.existsSync(join(root, '.complete'))).to.equal(true)
+    expect(await fs.promises.readFile(file, 'utf8')).to.equal('cached file')
   })
 
   it('rejects invalid SHAs, unsafe paths, and retains queue-full identity', async () => {
@@ -244,7 +363,7 @@ describe('downloader service', () => {
     expect(file.callCount).to.equal(1)
     expect(file.firstCall.args[0]).to.match(new RegExp(`${SHA}/js/sample\\.js$`))
     expect(source.callCount).to.equal(0)
-    expect(fs.existsSync(join(cacheRoot, SHA))).to.equal(false)
+    expect(fs.existsSync(join(cacheRoot, SHA, '.complete'))).to.equal(true)
   })
 
   it('preserves static file upstream errors', async () => {
@@ -254,7 +373,7 @@ describe('downloader service', () => {
 
     try { await service.openFile(SHA, 'js/sample.js') } catch (e) { error = e }
 
-    expect(error).to.include({ code: 'UPSTREAM_ERROR', status: 502, message: 'GitHub returned 403' })
+    expect(error).to.include({ code: 'UPSTREAM_ERROR', status: 502, message: 'GitHub request failed' })
     expect(download.getRateLimitState()).to.deep.equal({ remaining: undefined, reset: undefined, limited: false, retryAfter: undefined })
   })
 
@@ -283,11 +402,52 @@ describe('downloader service', () => {
 
   it('cleans only expired downloader cache entries', async () => {
     const old = join(cacheRoot, SHA)
-    await fs.promises.mkdir(old)
+    await fs.promises.mkdir(join(old, '.files'), { recursive: true })
+    await fs.promises.writeFile(join(old, '.files', 'cached'), 'data')
+    await fs.promises.writeFile(join(old, '.complete'), '')
     const timestamp = new Date(Date.now() - 10000)
     await fs.promises.utimes(old, timestamp, timestamp)
+    await fs.promises.utimes(join(old, '.complete'), timestamp, timestamp)
     const service = createDownloaderService({ cacheRoot, cacheLifetime: 1 })
     expect(await service.cleanup()).to.deep.equal([SHA])
     expect(fs.existsSync(old)).to.equal(false)
+  })
+
+  it('exposes a bounded authenticated ops snapshot and named cache operations', async () => {
+    const root = join(cacheRoot, SHA)
+    await fs.promises.mkdir(join(root, '.files'), { recursive: true })
+    await fs.promises.writeFile(join(root, '.files', 'cached'), 'data')
+    await fs.promises.writeFile(join(root, '.complete'), '')
+    const app = createApp({ token: 'secret', cacheRoot })
+
+    const snapshot = await request(app, '/v1/ops/snapshot', {
+      headers: { Authorization: 'Bearer secret', 'X-Correlation-ID': 'snapshot-id' }
+    })
+    expect(snapshot.status).to.equal(200)
+    expect(snapshot.headers['x-correlation-id']).to.equal('snapshot-id')
+    expect(JSON.parse(snapshot.body)).to.include({ schemaVersion: 1, service: 'downloader' })
+    expect(JSON.parse(snapshot.body).cache.entries[0].commit).to.equal(SHA)
+
+    const operation = await request(app, '/v1/ops/cache-operations', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+      body: { operation: 'cache.evict_commit', targets: ['downloader'], commit: SHA }
+    })
+    expect(operation.status).to.equal(200)
+    expect(JSON.parse(operation.body).targets[0]).to.include({ service: 'downloader', outcome: 'completed', removedEntries: 1 })
+  })
+
+  it('keeps a complete logical entry in use for the full file response lifetime', async () => {
+    const root = join(cacheRoot, SHA)
+    for (const path of SOURCE_PATHS) await fs.promises.mkdir(join(root, path), { recursive: true })
+    await fs.promises.writeFile(join(root, 'js/sample.js'), 'raw source')
+    await fs.promises.writeFile(join(root, '.complete'), '')
+    const service = createDownloaderService({ cacheRoot })
+
+    const stream = await service.openFile(SHA, 'js/sample.js')
+    expect((await service.cacheManager.snapshot()).entries[0].inUse).to.equal(1)
+    expect(await service.cacheManager.execute('cache.evict_commit', SHA)).to.include({ outcome: 'no_op', skippedInUse: 1 })
+    for await (const chunk of stream) expect(chunk.toString()).to.equal('raw source')
+    expect(await service.cacheManager.execute('cache.evict_commit', SHA)).to.include({ outcome: 'completed', removedEntries: 1 })
   })
 })

@@ -5,8 +5,134 @@ Node.js server that serves Highcharts distribution files built on demand from an
 
 ## Operations console
 
-A **development-only** secured operations console is specified for the router.
-See [docs/operations-console.md](docs/operations-console.md) for the full specification.
+> **Development-only.** The operations console must never be enabled in staging or production.
+
+A secured operations console is built into the router and is disabled by default. When enabled, it lets trusted Highsoft engineers inspect system health, browse recent request activity, trace individual requests, and perform cache-maintenance operations — all from a same-origin browser UI served at `/_ops/`.
+
+The full normative specification (1 479 lines) is at [docs/operations-console.md](docs/operations-console.md). This section covers everything needed to configure, start, and operate it locally.
+
+### Topology
+
+The console does not change the three-process topology. Only the router exposes a port; the downloader and builder remain on the private Docker network. The browser never contacts internal services directly and never receives the internal bearer token. Console telemetry and cache state are available only under bearer-protected `/v1/ops/*` paths on each internal service.
+
+### Environment variables
+
+| Variable | Required when | Description |
+|---|---|---|
+| `OPS_CONSOLE_ENABLED` | Always evaluated | Must be exactly the string `true` to enable the console. Any other value or absence keeps the console off and every `/_ops/*` path returns 404. |
+| `OPS_CONSOLE_TOKEN_VERIFIER` | Console enabled | Canonical domain-separated SHA-256 verifier derived from the shared admin token (see below). Never store the raw token. Validated at startup; missing or malformed values abort startup. |
+| `OPS_CONSOLE_ORIGIN` | Console enabled | The single exact external Origin the console accepts for all state-changing requests and for login (e.g. `http://localhost:8080`). Missing or ambiguous values abort startup. |
+| `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK` | Optional | Set to exactly `true` to allow HTTP only when the Origin is a loopback address and no mTLS settings are present. All other HTTP/mTLS combinations abort startup. |
+| `OPS_CONSOLE_MTLS_PORT` | HTTPS console | Port for the mTLS listener. Defaults to `8443`. Must not be combined with HTTP loopback mode. |
+| `OPS_CONSOLE_MTLS_KEY_PATH` | HTTPS console | Absolute in-container path to the server TLS private key PEM file. |
+| `OPS_CONSOLE_MTLS_CERT_PATH` | HTTPS console | Absolute in-container path to the server TLS certificate PEM file. |
+| `OPS_CONSOLE_MTLS_CA_PATH` | HTTPS console | Absolute in-container path to the Envoy client CA certificate PEM file. The router uses this CA to verify the client certificate that Envoy presents during the mTLS handshake. The file must be a CA certificate; startup fails if it is not. This CA is the Envoy-client-issuing CA and is distinct from the server CA used in Contour's `validation.caSecret`. |
+| `ROUTER_BIND_ADDRESS` | Optional | Host address the router container binds to. Defaults to `127.0.0.1` in Docker Compose; the console is not reachable from outside loopback unless this is changed deliberately. |
+
+`OPS_CONSOLE_TRUSTED_PROXY` is not supported. Setting it to any non-blank value aborts startup.
+
+**Verifier, not token.** `OPS_CONSOLE_TOKEN_VERIFIER` stores a one-way verifier, never the raw token. Derive it from a canonical 32-byte CSPRNG token (base64url-encoded) with:
+
+```bash
+node -e "
+const { createHash } = require('crypto');
+const sep = 'github.highcharts.com:ops-console:v1\x00';
+const raw = Buffer.from('<your-base64url-token>', 'base64url');
+const digest = createHash('sha256').update(sep).update(raw).digest('base64url');
+console.log('v1.' + digest);
+"
+```
+
+Set the printed `v1.<base64url-sha256>` string as `OPS_CONSOLE_TOKEN_VERIFIER` in your `.env`. Keep the raw token only in your password manager or 1Password — never in `.env`, source control, logs, or browser storage.
+
+### Login and session behaviour
+
+Navigate to `/_ops/login` and submit the raw base64url token. On success the router creates an opaque server-side session (30-minute idle expiry, 8-hour absolute maximum) and sets a `HttpOnly; SameSite=Strict` cookie. Sessions are router-local and in-memory; restarting the router revokes all active sessions. The UI warns five minutes before expiry and returns to the login page on expiry or logout.
+
+### Snapshot and cache operations
+
+`GET /_ops/api/v1/snapshot` returns a concurrent aggregate of router, downloader, and builder state: health, queue depth, cache summary, and recent request activity. Each internal call is bounded to 1.5 seconds.
+
+`POST /_ops/api/v1/cache-operations` drives cache maintenance: evict a single commit, purge expired entries, or clear a full service cache. Each operation is bounded to 10 seconds. All mutations are recorded as a single sanitized audit event in the router log.
+
+### Local Compose setup
+
+```bash
+# 1. Copy the example env file (only needed once)
+cp .env.example .env
+
+# 2. Generate and store the raw token in your password manager, then derive the verifier:
+node -e "
+const { createHash, randomBytes } = require('crypto');
+const sep = 'github.highcharts.com:ops-console:v1\x00';
+const raw = randomBytes(32);
+console.log('Raw token (save to password manager):', raw.toString('base64url'));
+const digest = createHash('sha256').update(sep).update(raw).digest('base64url');
+console.log('Verifier (put in .env):', 'v1.' + digest);
+"
+
+# 3. Edit .env — set the required console variables:
+#   OPS_CONSOLE_ENABLED=true
+#   OPS_CONSOLE_TOKEN_VERIFIER=v1.<digest from above>
+#   OPS_CONSOLE_ORIGIN=http://localhost:8080
+#   OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true
+#   (leave OPS_CONSOLE_MTLS_* blank for local HTTP loopback mode)
+
+# 4. Start the stack
+docker compose up --build --wait
+
+# 5. Open http://localhost:8080/_ops/login and log in with the raw token
+
+# 6. To disable the console again, set OPS_CONSOLE_ENABLED=false (or remove it) and restart:
+docker compose up --build --wait
+```
+
+### Running the console tests
+
+```bash
+# Full unit and lint suite (includes ops-console and ops-config tests)
+npm test
+
+# Integration smoke tests against a running stack (requires docker compose up)
+npm run test:integration:ops
+
+# Browser/accessibility tests (requires a running stack and Playwright browsers installed)
+npm run test:browser:ops
+```
+
+### Operational checklist
+
+This checklist covers staged local rollout, abort criteria, and rollback.
+
+**Enable:**
+
+1. Derive the verifier and set `OPS_CONSOLE_ENABLED=true` plus the three required variables in `.env`.
+2. For local HTTP loopback mode, set `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true` and leave all `OPS_CONSOLE_MTLS_*` variables blank. For HTTPS mTLS mode, supply absolute in-container paths for `OPS_CONSOLE_MTLS_KEY_PATH`, `OPS_CONSOLE_MTLS_CERT_PATH`, and `OPS_CONSOLE_MTLS_CA_PATH`.
+3. Restart the router (`docker compose up --build --wait`). Confirm startup log shows `ops-console enabled`.
+4. Open `/_ops/login`; confirm login succeeds and the snapshot page loads with data from all three services.
+5. Run `npm run test:integration:ops` — all checks must pass.
+
+**Abort criteria — disable immediately if any of the following occur:**
+
+- `/_ops/*` paths are reachable from outside the intended network boundary.
+- Login returns a session without a valid token being submitted.
+- Any audit event is absent from the router log after a cache mutation.
+- Internal bearer token appears in a browser response or cookie.
+- Router startup fails with a missing-verifier, missing TLS path, or invalid TLS material error that cannot be resolved within 10 minutes.
+
+**Disable and roll back:**
+
+```bash
+# Remove or unset OPS_CONSOLE_ENABLED in .env (or set it to any value other than "true"),
+# then restart the router:
+docker compose up --build --wait
+
+# Confirm every /_ops/* path returns 404:
+curl -o /dev/null -w "%{http_code}" http://localhost:8080/_ops/
+# Expected: 404
+```
+
+If the router itself must be rolled back, re-tag the prior immutable image to the environment tag and restart the container. The router can be rolled back independently of the internal services provided internal API compatibility is maintained.
 
 ## Architecture
 

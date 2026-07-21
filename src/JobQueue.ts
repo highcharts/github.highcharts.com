@@ -1,16 +1,26 @@
-export type JobArgs = {
+'use strict';
+
+type JobArgs = {
     func: (...args: any[]) => Promise<any>,
     args: any[];
 }
-export type JobType = JobArgs & {
-    setDone: (isDone: true) => void;
-    done: Promise<true>
+type JobType = JobArgs & {
+    setDone: (result: any) => void;
+    setFailed: (error: unknown) => void;
+    done: Promise<any>;
+    queuedAt: number;
 }
-export type Queues = 'download' | 'compile';
-export type QueueType = Map<string, JobType>;
+type Queues = 'download' | 'compile';
+type QueueType = Map<string, JobType>;
+type QueueMetrics = {
+    active: number;
+    queued: number;
+    limit: number;
+    available: number;
+    oldestQueuedAgeMs: number | null;
+}
 
 /* eslint-disable camelcase */
-import crypto from 'node:crypto';
 import { env } from 'node:process';
 
 // Max queue size per queue
@@ -29,24 +39,21 @@ class JobQueue {
         compile: false
     };
 
-    public id: string;
-
     async doJob(queue: QueueType, jobID: string) {
         const job = queue.get(jobID);
 
         if (job) {
             try {
-                await Promise.resolve().then(() => job.func(...job.args));
+                const result = await Promise.resolve().then(() => job.func(...job.args));
+                job.setDone(result);
             }
             catch (error) {
-                console.log(error);
+                job.setFailed(error);
+                throw error;
             }
             finally {
                 queue.delete(jobID);
-                job.setDone(true);
             }
-
-            await job.done;
         }
     }
 
@@ -73,17 +80,22 @@ class JobQueue {
     }
 
     private makeJob(job: JobArgs): JobType {
-        const myJob: JobType = {
+        const {
+            promise: done,
+            resolve: setDone,
+            reject: setFailed
+        } = Promise.withResolvers<any>();
+
+        // Prevent an ignored caller promise from becoming an unhandled rejection.
+        done.catch(() => {});
+
+        return {
             ...job,
-            setDone() { },
-            done: Promise.resolve(true)
+            setDone,
+            setFailed,
+            done,
+            queuedAt: Date.now()
         };
-
-        myJob.done = new Promise((resolve) => {
-            myJob.setDone = resolve;
-        })
-
-        return myJob;
     }
 
     public addJob(type: Queues, jobID: string, job: JobArgs) {
@@ -97,7 +109,7 @@ class JobQueue {
         }
 
         if (queue.has(jobID)) {
-            return queue.get(jobID)?.done;
+            return queue.get(jobID)!.done;
         }
 
         const transformedJob = this.makeJob(job)
@@ -110,7 +122,8 @@ class JobQueue {
         if (!JobQueue.churns[type]) {
             JobQueue.churns[type] = true;
 
-            return this.churn(queue)
+            this.churn(queue)
+                .catch(console.error)
                 .finally(() => {
                     JobQueue.churns[type] = false;
                 })
@@ -129,12 +142,24 @@ class JobQueue {
         return Array.from(queue.values());
     }
 
+    public getMetrics(type: Queues, now = Date.now()): QueueMetrics {
+        const queue = JobQueue.queues[type];
+        const active = JobQueue.churns[type] && queue.size > 0 ? 1 : 0;
+        const waiting = Array.from(queue.values()).slice(active);
+
+        return {
+            active,
+            queued: waiting.length,
+            limit: MAX_QUEUE_SIZE,
+            available: Math.max(0, MAX_QUEUE_SIZE - queue.size),
+            oldestQueuedAgeMs: waiting.length ? Math.max(0, now - waiting[0].queuedAt) : null
+        };
+    }
+
     constructor() {
-        this.id = crypto.randomUUID()
         if (JobQueue._instance) {
             return JobQueue._instance
         }
-
         JobQueue._instance = this
     }
 }
@@ -142,3 +167,12 @@ class JobQueue {
 module.exports = {
     JobQueue
 }
+
+export type {
+    JobArgs,
+    JobType,
+    Queues,
+    QueueType,
+    QueueMetrics,
+    JobQueue
+};

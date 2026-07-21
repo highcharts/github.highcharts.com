@@ -1,0 +1,65 @@
+services:
+  router:
+    build:
+      context: .
+      dockerfile: Dockerfile.router
+    command: ["node", "test/ops/stack.js"]
+    environment:
+      INTERNAL_SERVICE_TOKEN: ops-internal-fixture-token
+      DOWNLOADER_URL: http://downloader:8080
+      BUILDER_URL: http://builder:8080
+      OPS_CONSOLE_ENABLED: ${OPS_TEST_CONSOLE_ENABLED:-true}
+      OPS_CONSOLE_TOKEN_VERIFIER: v1.b1e4_y5sjzm8L9Huzft19Xt3WUAydm4b5LZxUljLqBc
+      OPS_CONSOLE_ORIGIN: http://localhost:${OPS_TEST_HOST_PORT:-8080}
+      OPS_CONSOLE_ALLOW_HTTP_LOOPBACK: "true"
+      OPS_TEST_LOGIN_TOKEN: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    ports:
+      - "127.0.0.1:${OPS_TEST_HOST_PORT:-8080}:8080"
+    volumes:
+      - ./test:/app/test:ro
+    depends_on:
+      downloader:
+        condition: service_healthy
+      builder:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+    networks: [services]
+
+  downloader:
+    image: node:24-alpine
+    command: ["node", "/app/test/ops/fixture-service.js"]
+    environment:
+      INTERNAL_SERVICE_TOKEN: ops-internal-fixture-token
+      OPS_TEST_SERVICE: downloader
+      PORT: 8080
+    volumes:
+      - ./test:/app/test:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+    networks: [services]
+
+  builder:
+    image: node:24-alpine
+    command: ["node", "/app/test/ops/fixture-service.js"]
+    environment:
+      INTERNAL_SERVICE_TOKEN: ops-internal-fixture-token
+      OPS_TEST_SERVICE: builder
+      PORT: 8080
+    volumes:
+      - ./test:/app/test:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/health"]
+      interval: 1s
+      timeout: 1s
+      retries: 30
+    networks: [services]
+
+networks:
+  services:

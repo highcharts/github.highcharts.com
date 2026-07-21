@@ -16,6 +16,9 @@ mandatory behaviour. "Should" and "should not" state strong recommendations.
 1. [Purpose, operator journeys, and non-goals](#1-purpose-operator-journeys-and-non-goals)
 2. [Topology and trust boundaries](#2-topology-and-trust-boundaries)
 3. [Enablement and configuration](#3-enablement-and-configuration)
+   - [Proxied deployment — Contour/Kubernetes contract](#proxied-deployment--contourkubernetes-contract)
+   - [Proxied deployment — enablement order](#proxied-deployment--enablement-order)
+   - [Proxied deployment — certificate lifecycle](#proxied-deployment--certificate-lifecycle)
 4. [Route namespace and HTTP routes](#4-route-namespace-and-http-routes)
 5. [Shared-token login and session contract](#5-shared-token-login-and-session-contract)
 6. [Security headers, CSP, and browser restrictions](#6-security-headers-csp-and-browser-restrictions)
@@ -90,7 +93,7 @@ The existing three-process topology is unchanged:
 
 | Service | Role | Public port |
 |---|---|---|
-| **Router** | Accepts public requests; hosts the same-origin operations console UI and browser-facing API | 8080 |
+| **Router** | Accepts public requests; hosts the same-origin operations console UI and browser-facing API | 8080 (public HTTP); 8443 (mTLS, HTTPS console mode only) |
 | **Downloader** | Internal only; resolves refs, fetches and caches source trees; exposes authenticated internal `/v1` ops endpoints | None |
 | **Builder** | Internal only; compiles sources; exposes authenticated internal `/v1` ops endpoints | None |
 
@@ -119,7 +122,14 @@ The existing three-process topology is unchanged:
 | `OPS_CONSOLE_ENABLED` | Always evaluated | Must be exactly the string `true` to enable the console. Any other value or absence disables it. |
 | `OPS_CONSOLE_TOKEN_VERIFIER` | Console enabled | Domain-separated SHA-256 verifier derived from the shared admin token. Stored outside source control. Validated at startup. |
 | `OPS_CONSOLE_ORIGIN` | Console enabled | The single exact external Origin that the console accepts for all state-changing requests and for login. |
-| `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK` | Optional | When exactly `true`, allows HTTP only if the configured Origin is loopback **and** proxy mode is off. All other HTTP/proxy combinations fail startup. |
+| `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK` | Optional | When exactly `true`, allows HTTP only if the configured Origin is a loopback address **and** no mTLS settings are present. All other HTTP/mTLS combinations fail startup. |
+| `OPS_CONSOLE_MTLS_PORT` | HTTPS console | Port for the separate mTLS listener. Defaults to `8443`. Must not be set when `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true`. |
+| `OPS_CONSOLE_MTLS_KEY_PATH` | HTTPS console | Absolute in-container path to the server TLS private key PEM file. |
+| `OPS_CONSOLE_MTLS_CERT_PATH` | HTTPS console | Absolute in-container path to the server TLS certificate PEM file. |
+| `OPS_CONSOLE_MTLS_CA_PATH` | HTTPS console | Absolute in-container path to the Envoy client CA certificate PEM file. The router uses this CA to verify the client certificate that Envoy presents during the mTLS handshake. The file must be a CA certificate; startup fails otherwise. This is the Envoy-client-issuing CA and is distinct from the server CA used in Contour's `validation.caSecret`. |
+
+`OPS_CONSOLE_TRUSTED_PROXY` is not supported. Setting it to any non-blank value aborts startup with:
+`OPS_CONSOLE_TRUSTED_PROXY is not supported; use operations console mTLS`.
 
 ### Disabled behaviour (default)
 
@@ -134,27 +144,179 @@ When `OPS_CONSOLE_ENABLED` is absent or not exactly `true`:
 ### Enabled behaviour — fail-closed startup
 
 When `OPS_CONSOLE_ENABLED` is exactly `true`, startup **must** fail if any of
-the following is missing, malformed, or ambiguous:
+the following conditions apply:
 
-- `OPS_CONSOLE_TOKEN_VERIFIER` — must be a valid verifier value.
-- `OPS_CONSOLE_ORIGIN` — must be a valid, unambiguous origin.
-- Proxy configuration — must be unambiguous; ambiguity fails startup.
+- `OPS_CONSOLE_TOKEN_VERIFIER` is missing or malformed.
+- `OPS_CONSOLE_ORIGIN` is missing or invalid.
+- `OPS_CONSOLE_TRUSTED_PROXY` is set to any non-blank value.
+- HTTPS mode is chosen but any of `OPS_CONSOLE_MTLS_KEY_PATH`,
+  `OPS_CONSOLE_MTLS_CERT_PATH`, or `OPS_CONSOLE_MTLS_CA_PATH` is blank, relative
+  (not an absolute path), missing, unreadable, or malformed TLS material.
+- The file at `OPS_CONSOLE_MTLS_CA_PATH` is not a CA certificate.
+- `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true` is set together with any mTLS setting.
+- `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true` is set but the Origin is not a loopback address.
+- `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK` is `true` and the Origin scheme is `https:`.
 
 `NODE_ENV` alone must never enable the console.
 
-### HTTPS, proxy, and loopback rules
+### Two-listener model
 
-- Deployed development requires HTTPS.
-- `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true` enables HTTP only when the configured
-  Origin is loopback and proxy mode is off. Every other HTTP/proxy combination
-  fails startup.
-- Forwarded source address and protocol are trusted only from an explicitly
-  allowlisted immediate proxy. Otherwise the socket peer is authoritative.
-- Ambiguous proxy configuration fails startup.
+The router always starts a **public HTTP listener** on port 8080 (configurable via
+`PORT`). This listener handles all public file-delivery traffic and the `/health`
+endpoint. It is unchanged by console enablement.
+
+When the console is enabled with an `https:` Origin, the router additionally
+starts a **separate mTLS listener** on `OPS_CONSOLE_MTLS_PORT` (default `8443`).
+The Node.js server is configured with `requestCert: true` and
+`rejectUnauthorized: true`; connections without a valid client certificate signed
+by the configured CA are rejected at the TLS layer before any application code
+runs. See [Node.js `https.createServer`](https://nodejs.org/docs/latest-v24.x/api/https.html#httpscreateserveroptions-requestlistener)
+and [`tls.createServer`](https://nodejs.org/docs/latest-v24.x/api/tls.html#tlscreateserveroptions-secureconnectionlistener).
+
+`/_ops/*` requests that arrive on the **public HTTP listener** are handled by the
+disabled router (console disabled) or always fail closed (console enabled in
+HTTPS mode). The console is reachable only through the mTLS listener.
+
+**Local HTTP loopback mode** remains an explicit alternative for development.
+It requires `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true` and a loopback Origin, and all
+`OPS_CONSOLE_MTLS_*` variables must be blank. In this mode the single public HTTP
+listener handles `/_ops/*` traffic directly, with no mTLS layer.
+
+### Client IP and rate limiting
+
+Node.js does not trust any `Forwarded` or `X-Forwarded-*` header and does not
+derive a client IP from proxy headers. Login rate limiting is process-wide only:
+a single global counter of 30 attempts per 15 minutes. There is no per-source
+or per-IP bucket at the application layer.
+
+In HTTPS/mTLS mode the audit `source` field is `null`; no client or proxy IP is
+attributed. In explicit local HTTP loopback mode the directly observed loopback
+peer address is recorded. Operators requiring per-client-IP rate limiting must
+enforce it at the proxy layer (e.g. Contour / Envoy) before requests reach the
+mTLS port.
+
+### Proxied deployment — Contour/Kubernetes contract
+
+> **Prerequisite, not implemented here.** This section describes the platform
+> configuration that a proxied deployment requires before the mTLS listener
+> can serve `/_ops` traffic in a Kubernetes environment. None of these steps are
+> part of this application.
+
+The application exposes a second port (default `8443`) for the mTLS-protected
+console. The following Kubernetes and Contour configuration is required to route
+`/_ops` traffic to it.
+
+**Kubernetes Service**
+
+Add a second port to the Service targeting the router Pod:
+
+```yaml
+- name: ops-console
+  port: 8443
+  targetPort: 8443
+  protocol: TCP
+```
+
+**HTTPProxy route**
+
+Route `/_ops` to the ops-console port using TLS upstream with backend server
+verification. The `subjectName` / `subjectNames` field name depends on the
+deployed Contour version; check the Contour
+[upstream TLS documentation](https://projectcontour.io/docs/1.33/config/upstream-tls/)
+and [configuration reference](https://projectcontour.io/docs/1.33/configuration/)
+for the correct field for the version in use:
+
+```yaml
+routes:
+  - conditions:
+      - prefix: /_ops
+    services:
+      - name: router
+        port: 8443
+        protocol: tls
+        validation:
+          caSecret: ops-console-server-ca
+          subjectName: <router-server-certificate-SAN>
+```
+
+`validation.caSecret` is the CA that **Contour uses to verify the router's
+server certificate** — it belongs to the server-certificate trust chain, not to
+any client-certificate authority. `subjectName` / `subjectNames` must match a
+SAN on the router's own server certificate. Use a secret name such as
+`ops-console-server-ca` to make the trust direction unambiguous.
+
+**Envoy client identity**
+
+These two trust directions are independent and must not be conflated:
+
+- **Contour → router (server verification).** Contour authenticates the router
+  by checking its TLS server certificate against `validation.caSecret`
+  (`ops-console-server-ca` above).
+- **Router → Envoy (client verification).** The router authenticates Envoy's
+  client certificate against the CA mounted at `OPS_CONSOLE_MTLS_CA_PATH`.
+  This is a *separate* CA that issues only Envoy upstream identities; it has no
+  relationship to the server CA and must not be reused for one.
+
+Configure Contour's global `tls.envoy-client-certificate` with a cluster-wide
+Envoy client identity. The certificate Envoy presents to the router must be
+signed by the dedicated Envoy-client-issuing CA referenced by
+`OPS_CONSOLE_MTLS_CA_PATH`. Use a dedicated CA for this role; do not reuse the
+server CA or any shared cluster CA merely for convenience.
+
+**Secret mounts**
+
+Mount the server key, server certificate, and Envoy client CA as read-only files
+inside the container. Use only absolute in-container paths for
+`OPS_CONSOLE_MTLS_KEY_PATH`, `OPS_CONSOLE_MTLS_CERT_PATH`, and
+`OPS_CONSOLE_MTLS_CA_PATH`. Never reference test fixture paths at runtime.
+
+To exercise mTLS in local Docker Compose, add an explicit read-only volume
+override in a `compose.override.yaml` that mounts the secret files at the
+configured absolute paths. The default local Compose topology uses HTTP loopback
+and does not require this override.
+
+### Proxied deployment — enablement order
+
+Follow this order to avoid exposing an unconfigured mTLS port or routing
+`/_ops` traffic before the application is ready.
+
+1. **Provision secrets and platform client identity.** Create the TLS secret
+   files, mount them read-only into the container, and configure the Contour
+   global `tls.envoy-client-certificate`.
+2. **Deploy the application with the console disabled.** Set
+   `OPS_CONSOLE_ENABLED=false`. Verify public traffic is unaffected.
+3. **Enable the mTLS listener.** Set `OPS_CONSOLE_ENABLED=true` and all four
+   `OPS_CONSOLE_MTLS_*` variables. Restart the router and confirm the startup
+   log shows `ops-console enabled`. The mTLS port is now open but `/_ops` is
+   not yet reachable from outside.
+4. **Add and enable the Contour `/_ops` TLS route.** Apply the HTTPProxy change
+   that routes `/_ops` to port `8443`.
+5. **Verify.** Run `npm run test:integration:ops` and confirm snapshot and cache
+   operations work end-to-end through the proxy.
+6. **Expose and use the console.** Public traffic on port 8080 must remain
+   unaffected at every step.
+
+To roll back, remove or disable the Contour `/_ops` route **before** disabling
+the mTLS listener or rolling back the image (route-first rollback). This ensures
+no `/_ops` requests arrive at a listener that is no longer running.
+
+### Proxied deployment — certificate lifecycle
+
+**Restart-based reload.** The TLS files are read once at startup by
+`fs.readFileSync`. To apply new certificates, rotate the secret files and
+restart the router container. There is no live reload.
+
+**Overlap rotation.** When rotating certificates, provision the new secret files
+and restart the router before the old certificate expires. Keep sufficient
+overlap to complete the restart and re-verify before the old certificate's
+not-after time.
+
+**Urgent revocation.** There is no OCSP or CRL check in the application. To
+contain a compromised key: restart the router immediately with the new
+certificate (or with the console disabled), then drain or terminate sessions.
+In-memory sessions are invalidated by restart.
 
 ---
-
-## 4. Route namespace and HTTP routes
 
 The `/_ops/` namespace is reserved from all public branch/file routes. Obscurity
 is not a security control; the namespace reservation is operational.
@@ -370,13 +532,13 @@ All rate-limit state is in-memory and resets on router restart. Rate-limited
 responses return HTTP `429` with error code `RATE_LIMITED` and a `Retry-After`
 header.
 
-Source address is determined by the socket peer, unless an immediate proxy is
-explicitly allowlisted — in which case the forwarded address from that proxy is
-used. Ambiguous proxy configuration fails closed.
+Node.js does not trust `Forwarded` or `X-Forwarded-*` headers and does not
+derive a client IP from proxy headers. Login rate limiting is process-wide only;
+there is no per-source or per-IP application bucket. Per-client-IP limiting in a
+proxied deployment must be enforced at the proxy layer.
 
 | Area | Limit |
 |---|---|
-| Login — per source IP | 5 attempts / 15 minutes |
 | Login — global | 30 attempts / 15 minutes |
 | Snapshot — per session | 12 requests / minute |
 | Cache operations — per session | 5 requests / minute |
@@ -950,7 +1112,7 @@ Required audit event fields:
 | `action` | Normalized operation name |
 | `correlationId` | Router request ID |
 | `sessionAuditId` | Separate random per-session audit ID, independent of cookie, non-authorizing |
-| `source` | Trusted source context (IP from allowlisted proxy or socket peer) |
+| `source` | `null` in HTTPS/mTLS mode (no client or proxy IP is attributed); directly observed loopback address in explicit local HTTP loopback mode |
 | `userAgent` | Bounded, truncated |
 | `operation` | Validated operation |
 | `targets` | Validated target list |
@@ -1209,7 +1371,7 @@ cover at minimum:
 
 **Configuration and startup:**
 - Disabled routes 404; no internal calls; sanitized status event.
-- Enabled startup failures for every illegal loopback/proxy combination.
+- Enabled startup failures for every illegal loopback/mTLS combination.
 - `NODE_ENV` alone must not enable the console.
 
 **Login and credentials:**
@@ -1240,7 +1402,7 @@ cover at minimum:
   browser storage, external requests, or CORS headers.
 
 **Rate limits:**
-- Login per-source and global limits enforced.
+- Login global limit enforced (30 attempts / 15 minutes); no per-source bucket exists.
 - Snapshot and cache-operation session/global limits enforced.
 - Rate-limited responses include `429`, `RATE_LIMITED`, and `Retry-After`.
 
@@ -1294,9 +1456,9 @@ Integration scenarios must cover:
 - No automatic retry.
 - Audit event format and 64 KiB response bound.
 
-In deployed-development verification (HTTPS): additionally check HTTPS ingress,
-`__Host-hc-ops` cookie, exact configured Origin, and trusted-proxy forwarded-address
-handling.
+In deployed-development verification (HTTPS mTLS): additionally check HTTPS ingress,
+`__Host-hc-ops` cookie, exact configured Origin, and that `/_ops` requests on the
+public HTTP listener fail closed.
 
 ### Gate 4 — Security and failure injection
 
@@ -1365,7 +1527,7 @@ Automation supports but does not replace manual accessibility acceptance (§16).
 
 **Step 5 — Router, console enabled:** Restart the single router with
 `OPS_CONSOLE_ENABLED=true`, valid `OPS_CONSOLE_TOKEN_VERIFIER`,
-`OPS_CONSOLE_ORIGIN`, and proxy configuration.
+`OPS_CONSOLE_ORIGIN`, and (for HTTPS mode) the four `OPS_CONSOLE_MTLS_*` variables.
 
 Required before declaring success:
 - Sanitized enabled status event appears in stdout.

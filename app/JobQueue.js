@@ -1,10 +1,6 @@
 'use strict'
-const __importDefault = (this && this.__importDefault) || function (mod) {
-  return (mod && mod.__esModule) ? mod : { default: mod }
-}
 Object.defineProperty(exports, '__esModule', { value: true })
 /* eslint-disable camelcase */
-const node_crypto_1 = __importDefault(require('node:crypto'))
 const node_process_1 = require('node:process')
 // Max queue size per queue
 const MAX_QUEUE_SIZE = Number(node_process_1.env.MAX_QUEUE_SIZE) || 2
@@ -20,19 +16,18 @@ class JobQueue {
     compile: false
   }
 
-  id
   async doJob (queue, jobID) {
     const job = queue.get(jobID)
     if (job) {
       try {
-        await Promise.resolve().then(() => job.func(...job.args))
+        const result = await Promise.resolve().then(() => job.func(...job.args))
+        job.setDone(result)
       } catch (error) {
-        console.log(error)
+        job.setFailed(error)
+        throw error
       } finally {
         queue.delete(jobID)
-        job.setDone(true)
       }
-      await job.done
     }
   }
 
@@ -54,15 +49,16 @@ class JobQueue {
   }
 
   makeJob (job) {
-    const myJob = {
+    const { promise: done, resolve: setDone, reject: setFailed } = Promise.withResolvers()
+    // Prevent an ignored caller promise from becoming an unhandled rejection.
+    done.catch(() => { })
+    return {
       ...job,
-      setDone () { },
-      done: Promise.resolve(true)
+      setDone,
+      setFailed,
+      done,
+      queuedAt: Date.now()
     }
-    myJob.done = new Promise((resolve) => {
-      myJob.setDone = resolve
-    })
-    return myJob
   }
 
   addJob (type, jobID, job) {
@@ -73,13 +69,14 @@ class JobQueue {
       return Promise.reject(error)
     }
     if (queue.has(jobID)) {
-      return queue.get(jobID)?.done
+      return queue.get(jobID).done
     }
     const transformedJob = this.makeJob(job)
     queue.set(jobID, transformedJob)
     if (!JobQueue.churns[type]) {
       JobQueue.churns[type] = true
-      return this.churn(queue)
+      this.churn(queue)
+        .catch(console.error)
         .finally(() => {
           JobQueue.churns[type] = false
         })
@@ -97,8 +94,20 @@ class JobQueue {
     return Array.from(queue.values())
   }
 
+  getMetrics (type, now = Date.now()) {
+    const queue = JobQueue.queues[type]
+    const active = JobQueue.churns[type] && queue.size > 0 ? 1 : 0
+    const waiting = Array.from(queue.values()).slice(active)
+    return {
+      active,
+      queued: waiting.length,
+      limit: MAX_QUEUE_SIZE,
+      available: Math.max(0, MAX_QUEUE_SIZE - queue.size),
+      oldestQueuedAgeMs: waiting.length ? Math.max(0, now - waiting[0].queuedAt) : null
+    }
+  }
+
   constructor () {
-    this.id = node_crypto_1.default.randomUUID()
     if (JobQueue._instance) {
       return JobQueue._instance
     }

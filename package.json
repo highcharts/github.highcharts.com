@@ -22,6 +22,9 @@
     "webpack-cli": "^5.1.4"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@orangeopensource/hurl": "8.0.2",
+    "@playwright/test": "1.61.1",
     "@types/node": "^20.4.6",
     "archiver": "^1.3.0",
     "chai": "^4.1.1",
@@ -50,6 +53,8 @@
     "test": "npm run test-lint && npm run unit-tests",
     "test-lint": "standard \"app/*.js\" \"scripts/*.js\" \"test/*.js\"",
     "unit-tests": "mocha test/test.js",
+    "test:integration:ops": "node scripts/test-ops-integration.js",
+    "test:browser:ops": "playwright test --config=playwright.ops.config.js",
     "artillery-test": "npx artillery run -o /tmp/artillery-report ./test/artillery-load-test.yml",
     "prepare": "husky"
   },

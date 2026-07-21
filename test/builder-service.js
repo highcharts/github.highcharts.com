@@ -5,7 +5,10 @@ const fs = require('node:fs')
 const http = require('node:http')
 const os = require('node:os')
 const { execFileSync } = require('node:child_process')
+const { EventEmitter } = require('node:events')
 const { join } = require('node:path')
+const { PassThrough, Readable } = require('node:stream')
+const { gzipSync } = require('node:zlib')
 const { afterEach, beforeEach, describe, it } = require('mocha')
 const sinon = require('sinon')
 const { createBuilder } = require('../app/build')
@@ -16,6 +19,54 @@ const { createApp, start } = require('../builder-server')
 const config = require('../config.json')
 
 const SHA = '0123456789abcdef0123456789abcdef01234567'
+
+function tarArchive (entries) {
+  const blocks = []
+  for (const entry of entries) {
+    const data = Buffer.from(entry.data || '')
+    const header = Buffer.alloc(512)
+    let name = entry.name
+    let prefix = ''
+    if (Buffer.byteLength(name) > 100) {
+      const slash = name.lastIndexOf('/', 155)
+      prefix = name.slice(0, slash)
+      name = name.slice(slash + 1)
+    }
+    header.write(name, 0, 100)
+    header.write('0000755\0', 100, 8)
+    header.write('0000000\0', 108, 8)
+    header.write('0000000\0', 116, 8)
+    header.write(`${(entry.size === undefined ? data.length : entry.size).toString(8).padStart(11, '0')}\0`, 124, 12)
+    header.write('00000000000\0', 136, 12)
+    header.fill(32, 148, 156)
+    header[156] = (entry.type || (entry.name.endsWith('/') ? '5' : '0')).charCodeAt(0)
+    header.write('ustar\0', 257, 6)
+    header.write('00', 263, 2)
+    header.write(prefix, 345, 155)
+    let checksum = 0
+    for (const byte of header) checksum += byte
+    header.write(`${checksum.toString(8).padStart(6, '0')}\0 `, 148, 8)
+    blocks.push(header, data, Buffer.alloc((512 - data.length % 512) % 512))
+  }
+  blocks.push(Buffer.alloc(1024))
+  return gzipSync(Buffer.concat(blocks))
+}
+
+function sourceArchive (extra = []) {
+  return tarArchive([
+    ...SOURCE_PATHS.map(name => ({ name: `${name}/`, type: '5' })),
+    { name: 'ts/sample', data: 'source' },
+    ...extra
+  ])
+}
+
+async function expectArchiveFailure (cacheRoot, archive, options = {}) {
+  const service = createBuilderService({ cacheRoot, client: { stream: () => Readable.from(archive) }, builder: {}, ...options })
+  let error
+  try { await service.ensureSource(SHA) } catch (caught) { error = caught }
+  expect(error).to.include({ code: options.code || 'ARCHIVE_ERROR', status: options.status || 502 })
+  expect(await fs.promises.readdir(cacheRoot)).to.deep.equal([])
+}
 
 function request (app, path, options = {}) {
   return new Promise((resolve, reject) => {
@@ -49,12 +100,25 @@ describe('builder service', () => {
   })
 
   it('exposes health without auth and protects every v1 route', async () => {
-    const app = createApp({ token: 'secret', service: {} })
+    const service = {
+      build: sinon.stub(),
+      snapshot: sinon.stub(),
+      cacheManager: { execute: sinon.stub() }
+    }
+    const app = createApp({ token: 'secret', service })
+    const unauthorized = { error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } }
     expect((await request(app, '/health')).status).to.equal(200)
-    expect((await request(app, '/v1/build', { method: 'POST' })).status).to.equal(401)
-    expect((await request(app, '/v1/build', { method: 'POST', headers: { Authorization: 'Bearer secrets' } })).status).to.equal(401)
-    expect((await request(app, '/v1/build', { method: 'POST', headers: { Authorization: 'Bearer wrong!' } })).status).to.equal(401)
-    expect((await request(app, '/v1/cleanup', { method: 'POST', headers: { Authorization: 'Bearer secret' }, body: {} })).status).to.equal(500)
+    for (const authorization of [undefined, 'Basic secret', 'Bearer ', 'Bearer x', 'Bearer wrong!', 'Bearer secrets']) {
+      const headers = authorization === undefined ? {} : { Authorization: authorization }
+      for (const [path, method] of [['/v1/build', 'POST'], ['/v1/ops/snapshot', 'GET']]) {
+        const response = await request(app, path, { method, headers })
+        expect(response.status).to.equal(401)
+        expect(JSON.parse(response.body)).to.deep.equal(unauthorized)
+      }
+    }
+    expect(service.build.callCount).to.equal(0)
+    expect(service.snapshot.callCount).to.equal(0)
+    expect(service.cacheManager.execute.callCount).to.equal(0)
   })
 
   it('fails startup without an internal service token', () => {
@@ -72,6 +136,10 @@ describe('builder service', () => {
 
   it('validates canonical commits, normalized paths, modes, and options', () => {
     expect(validateRequest({ commit: SHA, path: 'modules/exporting.src.js', mode: 'legacy' })).to.include({ commit: SHA, path: 'modules/exporting.src.js', mode: 'legacy' })
+    expect(validateRequest({ commit: SHA, path: 'a.js', mode: 'webpack' }).options).to.deep.equal({})
+    for (const config of ['highcharts.webpack.mjs', 'custom-1.webpack_mjs']) {
+      expect(validateRequest({ commit: SHA, path: 'a.js', mode: 'webpack', options: { config } }).options.config).to.equal(config)
+    }
     for (const body of [
       { commit: SHA.toUpperCase(), path: 'a.js', mode: 'legacy' },
       { commit: SHA, path: '../a.js', mode: 'legacy' },
@@ -81,13 +149,44 @@ describe('builder service', () => {
     ]) expect(() => validateRequest(body)).to.throw()
   })
 
+  it('rejects unsafe webpack configs before invoking the builder', async () => {
+    const builder = { build: sinon.stub() }
+    const service = createBuilderService({ cacheRoot, client: {}, builder })
+    const invalidConfigs = [null, 1, {}, [], '../config.mjs', '/config.mjs', 'dir/config.mjs', 'dir\\config.mjs', 'config file.mjs', 'config\nfile.mjs', 'config;touch.mjs', 'config$(id).mjs', 'a'.repeat(129)]
+    for (const config of invalidConfigs) {
+      let error
+      try { await service.build({ commit: SHA, path: 'a.js', mode: 'webpack', options: { config } }) } catch (e) { error = e }
+      expect(error).to.include({ code: 'INVALID_OPTIONS', status: 400, message: 'Build options are invalid' })
+    }
+    expect(builder.build.callCount).to.equal(0)
+  })
+
+  it('executes webpack with the config as one argument and no shell', async () => {
+    const childProcess = require('node:child_process')
+    const execFile = sinon.stub(childProcess, 'execFile').callsFake((file, args, options, callback) => callback(null, { stdout: '', stderr: '' }))
+    const utilsPath = require.resolve('../app/utils')
+    delete require.cache[utilsPath]
+    try {
+      const { compileWebpack } = require('../app/utils')
+      await compileWebpack('/workspace', 'custom.webpack.mjs')
+      expect(execFile.firstCall.args.slice(0, 3)).to.deep.equal([
+        'npx',
+        ['webpack', '-c', join('tools/webpacks', 'custom.webpack.mjs'), '--stats', 'errors-only'],
+        { timeout: 15000, cwd: '/workspace', shell: false }
+      ])
+    } finally {
+      execFile.restore()
+      delete require.cache[utilsPath]
+    }
+  })
+
   it('streams an archive into tar, validates roots, atomically caches, and hits cache', async () => {
     for (const path of SOURCE_PATHS) {
       await fs.promises.mkdir(join(sourceRoot, path), { recursive: true })
       await fs.promises.writeFile(join(sourceRoot, path, 'sample'), path)
     }
     const archive = join(sourceRoot, 'source.tar.gz')
-    execFileSync('tar', ['-czf', archive, '--', ...SOURCE_PATHS], { cwd: sourceRoot })
+    execFileSync('tar', ['--format', 'ustar', '-czf', archive, '--', ...SOURCE_PATHS], { cwd: sourceRoot, env: { ...process.env, COPYFILE_DISABLE: '1' } })
     const client = { stream: sinon.stub().callsFake(() => fs.createReadStream(archive)) }
     const service = createBuilderService({ cacheRoot, client, builder: {} })
     expect(await service.ensureSource(SHA)).to.equal(join(cacheRoot, SHA))
@@ -100,12 +199,99 @@ describe('builder service', () => {
   it('removes partial extraction after required-root failure', async () => {
     await fs.promises.mkdir(join(sourceRoot, 'ts'))
     const archive = join(sourceRoot, 'bad.tar.gz')
-    execFileSync('tar', ['-czf', archive, 'ts'], { cwd: sourceRoot })
+    execFileSync('tar', ['--format', 'ustar', '-czf', archive, 'ts'], { cwd: sourceRoot, env: { ...process.env, COPYFILE_DISABLE: '1' } })
     const service = createBuilderService({ cacheRoot, client: { stream: () => fs.createReadStream(archive) }, builder: {} })
     let error
     try { await service.ensureSource(SHA) } catch (e) { error = e }
     expect(error.code).to.equal('SOURCE_INCOMPLETE')
     expect(await fs.promises.readdir(cacheRoot)).to.have.length(0)
+  })
+
+  it('rejects compressed and inflated archive overflows without promotion', async () => {
+    await expectArchiveFailure(cacheRoot, Buffer.alloc(32 * 1024 * 1024 + 1))
+    const files = Array.from({ length: 17 }, (_, index) => ({ name: `ts/large-${index}`, data: Buffer.alloc(4 * 1024 * 1024) }))
+    await expectArchiveFailure(cacheRoot, sourceArchive(files))
+  })
+
+  it('rejects excessive entries and regular files without promotion', async () => {
+    await expectArchiveFailure(cacheRoot, sourceArchive([{ name: 'ts/large', size: 4 * 1024 * 1024 + 1 }]))
+    const entries = Array.from({ length: 5001 }, (_, index) => ({ name: `ts/e-${index}`, data: '' }))
+    await expectArchiveFailure(cacheRoot, tarArchive(entries))
+  })
+
+  it('rejects non-canonical, duplicate, and disallowed archive paths', async () => {
+    for (const entries of [
+      [{ name: '../escape', data: '' }],
+      [{ name: '/absolute', data: '' }],
+      [{ name: 'ts\\backslash', data: '' }],
+      [{ name: 'ts//empty', data: '' }],
+      [{ name: 'ts/./dot', data: '' }],
+      [{ name: 'ts/../escape', data: '' }],
+      [{ name: 'ts/duplicate', data: '' }, { name: 'ts/duplicate', data: '' }],
+      [{ name: 'docs/readme', data: '' }]
+    ]) await expectArchiveFailure(cacheRoot, tarArchive(entries))
+  })
+
+  it('rejects links, special entries, and unsupported tar extensions', async () => {
+    for (const type of ['1', '2', '3', '4', '6', 'x', 'g', 'L', 'K', 'S']) {
+      await expectArchiveFailure(cacheRoot, tarArchive([{ name: 'ts/unsupported', type }]))
+    }
+  })
+
+  it('keeps the downloader timeout active after response headers', async () => {
+    const fetch = (url, options) => {
+      const body = new PassThrough()
+      options.signal.addEventListener('abort', () => body.destroy(new Error('aborted')))
+      return Promise.resolve({ ok: true, body })
+    }
+    const client = createServiceClient({ baseURL: 'http://downloader', token: 'secret', timeout: 5, fetch })
+    const stream = await client.stream('/v1/source', { timeoutThroughBody: true })
+    let error
+    let bytes = 0
+    try {
+      for await (const chunk of stream) bytes += chunk.length
+    } catch (caught) {
+      error = caught
+    }
+    expect(bytes).to.equal(0)
+    expect(error).to.include({ code: 'SERVICE_TIMEOUT', status: 504 })
+  })
+
+  it('rejects unsafe extracted nodes and sizes before promotion', async () => {
+    const cases = [
+      async root => fs.promises.symlink('/tmp', join(root, 'ts/link')),
+      async root => execFileSync('mkfifo', [join(root, 'ts/fifo')]),
+      async root => {
+        await fs.promises.rm(join(root, 'ts'), { recursive: true })
+        await fs.promises.writeFile(join(root, 'ts'), 'not a source directory')
+      },
+      async root => {
+        for (let index = 0; index < 17; index++) {
+          const file = await fs.promises.open(join(root, `ts/large-${index}`), 'w')
+          await file.truncate(4 * 1024 * 1024)
+          await file.close()
+        }
+      }
+    ]
+    for (const mutate of cases) {
+      const spawn = (command, args) => {
+        const child = new EventEmitter()
+        child.stderr = new PassThrough()
+        child.kill = sinon.stub()
+        process.nextTick(async () => {
+          try {
+            const root = args[3]
+            for (const path of SOURCE_PATHS) await fs.promises.mkdir(join(root, path), { recursive: true })
+            await mutate(root)
+            child.emit('close', 0)
+          } catch (error) {
+            child.emit('error', error)
+          }
+        })
+        return child
+      }
+      await expectArchiveFailure(cacheRoot, sourceArchive(), { spawn })
+    }
   })
 
   it('returns build metadata and structured failures', async () => {
@@ -124,6 +310,8 @@ describe('builder service', () => {
     expect(result.status).to.equal(200)
     expect(result.body.toString()).to.equal('built')
     expect(result.headers['x-built-with']).to.equal('webpack')
+    expect(result.headers['x-correlation-id']).to.be.a('string')
+    expect(fs.existsSync(join(cacheRoot, SHA, '.complete'))).to.equal(true)
 
     service.build = () => Promise.reject(Object.assign(new Error('full'), { name: 'QueueFullError', code: 'QUEUE_FULL', status: 503 }))
     const failed = await request(app, '/v1/build', { method: 'POST', headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' }, body: {} })
@@ -282,10 +470,57 @@ describe('builder service', () => {
   it('cleans only the builder cache', async () => {
     const path = join(cacheRoot, SHA)
     await fs.promises.mkdir(path)
+    await fs.promises.writeFile(join(path, '.complete'), '')
     const service = createBuilderService({ cacheRoot, client: {}, builder: {}, cacheLifetime: 1 })
     const old = new Date(Date.now() - 10000)
     await fs.promises.utimes(path, old, old)
+    await fs.promises.utimes(join(path, '.complete'), old, old)
     expect(await service.cleanup()).to.deep.equal([SHA])
     expect(fs.existsSync(sourceRoot)).to.equal(true)
+  })
+
+  it('exposes bounded operations data and protects active build cache entries', async () => {
+    const root = join(cacheRoot, SHA)
+    for (const path of SOURCE_PATHS) await fs.promises.mkdir(join(root, path), { recursive: true })
+    const output = join(root, 'result.js')
+    await fs.promises.writeFile(output, 'built')
+    await fs.promises.writeFile(join(root, '.complete'), '')
+    let finishBuild
+    let markBuildStarted
+    const buildStarted = new Promise(resolve => { markBuildStarted = resolve })
+    const service = createBuilderService({
+      cacheRoot,
+      client: {},
+      queue: { getMetrics: () => ({ active: 1, queued: 0, limit: 2, oldestQueuedAgeMs: null }) },
+      builder: {
+        build: () => new Promise(resolve => {
+          finishBuild = () => resolve({ file: output, builtWith: 'webpack' })
+          markBuildStarted()
+        })
+      }
+    })
+    const app = createApp({ token: 'secret', service })
+    const building = request(app, '/v1/build', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json', 'X-Correlation-ID': 'builder-request' },
+      body: { commit: SHA, path: 'result.js', mode: 'webpack' }
+    })
+    await buildStarted
+
+    const operation = await request(app, '/v1/ops/cache-operations', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' },
+      body: { operation: 'cache.evict_commit', targets: ['builder'], commit: SHA }
+    })
+    expect(JSON.parse(operation.body).targets[0].skippedInUse).to.equal(1)
+    finishBuild()
+    await building
+
+    const snapshot = await request(app, '/v1/ops/snapshot', { headers: { Authorization: 'Bearer secret' } })
+    const body = JSON.parse(snapshot.body)
+    expect(body).to.include({ schemaVersion: 1, service: 'builder' })
+    expect(body.queues[0]).to.include({ name: 'build', active: 1, limit: 2 })
+    expect(body.activity[0].request).to.deep.include({ commit: SHA, resource: null, buildMode: 'webpack' })
+    expect(JSON.stringify(body)).not.to.include(cacheRoot)
   })
 })

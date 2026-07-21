@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { join } from "node:path";
 import { promisify } from 'node:util';
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 
 import { symlinkSync, existsSync } from 'node:fs';
 
@@ -17,11 +17,12 @@ function compileWebpack(srcFolder: string, config ='highcharts.webpack.mjs') {
   const configDir = 'tools/webpacks';
   console.log('Compiling webpack for: ', srcFolder)
 
-  const execAsync = promisify(exec);
+  const execFileAsync = promisify(execFile);
 
-  return execAsync(
-    `npx webpack -c ${join(configDir, config)} --stats errors-only`,
-    { timeout: 15000, cwd: srcFolder }
+  return execFileAsync(
+    'npx',
+    ['webpack', '-c', join(configDir, config), '--stats', 'errors-only'],
+    { timeout: 15000, cwd: srcFolder, shell: false }
   ).then(({stdout, stderr}) => {
     if (stderr) {
       console.error(stderr);
