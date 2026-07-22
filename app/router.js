@@ -36,6 +36,7 @@ const FAILURE_SUMMARIES = {
   SERVICE_UNAVAILABLE: 'Internal service is unavailable',
   UPSTREAM_TIMEOUT: 'GitHub request timed out'
 }
+const SHA_PATTERN = /^[a-f0-9]{40}$/
 
 function createRouter (options = {}) {
   const router = express.Router()
@@ -129,17 +130,26 @@ function createRouter (options = {}) {
     startTrace()
     try {
       const originalBranch = await getBranch(req.path)
+      const explicitEsbuild = Object.hasOwn(req.query, 'esbuild')
+      const canonicalSha = SHA_PATTERN.test(originalBranch)
+      const skipEsbuild = explicitEsbuild || (isExplicitRef(req.url, originalBranch) && !canonicalSha)
       const resolved = await observeDependency(telemetry, 'downloader', now, () => downloader.json('/v1/resolve', {
         method: 'POST',
-        body: { ref: originalBranch },
+        body: { ref: originalBranch, detectEsbuild: !skipEsbuild },
         signal: controller.signal,
         correlationId: req.correlationId
       }))
       const commit = resolved.commit
       rate = resolved.rate || {}
       const url = rewriteRef(req.url, originalBranch, commit)
+      if (url !== req.url) {
+        startTrace(commit)
+        setPublicHeaders(res, 302, rate)
+        res.set({ 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store' })
+        if (rate.limit !== undefined) res.set('X-GitHub-RateLimit-Limit', String(rate.limit))
+        return res.redirect(302, url)
+      }
       const dashboards = req.params.filepath !== undefined
-      const explicitEsbuild = /[?&]esbuild(?:[&=]|$)/.test(req.url)
       const type = getType(commit, url)
       const esbuild = explicitEsbuild || (!dashboards && resolved.needsEsbuild)
       const parsed = esbuild ? getFileForEsbuild(commit, type, url) : { filename: getFile(commit, type, url), minify: false }
@@ -222,9 +232,14 @@ function safeErrorCode (error) {
 
 function rewriteRef (url, originalBranch, commit) {
   const prefix = `/${originalBranch}`
-  return url.startsWith(prefix + '/') || url === prefix
+  return isExplicitRef(url, originalBranch)
     ? `/${commit}${url.slice(prefix.length)}`
     : url
+}
+
+function isExplicitRef (url, originalBranch) {
+  const prefix = `/${originalBranch}`
+  return url.startsWith(prefix + '/') || url === prefix
 }
 
 async function streamResponse (response, res, req, metadata) {

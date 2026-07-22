@@ -40,7 +40,7 @@ function createApp (options = {}) {
   }
   app.use(express.json())
   app.post('/v1/resolve', observedRoute(service, '/v1/resolve', req => ({ resource: req.body && req.body.ref }), async (req, res) => {
-    res.json(await service.resolveRef(req.body && req.body.ref, { correlationId: req.correlationId }))
+    res.json(await service.resolveRef(req.body && req.body.ref, { correlationId: req.correlationId, detectEsbuild: req.body?.detectEsbuild !== false }))
   }))
   app.get('/v1/files/:commit/*', observedRoute(service, '/v1/files/:commit/*', req => ({ commit: req.params.commit, resource: req.params[0] }), async (req, res) => {
     const stream = await service.openFile(req.params.commit, req.params[0], { correlationId: req.correlationId })
