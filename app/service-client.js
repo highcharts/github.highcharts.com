@@ -105,16 +105,25 @@ function createServiceClient (options = {}) {
     stream: async (path, options = {}) => {
       if (!options.timeoutThroughBody) return (await request(path, options)).body
       const { response, release, timedOut } = await request(path, options, true)
-      const source = typeof response.body.getReader === 'function' ? Readable.fromWeb(response.body) : response.body
-      const output = Readable.from((async function * () {
-        try {
-          yield * source
-        } catch (error) {
-          throw new ServiceError(timedOut() ? 'SERVICE_TIMEOUT' : 'SERVICE_UNAVAILABLE', timedOut() ? 'Service request timed out' : error.message, timedOut() ? 504 : 502)
+      try {
+        const source = typeof response.body.getReader === 'function' ? Readable.fromWeb(response.body) : response.body
+        const output = Readable.from((async function * () {
+          try {
+            yield * source
+          } catch (error) {
+            throw new ServiceError(timedOut() ? 'SERVICE_TIMEOUT' : 'SERVICE_UNAVAILABLE', timedOut() ? 'Service request timed out' : error.message, timedOut() ? 504 : 502)
+          }
+        })())
+        const safeRelease = () => {
+          output.off('end', safeRelease).off('error', safeRelease).off('close', safeRelease)
+          release()
         }
-      })())
-      output.once('close', release)
-      return output
+        output.once('end', safeRelease).once('error', safeRelease).once('close', safeRelease)
+        return output
+      } catch (error) {
+        release()
+        throw error
+      }
     }
   }
 }

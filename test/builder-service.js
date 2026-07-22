@@ -5,7 +5,7 @@ const fs = require('node:fs')
 const http = require('node:http')
 const os = require('node:os')
 const { execFileSync } = require('node:child_process')
-const { EventEmitter } = require('node:events')
+const { EventEmitter, once } = require('node:events')
 const { join } = require('node:path')
 const { PassThrough, Readable } = require('node:stream')
 const { gzipSync } = require('node:zlib')
@@ -255,6 +255,33 @@ describe('builder service', () => {
     }
     expect(bytes).to.equal(0)
     expect(error).to.include({ code: 'SERVICE_TIMEOUT', status: 504 })
+  })
+
+  it('releases retained stream cleanup at end only once', async () => {
+    const controller = new AbortController()
+    const removeEventListener = sinon.spy(controller.signal, 'removeEventListener')
+    const fetch = async () => ({ ok: true, body: Readable.from(['archive']) })
+    const client = createServiceClient({ baseURL: 'http://downloader', token: 'secret', timeout: 1000, fetch })
+    const stream = await client.stream('/v1/source', { signal: controller.signal, timeoutThroughBody: true })
+    const closed = once(stream, 'close')
+    stream.once('end', () => expect(removeEventListener.callCount).to.equal(1))
+
+    stream.resume()
+    await closed
+    expect(removeEventListener.callCount).to.equal(1)
+  })
+
+  it('releases retained stream cleanup when stream setup rejects', async () => {
+    const controller = new AbortController()
+    const removeEventListener = sinon.spy(controller.signal, 'removeEventListener')
+    const fetch = async () => ({ ok: true, body: null })
+    const client = createServiceClient({ baseURL: 'http://downloader', token: 'secret', timeout: 1000, fetch })
+    let error
+
+    await client.stream('/v1/source', { signal: controller.signal, timeoutThroughBody: true }).catch(caught => { error = caught })
+
+    expect(error).to.be.instanceOf(TypeError)
+    expect(removeEventListener.callCount).to.equal(1)
   })
 
   it('rejects unsafe extracted nodes and sizes before promotion', async () => {
