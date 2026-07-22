@@ -157,13 +157,163 @@ HTTP 404
 [Asserts]
 header "Access-Control-Allow-Origin" not exists
 
-# The five-attempt source limit produces a bounded 429 with Retry-After.
+# The global 30-attempt login limit produces a bounded 429 with Retry-After.
 POST {{base_url}}/__ops-test/clock
 Content-Type: application/json
 {
   "advanceMs": 900000
 }
 HTTP 200
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
+
+POST {{base_url}}/_ops/api/v1/session
+Origin: {{base_url}}
+Content-Type: application/json
+{"token":"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"}
+HTTP 401
 
 POST {{base_url}}/_ops/api/v1/session
 Origin: {{base_url}}
