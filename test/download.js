@@ -25,13 +25,13 @@ function loadDownloadWithHttpsGet (httpsGet) {
   }
 }
 
-function fakeHttpsGet (chunks) {
+function fakeHttpsGet (chunks, statusCode = 200, headers = {}) {
   return (options, callback) => {
     const request = new EventEmitter()
     request.end = () => {
       const response = new EventEmitter()
-      response.statusCode = 200
-      response.headers = {}
+      response.statusCode = statusCode
+      response.headers = headers
       callback(response)
       process.nextTick(() => {
         chunks.forEach(chunk => response.emit('data', chunk))
@@ -85,6 +85,11 @@ describe('download.js', () => {
         })
     })
     it('should return a response when a url is provided', () => {
+      const body = '404: Not Found'
+      const { httpsGetPromise } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        Buffer.from(body)
+      ], 404))
+
       return httpsGetPromise(downloadURL)
         .then(({ body, statusCode }) => {
           expect(statusCode).to.equal(404)
@@ -128,9 +133,15 @@ describe('download.js', () => {
     }
     after(cleanFiles)
     before(() => {
+      cleanFiles()
       fs.mkdirSync('tmp/test', { recursive: true })
     })
     it('should resolve with an informational object, and a newly created file.', () => {
+      const body = 'downloaded file content'
+      const { downloadFile } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        Buffer.from(body)
+      ]))
+
       return downloadFile(
         downloadURL + 'master/ts/masters/highcharts.src.ts',
         './tmp/test/downloaded-file1.js'
@@ -140,9 +151,14 @@ describe('download.js', () => {
         expect(success).to.equal(true)
         expect(url).to.equal(downloadURL + 'master/ts/masters/highcharts.src.ts')
         expect(fs.lstatSync('./tmp/test/downloaded-file1.js').size).to.be.greaterThan(0)
+        expect(fs.readFileSync('./tmp/test/downloaded-file1.js', 'utf8')).to.equal(body)
       })
     })
     it('should only create a file if response status is 200', () => {
+      const { downloadFile } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        Buffer.from('404: Not Found')
+      ], 404))
+
       return downloadFile(
         downloadURL + 'master/i-do-not-exist.js',
         './tmp/test/downloaded-file2.js'
