@@ -9,7 +9,6 @@ const {
   OpsHttpError,
   SECURITY_HEADERS,
   errorBody,
-  getTrustedRequestContext,
   readStrictJSON,
   requireBearer,
   requireCSRF,
@@ -142,32 +141,6 @@ describe('operations console HTTP boundaries', () => {
       expect(() => requireCSRF({ headers: { 'x-ops-csrf': '' } }, expected)).to.throw('Invalid expected credential')
       expect(() => requireBearer({ headers: {} }, expected)).to.throw('Invalid expected credential')
     }
-  })
-
-  it('requires an authorized encrypted socket for HTTPS and ignores forwarded claims', () => {
-    const context = getTrustedRequestContext({
-      socket: { remoteAddress: '10.2.3.4', encrypted: true, authorized: true },
-      headers: {
-        forwarded: 'for=192.0.2.8;proto=http',
-        'x-forwarded-for': '192.0.2.8',
-        'x-forwarded-proto': 'http'
-      }
-    }, { protocol: 'https' })
-    expect(context).to.deep.equal({ protocol: 'https', source: null })
-
-    for (const socket of [
-      { encrypted: false, authorized: true },
-      { encrypted: true, authorized: false },
-      { encrypted: true },
-      {}
-    ]) expect(() => getTrustedRequestContext({ socket, headers: {} }, { protocol: 'https' })).to.throw(OpsHttpError)
-  })
-
-  it('requires direct HTTP request sources to be loopback', () => {
-    const config = { protocol: 'http' }
-    expect(getTrustedRequestContext({ socket: { remoteAddress: '::1' }, headers: { 'x-forwarded-for': '192.0.2.1' } }, config).source).to.equal('::1')
-    expect(() => getTrustedRequestContext({ socket: { remoteAddress: '192.0.2.1' }, headers: {} }, config)).to.throw(OpsHttpError)
-    expect(() => getTrustedRequestContext({ socket: { remoteAddress: '127.0.0.1', encrypted: true }, headers: {} }, config)).to.throw(OpsHttpError)
   })
 
   it('produces bounded generic errors without reflecting sensitive values', () => {

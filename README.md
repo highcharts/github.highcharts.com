@@ -22,14 +22,12 @@ The console does not change the three-process topology. Only the router exposes 
 | `OPS_CONSOLE_ENABLED` | Always evaluated | Must be exactly the string `true` to enable the console. Any other value or absence keeps the console off and every `/_ops/*` path returns 404. |
 | `OPS_CONSOLE_TOKEN_VERIFIER` | Console enabled | Canonical domain-separated SHA-256 verifier derived from the shared admin token (see below). Never store the raw token. Validated at startup; missing or malformed values abort startup. |
 | `OPS_CONSOLE_ORIGIN` | Console enabled | The single exact external Origin the console accepts for all state-changing requests and for login (e.g. `http://localhost:8080`). Missing or ambiguous values abort startup. |
-| `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK` | Optional | Set to exactly `true` to allow HTTP only when the Origin is a loopback address and no mTLS settings are present. All other HTTP/mTLS combinations abort startup. |
-| `OPS_CONSOLE_MTLS_PORT` | HTTPS console | Port for the mTLS listener. Defaults to `8443`. Must not be combined with HTTP loopback mode. |
-| `OPS_CONSOLE_MTLS_KEY_PATH` | HTTPS console | Absolute in-container path to the server TLS private key PEM file. |
-| `OPS_CONSOLE_MTLS_CERT_PATH` | HTTPS console | Absolute in-container path to the server TLS certificate PEM file. |
-| `OPS_CONSOLE_MTLS_CA_PATH` | HTTPS console | Absolute in-container path to the Envoy client CA certificate PEM file. The router uses this CA to verify the client certificate that Envoy presents during the mTLS handshake. The file must be a CA certificate; startup fails if it is not. This CA is the Envoy-client-issuing CA and is distinct from the server CA used in Contour's `validation.caSecret`. |
+| `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK` | Optional | Set to exactly `true` to allow HTTP when the Origin is a loopback address. All other HTTP combinations abort startup. |
 | `ROUTER_BIND_ADDRESS` | Optional | Host address the router container binds to. Defaults to `127.0.0.1` in Docker Compose; the console is not reachable from outside loopback unless this is changed deliberately. |
 
 `OPS_CONSOLE_TRUSTED_PROXY` is not supported. Setting it to any non-blank value aborts startup.
+
+`OPS_CONSOLE_MTLS_PORT`, `OPS_CONSOLE_MTLS_KEY_PATH`, `OPS_CONSOLE_MTLS_CERT_PATH`, and `OPS_CONSOLE_MTLS_CA_PATH` are retired and unsupported; setting any to a non-blank value aborts startup.
 
 **Verifier, not token.** `OPS_CONSOLE_TOKEN_VERIFIER` stores a one-way verifier, never the raw token. Derive it from a canonical 32-byte CSPRNG token (base64url-encoded) with:
 
@@ -76,7 +74,6 @@ console.log('Verifier (put in .env):', 'v1.' + digest);
 #   OPS_CONSOLE_TOKEN_VERIFIER=v1.<digest from above>
 #   OPS_CONSOLE_ORIGIN=http://localhost:8080
 #   OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true
-#   (leave OPS_CONSOLE_MTLS_* blank for local HTTP loopback mode)
 
 # 4. Start the stack
 docker compose up --build --wait
@@ -107,7 +104,7 @@ This checklist covers staged local rollout, abort criteria, and rollback.
 **Enable:**
 
 1. Derive the verifier and set `OPS_CONSOLE_ENABLED=true` plus the three required variables in `.env`.
-2. For local HTTP loopback mode, set `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true` and leave all `OPS_CONSOLE_MTLS_*` variables blank. For HTTPS mTLS mode, supply absolute in-container paths for `OPS_CONSOLE_MTLS_KEY_PATH`, `OPS_CONSOLE_MTLS_CERT_PATH`, and `OPS_CONSOLE_MTLS_CA_PATH`.
+2. For local HTTP loopback mode, set `OPS_CONSOLE_ALLOW_HTTP_LOOPBACK=true`. If `OPS_CONSOLE_ORIGIN` uses an `https:` scheme, TLS termination is handled at the proxy layer; the Node backend remains ordinary HTTP.
 3. Restart the router (`docker compose up --build --wait`). Confirm startup log shows `ops-console enabled`.
 4. Open `/_ops/login`; confirm login succeeds and the snapshot page loads with data from all three services.
 5. Run `npm run test:integration:ops` — all checks must pass.
@@ -118,7 +115,7 @@ This checklist covers staged local rollout, abort criteria, and rollback.
 - Login returns a session without a valid token being submitted.
 - Any audit event is absent from the router log after a cache mutation.
 - Internal bearer token appears in a browser response or cookie.
-- Router startup fails with a missing-verifier, missing TLS path, or invalid TLS material error that cannot be resolved within 10 minutes.
+- Router startup fails with a missing-verifier or invalid-origin error that cannot be resolved within 10 minutes.
 
 **Disable and roll back:**
 

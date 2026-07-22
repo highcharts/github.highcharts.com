@@ -498,7 +498,7 @@ describe('operations console router', () => {
     expect(audits).to.have.length(1)
     expect(audits[0]).to.include({
       correlationId: response.json.correlationId,
-      source: '127.0.0.1',
+      source: null,
       userAgent: 'chromium',
       operation: 'cache.evict_commit',
       commit: 'a'.repeat(40),

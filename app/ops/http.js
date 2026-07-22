@@ -1,7 +1,6 @@
 'use strict'
 
 const { createHash, randomUUID, timingSafeEqual } = require('node:crypto')
-const { isIP } = require('node:net')
 
 const MAX_BODY_BYTES = 4 * 1024
 const CSP = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
@@ -189,34 +188,6 @@ function requireBearer (request, expected) {
   }
 }
 
-function normalizeIP (value) {
-  if (typeof value !== 'string') return null
-  const unwrapped = value.startsWith('[') && value.endsWith(']') ? value.slice(1, -1) : value
-  const mapped = unwrapped.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/i)
-  const normalized = mapped ? mapped[1] : unwrapped
-  return isIP(normalized) ? normalized : null
-}
-
-function getTrustedRequestContext (request, config) {
-  if (config.protocol === 'https') {
-    if (request.socket?.encrypted !== true || request.socket?.authorized !== true) {
-      throw new OpsHttpError(400, 'INVALID_REQUEST_CONTEXT', 'Request context is invalid')
-    }
-    return Object.freeze({ protocol: 'https', source: null })
-  }
-
-  const peerIp = normalizeIP(request.socket?.remoteAddress)
-  if (request.socket?.encrypted || !peerIp || !isLoopbackIP(peerIp)) {
-    throw new OpsHttpError(400, 'INVALID_REQUEST_CONTEXT', 'Request context is invalid')
-  }
-  return Object.freeze({ protocol: 'http', source: peerIp })
-}
-
-function isLoopbackIP (address) {
-  if (address === '::1') return true
-  return isIP(address) === 4 && Number(address.split('.')[0]) === 127
-}
-
 function errorBody (error, correlationId = randomUUID()) {
   const safe = error instanceof OpsHttpError
     ? error
@@ -261,7 +232,6 @@ module.exports = {
   SECURITY_HEADERS,
   asyncRoute,
   errorBody,
-  getTrustedRequestContext,
   observedRoute,
   readStrictJSON,
   requireBearer,

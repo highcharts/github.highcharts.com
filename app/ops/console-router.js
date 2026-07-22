@@ -10,7 +10,6 @@ const {
   OpsHttpError,
   asyncRoute,
   errorBody,
-  getTrustedRequestContext,
   readStrictJSON,
   requireCSRF,
   requireJSONContentType,
@@ -92,7 +91,6 @@ function createOpsConsoleRouter ({ env = process.env, log = logStatus, now = Dat
       response.once('close', emit)
     }
     try {
-      request.opsContext = getTrustedRequestContext(request, config)
       requireSameOriginFetch(request, {
         allowTopLevelNavigation: request.path === '/' || request.path === '/login'
       })
@@ -332,7 +330,6 @@ function emitCacheAudit (request, log, now) {
   const audit = request.cacheAudit
   if (!audit || audit.emitted) return
   audit.emitted = true
-  audit.source = request.opsContext?.source || null
   const errorCodes = [...new Set([
     ...audit.errorCodes,
     ...audit.targetOutcomes.map(target => target.error?.code).filter(Boolean)
