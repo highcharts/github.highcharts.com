@@ -6,22 +6,26 @@ on:
       - master
       - develop
 
+permissions:
+  contents: read
+
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '24'
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Check TypeScript compilation is up to date
         run: |
@@ -38,3 +42,12 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Run operations console integration tests
+        run: npm run test:integration:ops
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox
+
+      - name: Run operations console browser tests
+        run: npm run test:browser:ops

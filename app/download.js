@@ -335,9 +335,9 @@ async function downloadSourceFolderGit (outputDir, branch, mode = 'tar') {
 }
 
 /**
- * An asynchronous version of https.get, with encoding set to utf8.
+ * An asynchronous version of https.get.
  * The Promise resolves with an object containing the status code and the
- * response body.
+ * raw response body Buffer.
  *
  * @param {object|string} options Can either be an https request options object,
  * or an url string.
@@ -346,13 +346,12 @@ function get(options, _retried) {
     return new Promise((resolve, reject) => {
         const request = httpsGet(options, response => {
             const body = []
-            response.setEncoding('utf8')
             response.on('error', reject)
             response.on('data', (data) => { body.push(data) })
             response.on('end', () =>
                 resolve({
                     statusCode: response.statusCode,
-                    body: body.join(''),
+                    body: Buffer.concat(body),
                     headers: response.headers
                 })
             )
@@ -429,7 +428,7 @@ async function getFilesInFolder(path, branch) {
         throw error
     }
 
-    const promises = JSON.parse(body).map(obj => {
+    const promises = JSON.parse(body.toString('utf8')).map(obj => {
         const name = path + '/' + obj.name
         return (
             (obj.type === 'dir')
@@ -483,7 +482,7 @@ async function getBranchInfo (branch) {
     const rate = logRateLimitIfDepleted(headers, `fetching branch info for ${branch}`)
     throwIfRateLimited(rate, statusCode)
     if (statusCode === 200) {
-      return JSON.parse(body)
+      return JSON.parse(body.toString('utf8'))
     }
     return false
   })
@@ -511,7 +510,7 @@ async function getCommitInfo (commit) {
     const rate = logRateLimitIfDepleted(headers, `fetching commit info for ${commit}`)
     throwIfRateLimited(rate, statusCode)
     if (statusCode === 200) {
-      return JSON.parse(body)
+      return JSON.parse(body.toString('utf8'))
     }
     return false
   })

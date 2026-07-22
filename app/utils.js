@@ -14,8 +14,8 @@ function shouldUseWebpack (tsconfig) {
 function compileWebpack (srcFolder, config = 'highcharts.webpack.mjs') {
   const configDir = 'tools/webpacks'
   console.log('Compiling webpack for: ', srcFolder)
-  const execAsync = (0, node_util_1.promisify)(node_child_process_1.exec)
-  return execAsync(`npx webpack -c ${(0, node_path_1.join)(configDir, config)} --stats errors-only`, { timeout: 15000, cwd: srcFolder }).then(({ stdout, stderr }) => {
+  const execFileAsync = (0, node_util_1.promisify)(node_child_process_1.execFile)
+  return execFileAsync('npx', ['webpack', '-c', (0, node_path_1.join)(configDir, config), '--stats', 'errors-only'], { timeout: 15000, cwd: srcFolder, shell: false }).then(({ stdout, stderr }) => {
     if (stderr) {
       console.error(stderr)
       return

@@ -4,7 +4,8 @@
   "_version": "18.1.0",
   "compilerOptions": {
     "lib": [
-      "es2023"
+      "es2023",
+      "esnext.promise"
     ],
     "module": "nodenext",
     "target": "es2022",

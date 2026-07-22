@@ -1,8 +1,9 @@
 'use strict'
 
 const { Readable } = require('node:stream')
+const { randomUUID } = require('node:crypto')
 const { pipeline } = require('node:stream/promises')
-const { join } = require('node:path')
+const { join, posix } = require('node:path')
 const { readFile } = require('node:fs/promises')
 const express = require('express')
 const rateLimit = require('express-rate-limit')
@@ -10,6 +11,7 @@ const slowDown = require('express-slow-down')
 const config = require('../config.json')
 const { version } = require('../package.json')
 const { createServiceClient, ServiceError } = require('./service-client')
+const { Telemetry } = require('./ops/telemetry')
 const { getBranch, getFile, getFileForEsbuild, getType } = require('./interpreter.js')
 const {
   catchAsyncErrors,
@@ -22,9 +24,22 @@ const {
 } = require('./handlers.js')
 
 const indexPath = join(__dirname, '..', 'static', 'index.html')
+const PUBLIC_ROUTE = '/:ref/*'
+const PUBLIC_OPERATION = 'public_file_delivery'
+const FAILURE_SUMMARIES = {
+  FILE_NOT_FOUND: 'File was not found',
+  INVALID_BUILD: 'Build request was invalid',
+  QUEUE_FULL: 'Service capacity is unavailable',
+  RATE_LIMITED: 'GitHub rate limit is exhausted',
+  REF_NOT_FOUND: 'Ref was not found',
+  SERVICE_TIMEOUT: 'Internal service timed out',
+  SERVICE_UNAVAILABLE: 'Internal service is unavailable',
+  UPSTREAM_TIMEOUT: 'GitHub request timed out'
+}
 
 function createRouter (options = {}) {
   const router = express.Router()
+  const opsConsoleEnabled = options.opsConsoleEnabled ?? process.env.OPS_CONSOLE_ENABLED === 'true'
   const token = options.token ?? process.env.INTERNAL_SERVICE_TOKEN
   const downloader = options.downloader || createServiceClient({
     baseURL: process.env.DOWNLOADER_URL || config.downloaderURL,
@@ -36,16 +51,31 @@ function createRouter (options = {}) {
     token,
     timeout: process.env.PUBLIC_BUILDER_TIMEOUT || config.publicBuilderTimeout || 30000
   })
+  const now = options.now || Date.now
+  const telemetry = options.telemetry || new Telemetry({
+    service: 'router',
+    operations: [PUBLIC_OPERATION],
+    routes: [PUBLIC_ROUTE],
+    failureSummaries: FAILURE_SUMMARIES,
+    now
+  })
+
+  router.use((req, res, next) => {
+    req.correlationId = randomUUID()
+    res.set('X-Correlation-ID', req.correlationId)
+    next()
+  })
 
   router.get('/health', catchAsyncErrors(handlerHealth))
   router.get('/favicon.ico', catchAsyncErrors(handlerIcon))
   router.get('/robots.txt', catchAsyncErrors(handlerRobots))
   router.get('/cleanup', catchAsyncErrors(async (req, res) => {
+    if (opsConsoleEnabled) return res.sendStatus(404)
     if (!req.url.includes('?true')) return send(res, req, 400, 'Something went wrong. Please note that this service is for debugging only. Use our <a href="http://code.highcharts.com">official CDN</a> in production.')
     const body = { force: false }
     const [, result] = await Promise.all([
-      downloader.json('/v1/cleanup', { method: 'POST', body }),
-      builder.json('/v1/cleanup', { method: 'POST', body })
+      downloader.json('/v1/cleanup', { method: 'POST', body, correlationId: req.correlationId }),
+      builder.json('/v1/cleanup', { method: 'POST', body, correlationId: req.correlationId })
     ])
     return send(res, req, 200, result.removed)
   }))
@@ -54,6 +84,11 @@ function createRouter (options = {}) {
   router.get('/', catchAsyncErrors(async (_, res) => {
     res.type('html').send((await readFile(indexPath, 'utf8')).replace('{{APP_VERSION}}', version))
   }))
+  router.use((req, res, next) => {
+    let path
+    try { path = posix.normalize(decodeURIComponent(req.path)) } catch { return next() }
+    return path === '/ops' || path.startsWith('/ops/') ? res.sendStatus(404) : next()
+  })
   router.use(express.static('static'))
 
   if (!options.disableRateLimit) {
@@ -78,13 +113,28 @@ function createRouter (options = {}) {
     res.once('close', () => { if (!res.writableEnded) abort() })
 
     let rate = {}
+    let traceStarted = false
+    let failure
+    const startTrace = (commit = null, buildMode = null, resource = req.path) => {
+      if (traceStarted) {
+        const request = telemetry.active.get(req.correlationId)?.request
+        if (request && /^[0-9a-f]{40}$/.test(commit || '')) request.commit = commit
+        if (request && ['legacy', 'dashboards', 'esbuild', 'static'].includes(buildMode)) request.buildMode = buildMode
+        return
+      }
+      traceStarted = true
+      telemetry.startTrace({ correlationId: req.correlationId, method: req.method, route: PUBLIC_ROUTE, commit, resource, buildMode })
+      telemetry.startSpan(req.correlationId, PUBLIC_OPERATION)
+    }
+    startTrace()
     try {
       const originalBranch = await getBranch(req.path)
-      const resolved = await downloader.json('/v1/resolve', {
+      const resolved = await observeDependency(telemetry, 'downloader', now, () => downloader.json('/v1/resolve', {
         method: 'POST',
         body: { ref: originalBranch },
-        signal: controller.signal
-      })
+        signal: controller.signal,
+        correlationId: req.correlationId
+      }))
       const commit = resolved.commit
       rate = resolved.rate || {}
       const url = rewriteRef(req.url, originalBranch, commit)
@@ -95,12 +145,16 @@ function createRouter (options = {}) {
       const parsed = esbuild ? getFileForEsbuild(commit, type, url) : { filename: getFile(commit, type, url), minify: false }
       const path = dashboards ? req.params.filepath : parsed.filename
 
-      if (!path) return send(res, req, 400, 'Could not find the compiled file. Path: ', rate, commit)
+      if (!path) {
+        startTrace(commit, dashboards ? 'dashboards' : esbuild ? 'esbuild' : 'legacy')
+        return send(res, req, 400, 'Could not find the compiled file. Path: ', rate, commit)
+      }
 
       if (!dashboards && !esbuild) {
         const sourcePath = path.endsWith('.css') ? path : `js/${path}`
         try {
-          const response = await downloader.request(`/v1/files/${commit}/${sourcePath}`, { signal: controller.signal })
+          const response = await observeDependency(telemetry, 'downloader', now, () => downloader.request(`/v1/files/${commit}/${sourcePath}`, { signal: controller.signal, correlationId: req.correlationId }))
+          startTrace(commit, 'static')
           return streamResponse(response, res, req, { commit, rate })
         } catch (error) {
           if (!(error instanceof ServiceError) || error.status !== 404) throw error
@@ -108,21 +162,62 @@ function createRouter (options = {}) {
       }
 
       const mode = dashboards ? 'dashboards' : esbuild ? 'esbuild' : 'legacy'
-      const response = await builder.request('/v1/build', {
+      startTrace(commit, mode)
+      const response = await observeDependency(telemetry, 'builder', now, () => builder.request('/v1/build', {
         method: 'POST',
         body: { commit, path, mode, options: { minify: parsed.minify, type } },
-        signal: controller.signal
-      })
+        signal: controller.signal,
+        correlationId: req.correlationId
+      }))
       return streamResponse(response, res, req, { commit, rate, builtWith: response.headers.get('x-built-with') })
     } catch (error) {
-      if (controller.signal.aborted || res.headersSent) return
+      startTrace()
+      if (controller.signal.aborted) return
+      failure = error
+      if (res.headersSent) return
       return sendServiceError(res, req, error, rate)
     } finally {
       req.removeListener('aborted', abort)
+      if (traceStarted) {
+        const status = controller.signal.aborted ? 'aborted' : (failure || res.statusCode >= 400) ? 'failed' : 'succeeded'
+        const code = failure ? safeErrorCode(failure) : null
+        telemetry.completeSpan(req.correlationId, PUBLIC_OPERATION, { status, httpStatus: res.statusCode, code })
+        if (failure) telemetry.recordFailure({ correlationId: req.correlationId, operation: PUBLIC_OPERATION, code, httpStatus: res.statusCode })
+        telemetry.completeTrace(req.correlationId, { status, httpStatus: res.statusCode, code })
+      }
     }
   }
 
+  router.opsTelemetry = telemetry
+  router.opsSnapshot = () => telemetry.snapshot({
+    capabilities: [
+      capability('public_file_delivery'),
+      capability('console_read'),
+      capability('console_cache_control', !opsConsoleEnabled, 'NOT_IMPLEMENTED')
+    ]
+  })
+
   return router
+}
+
+function capability (name, affected = false, reasonCode) {
+  return { name, status: affected ? 'unavailable' : 'available', reasonCode: affected ? reasonCode : null }
+}
+
+async function observeDependency (telemetry, dependency, now, work) {
+  const started = now()
+  try {
+    const result = await work()
+    telemetry.recordDependency(dependency, { succeeded: true, latencyMs: now() - started })
+    return result
+  } catch (error) {
+    telemetry.recordDependency(dependency, { succeeded: false, latencyMs: now() - started, errorCode: safeErrorCode(error) })
+    throw error
+  }
+}
+
+function safeErrorCode (error) {
+  return typeof error?.code === 'string' && Object.hasOwn(FAILURE_SUMMARIES, error.code) ? error.code : 'INTERNAL_ERROR'
 }
 
 function rewriteRef (url, originalBranch, commit) {

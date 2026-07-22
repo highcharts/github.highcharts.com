@@ -1,62 +1,89 @@
-const { describe, it, before, after } = require('node:test')
+const { describe, it } = require('mocha')
 
 const assert = require('node:assert')
 
 const { JobQueue } = require('../app/JobQueue.js')
 
-function makeJob (time = 0, shouldReject = false) {
-  return {
-    func: function () {
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          return shouldReject ? reject(new Error('reason')) : resolve('result')
-        }, time)
-      })
-    },
-    args: []
-  }
-}
-
-describe('JobQueue', async () => {
-  before(async () => { })
-
-  after(async () => { })
-
-  it('is a proper singleton', () => {
-    const queue1 = new JobQueue()
-
-    const queue2 = new JobQueue()
-
-    assert.equal(queue1.id, queue2.id)
+function deferred () {
+  let resolveJob
+  let rejectJob
+  const promise = new Promise((resolve, reject) => {
+    resolveJob = resolve
+    rejectJob = reject
   })
 
-  it('JobQueue', async () => {
+  return { promise, resolve: resolveJob, reject: rejectJob }
+}
+
+function makeJob (func) {
+  return { func, args: [] }
+}
+
+describe('JobQueue', () => {
+  it('is a proper singleton', () => {
+    const queue1 = new JobQueue()
+    const queue2 = new JobQueue()
+
+    assert.strictEqual(queue1, queue2)
+  })
+
+  it('returns the job result and cleans up the queue', async () => {
     const queue = new JobQueue()
-    const commit = '123123123'
+    const result = { built: true }
 
-    queue.addJob('download', commit, makeJob())
+    const promise = queue.addJob('download', 'success', makeJob(async () => result))
 
-    const jobs = () => queue.getJobs('download')
+    assert.strictEqual(await promise, result)
+    assert.equal(queue.getJobs('download').length, 0)
+  })
 
-    assert.equal(jobs().length, 1, 'Queue should be 1 after adding 1')
-    queue.addJob('download', commit, makeJob())
+  it('returns the same result promise to duplicate callers', async () => {
+    const queue = new JobQueue()
+    const job = deferred()
+    const first = queue.addJob('download', 'duplicate-success', makeJob(() => job.promise))
+    const duplicate = queue.addJob('download', 'duplicate-success', makeJob(async () => 'wrong'))
 
-    assert.equal(jobs().length, 1, 'Queue should be 1 after trying to add another job for same commit')
+    assert.strictEqual(first, duplicate)
 
-    queue.addJob('download', 'another', makeJob())
-    assert.equal(jobs().length, 2, 'Queue length should be 2 after adding job for new commit')
+    job.resolve('result')
+    assert.equal(await first, 'result')
+    assert.equal(await duplicate, 'result')
+  })
 
-    console.log(jobs())
+  it('rejects duplicate callers with the original error', async () => {
+    const queue = new JobQueue()
+    const job = deferred()
+    const error = new Error('reason')
+    const first = queue.addJob('download', 'duplicate-failure', makeJob(() => job.promise))
+    const duplicate = queue.addJob('download', 'duplicate-failure', makeJob(async () => 'wrong'))
 
-    const firstJob = jobs()[0][1].done
-    await firstJob
+    assert.strictEqual(first, duplicate)
 
-    assert.equal(jobs().length, 1, 'Queue length should be 1 after first job has finished')
+    job.reject(error)
+    await assert.rejects(first, (caught) => caught === error)
+    await assert.rejects(duplicate, (caught) => caught === error)
+    assert.equal(queue.getJobs('download').length, 0)
+  })
 
-    const oneLastJob = queue.addJob('download', 'anotherfailing', makeJob(1000, true))
-    console.log({ oneLastJob })
-    await oneLastJob
+  it('continues with the next queued job after a failure', async () => {
+    const queue = new JobQueue()
+    const firstJob = deferred()
+    const error = new Error('first failed')
+    const calls = []
+    const first = queue.addJob('download', 'failing-first', makeJob(async () => {
+      calls.push('first')
+      return firstJob.promise
+    }))
+    const second = queue.addJob('download', 'successful-second', makeJob(async () => {
+      calls.push('second')
+      return 'second result'
+    }))
 
-    assert.equal(jobs().length, 0, 'All jobs are done')
+    firstJob.reject(error)
+
+    await assert.rejects(first, (caught) => caught === error)
+    assert.equal(await second, 'second result')
+    assert.deepEqual(calls, ['first', 'second'])
+    assert.equal(queue.getJobs('download').length, 0)
   })
 })

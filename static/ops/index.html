@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Operations console</title>
+  <link rel="stylesheet" href="/_ops/console.css">
+  <script src="/_ops/console.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to console</a>
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Development environment</p>
+      <h1>Operations console</h1>
+    </div>
+    <div class="toolbar">
+      <span id="connection-status" class="quiet" role="status">Loading</span>
+      <button id="refresh" type="button">Refresh</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <noscript>
+      <section class="notice notice-error">
+        <h2>JavaScript is required</h2>
+        <p>This console does not provide a non-JavaScript path for operational data or cache actions.</p>
+      </section>
+    </noscript>
+
+    <div id="app" hidden>
+      <section aria-labelledby="overview-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-number">01 / Overview</p>
+            <h2 id="overview-heading">Service status</h2>
+          </div>
+          <p id="snapshot-time" class="quiet">Waiting for the first snapshot</p>
+        </div>
+        <div id="aggregate-warning" class="notice" role="status" hidden></div>
+        <div id="services" class="service-grid" aria-live="polite" aria-busy="true"></div>
+      </section>
+
+      <section aria-labelledby="work-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-number">02 / Work</p>
+            <h2 id="work-heading">Capacity and activity</h2>
+          </div>
+        </div>
+        <h3>Capacity</h3>
+        <div id="queues" class="record-list"></div>
+        <h3>Recent requests</h3>
+        <div id="activity" class="record-list"></div>
+      </section>
+
+      <section class="failure-section" aria-labelledby="failures-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-number">03 / Evidence</p>
+            <h2 id="failures-heading">Recent failures</h2>
+          </div>
+        </div>
+        <div id="failures" class="record-list"></div>
+      </section>
+
+      <section aria-labelledby="cache-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-number">04 / Maintenance</p>
+            <h2 id="cache-heading">Caches</h2>
+          </div>
+        </div>
+        <div id="cache-summary" class="service-grid"></div>
+        <div class="action-panel">
+          <h3>Evict one commit</h3>
+          <form id="evict-form">
+            <label for="commit">Full lowercase commit SHA</label>
+            <input id="commit" name="commit" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" minlength="40" maxlength="40" pattern="[0-9a-f]{40}" aria-describedby="evict-error" required>
+            <fieldset>
+              <legend>Targets</legend>
+              <label class="check"><input name="target" type="checkbox" value="downloader"> Downloader</label>
+              <label class="check"><input name="target" type="checkbox" value="builder"> Builder</label>
+            </fieldset>
+            <p id="evict-error" class="field-error" role="alert"></p>
+            <button type="submit">Evict commit</button>
+          </form>
+        </div>
+        <div class="cache-actions" aria-labelledby="bulk-actions-heading">
+          <h3 id="bulk-actions-heading">Service actions</h3>
+          <p class="quiet">Active entries are skipped. Actions are dispatched once and are not retried.</p>
+          <div class="button-row">
+            <button type="button" data-operation="cache.purge_expired" data-service="downloader">Purge expired downloader</button>
+            <button type="button" data-operation="cache.clear" data-service="downloader" class="danger">Clear downloader</button>
+            <button type="button" data-operation="cache.purge_expired" data-service="builder">Purge expired builder</button>
+            <button type="button" data-operation="cache.clear" data-service="builder" class="danger">Clear builder</button>
+          </div>
+        </div>
+        <section id="operation-result" class="operation-result" aria-labelledby="operation-heading" tabindex="-1" hidden>
+          <div class="result-heading">
+            <h3 id="operation-heading">Cache operation result</h3>
+            <button id="dismiss-result" type="button" class="button-quiet">Dismiss</button>
+          </div>
+          <div id="operation-content" aria-live="polite"></div>
+        </section>
+        <h3>Cache entries</h3>
+        <div id="cache-entries" class="record-list"></div>
+      </section>
+
+      <section class="session-section" aria-labelledby="session-heading">
+        <div class="section-heading">
+          <div>
+            <p class="section-number">05 / Session</p>
+            <h2 id="session-heading">Session status</h2>
+          </div>
+        </div>
+        <div id="expiry-warning" class="notice notice-warning" role="status" hidden>
+          <strong>Your session expires soon.</strong>
+          <button id="stay-signed-in" type="button">Stay signed in</button>
+        </div>
+        <p id="session-status" class="quiet">Checking session</p>
+        <button id="logout" type="button" class="button-quiet">Sign out</button>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

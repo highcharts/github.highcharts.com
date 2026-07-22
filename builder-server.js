@@ -1,9 +1,23 @@
 'use strict'
 
 const express = require('express')
-const crypto = require('node:crypto')
 const config = require('./config.json')
 const { createBuilderService } = require('./app/builder-service')
+const { asyncRoute, observedRoute, requireBearer } = require('./app/ops/http')
+const { createInternalOpsRouter } = require('./app/ops/internal-router')
+
+const PUBLIC_ERRORS = {
+  ARCHIVE_ERROR: 'Source archive extraction failed',
+  DOWNLOADER_ERROR: 'Downloader request failed',
+  DOWNLOADER_TIMEOUT: 'Downloader request timed out',
+  INVALID_BUILD: 'Build did not produce the requested file',
+  INVALID_COMMIT: 'Commit must be a canonical 40-character SHA',
+  INVALID_MODE: 'Unknown build mode',
+  INVALID_OPTIONS: 'Options must be an object',
+  INVALID_PATH: 'Path must be a normalized relative output path',
+  QUEUE_FULL: 'Build capacity is unavailable',
+  SOURCE_INCOMPLETE: 'Source archive is incomplete'
+}
 
 function createApp (options = {}) {
   const token = options.token === undefined ? process.env.INTERNAL_SERVICE_TOKEN : options.token
@@ -11,17 +25,22 @@ function createApp (options = {}) {
 
   const app = express()
   const service = options.service || createBuilderService(options)
-  const expectedAuthorization = Buffer.from(`Bearer ${token}`)
   app.locals.service = service
-  app.use(express.json())
   app.get('/health', (req, res) => res.json({ status: 'ok' }))
   app.use('/v1', (req, res, next) => {
-    const authorization = Buffer.from(req.get('authorization') || '')
-    if (authorization.length !== expectedAuthorization.length || !crypto.timingSafeEqual(authorization, expectedAuthorization)) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } })
+    try {
+      requireBearer(req, token)
+    } catch {
+      return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Unauthorized' } })
+    }
     next()
   })
-  app.post('/v1/build', asyncRoute(async (req, res) => {
-    const result = await service.build(req.body)
+  if (typeof service.snapshot === 'function' && service.cacheManager) {
+    app.use(createInternalOpsRouter({ token, service: 'builder', snapshot: service.snapshot, cache: service.cacheManager }))
+  }
+  app.use(express.json())
+  app.post('/v1/build', observedRoute(service, '/v1/build', req => ({ commit: req.body && req.body.commit, buildMode: req.body && req.body.mode }), async (req, res) => {
+    const result = await service.build(req.body, { correlationId: req.correlationId })
     res.set('X-Built-With', result.builtWith)
     res.set('X-Build-Path', result.path)
     result.stream.on('error', error => res.destroy(error))
@@ -35,13 +54,10 @@ function createApp (options = {}) {
     if (error.retryAfter) res.set('Retry-After', error.retryAfter)
     if (error.rateLimitRemaining) res.set('X-GitHub-RateLimit-Remaining', error.rateLimitRemaining)
     if (error.rateLimitReset) res.set('X-GitHub-RateLimit-Reset', error.rateLimitReset)
-    res.status(error.status || 500).json({ error: { code: error.code || 'INTERNAL_ERROR', message: error.message } })
+    const code = Object.hasOwn(PUBLIC_ERRORS, error.code) ? error.code : 'INTERNAL_ERROR'
+    res.status(code === 'INTERNAL_ERROR' ? 500 : error.status || 500).json({ error: { code, message: PUBLIC_ERRORS[code] || 'An internal error occurred' } })
   })
   return app
-}
-
-function asyncRoute (handler) {
-  return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next)
 }
 
 function start () {

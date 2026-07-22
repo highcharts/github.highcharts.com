@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign in | Operations console</title>
+  <link rel="stylesheet" href="/_ops/console.css">
+  <script src="/_ops/login.js" defer></script>
+</head>
+<body class="login-page">
+  <main class="login-shell">
+    <noscript>
+      <section class="notice notice-error">
+        <h1>JavaScript is required</h1>
+        <p>The operations console cannot authenticate without JavaScript.</p>
+      </section>
+    </noscript>
+    <section id="login-panel" class="login-panel" hidden>
+      <p class="eyebrow">Development environment</p>
+      <h1 id="login-heading" tabindex="-1">Operations console</h1>
+      <p class="login-intro">Use the shared operations token for this environment. The token is used for this request only.</p>
+      <form id="login-form">
+        <label for="token">Operations token</label>
+        <input id="token" name="token" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="login-error" required>
+        <p id="login-error" class="field-error" role="alert"></p>
+        <button id="login-submit" type="submit">Sign in</button>
+      </form>
+      <p class="security-note">This development-only console uses an in-memory session and does not store the token in the browser.</p>
+    </section>
+  </main>
+</body>
+</html>

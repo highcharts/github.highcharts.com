@@ -1,9 +1,46 @@
 const defaults = require('../app/download.js')
 const { token } = require('../config.json')
 const { expect } = require('chai')
+const { EventEmitter } = require('events')
 const fs = require('fs')
+const https = require('https')
 const { after, afterEach, before, describe, it } = require('mocha')
 const sinon = require('sinon')
+
+function loadDownloadWithHttpsGet (httpsGet) {
+  const downloadPath = require.resolve('../app/download.js')
+  const cachedDownload = require.cache[downloadPath]
+  const originalHttpsGet = https.get
+
+  delete require.cache[downloadPath]
+  https.get = httpsGet
+  try {
+    return require('../app/download.js')
+  } finally {
+    https.get = originalHttpsGet
+    delete require.cache[downloadPath]
+    if (cachedDownload) {
+      require.cache[downloadPath] = cachedDownload
+    }
+  }
+}
+
+function fakeHttpsGet (chunks, statusCode = 200, headers = {}) {
+  return (options, callback) => {
+    const request = new EventEmitter()
+    request.end = () => {
+      const response = new EventEmitter()
+      response.statusCode = statusCode
+      response.headers = headers
+      callback(response)
+      process.nextTick(() => {
+        chunks.forEach(chunk => response.emit('data', chunk))
+        response.emit('end')
+      })
+    }
+    return request
+  }
+}
 
 describe('download.js', () => {
   describe('exported properties', () => {
@@ -48,11 +85,29 @@ describe('download.js', () => {
         })
     })
     it('should return a response when a url is provided', () => {
+      const body = '404: Not Found'
+      const { httpsGetPromise } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        Buffer.from(body)
+      ], 404))
+
       return httpsGetPromise(downloadURL)
         .then(({ body, statusCode }) => {
           expect(statusCode).to.equal(404)
-          expect(body).to.equal('404: Not Found')
+          expect(body.toString('utf8')).to.equal('404: Not Found')
         })
+    })
+    it('should preserve arbitrary response bytes', async () => {
+      const bytes = Buffer.from([0, 0xff, 0xfe, 0xfd, 0x61, 0xc3, 0x28])
+      const { httpsGetPromise } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        bytes.subarray(0, 3),
+        bytes.subarray(3)
+      ]))
+
+      const { body, statusCode } = await httpsGetPromise('https://example.test/binary')
+
+      expect(statusCode).to.equal(200)
+      expect(Buffer.isBuffer(body)).to.equal(true)
+      expect(body.equals(bytes)).to.equal(true)
     })
   })
 
@@ -63,6 +118,7 @@ describe('download.js', () => {
       [
         'tmp/test/downloaded-file1.js',
         'tmp/test/downloaded-file2.js',
+        'tmp/test/downloaded-binary.bin',
         'tmp/test'
       ].forEach(p => {
         try {
@@ -77,9 +133,15 @@ describe('download.js', () => {
     }
     after(cleanFiles)
     before(() => {
+      cleanFiles()
       fs.mkdirSync('tmp/test', { recursive: true })
     })
     it('should resolve with an informational object, and a newly created file.', () => {
+      const body = 'downloaded file content'
+      const { downloadFile } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        Buffer.from(body)
+      ]))
+
       return downloadFile(
         downloadURL + 'master/ts/masters/highcharts.src.ts',
         './tmp/test/downloaded-file1.js'
@@ -89,9 +151,14 @@ describe('download.js', () => {
         expect(success).to.equal(true)
         expect(url).to.equal(downloadURL + 'master/ts/masters/highcharts.src.ts')
         expect(fs.lstatSync('./tmp/test/downloaded-file1.js').size).to.be.greaterThan(0)
+        expect(fs.readFileSync('./tmp/test/downloaded-file1.js', 'utf8')).to.equal(body)
       })
     })
     it('should only create a file if response status is 200', () => {
+      const { downloadFile } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        Buffer.from('404: Not Found')
+      ], 404))
+
       return downloadFile(
         downloadURL + 'master/i-do-not-exist.js',
         './tmp/test/downloaded-file2.js'
@@ -114,6 +181,19 @@ describe('download.js', () => {
           expect(e.message).to.not.equal('Promise resolved unexpectedly.')
         })
     })
+    it('should write arbitrary response bytes unchanged', async () => {
+      const outputPath = './tmp/test/downloaded-binary.bin'
+      const bytes = Buffer.from([0xde, 0xad, 0x00, 0xff, 0xfe, 0x62])
+      const { downloadFile } = loadDownloadWithHttpsGet(fakeHttpsGet([
+        bytes.subarray(0, 2),
+        bytes.subarray(2)
+      ]))
+
+      const result = await downloadFile('https://example.test/binary', outputPath)
+
+      expect(result).to.include({ outputPath, statusCode: 200, success: true })
+      expect(fs.readFileSync(outputPath).equals(bytes)).to.equal(true)
+    })
   })
   describe('downloadFiles', () => {
     it('is missing tests')
@@ -134,7 +214,7 @@ describe('download.js', () => {
     it('allows root 404s only for optional source folders', async () => {
       const stub = sinon.stub().callsFake(({ path }) => Promise.resolve({
         statusCode: /\/contents\/(js|tools\/webpacks|tools\/libs)\?/.test(path) ? 404 : 200,
-        body: '[]',
+        body: Buffer.from('[]'),
         headers: {}
       }))
       __setGitHubRequest(stub)
@@ -147,7 +227,7 @@ describe('download.js', () => {
       for (const [failedPath, statusCode] of [['ts', 404], ['js', 403]]) {
         __setGitHubRequest(sinon.stub().callsFake(({ path }) => Promise.resolve({
           statusCode: path.includes(`/contents/${failedPath}?`) ? statusCode : 200,
-          body: '[]',
+          body: Buffer.from('[]'),
           headers: {}
         })))
         let error
@@ -177,7 +257,7 @@ describe('download.js', () => {
     it('reuses the same request for parallel branch lookups', async () => {
       const stub = sinon.stub().resolves({
         statusCode: 200,
-        body: JSON.stringify({ commit: { sha: 'abc123' } })
+        body: Buffer.from(JSON.stringify({ commit: { sha: 'abc123' } }))
       })
 
       __clearGitHubCache()
@@ -196,7 +276,7 @@ describe('download.js', () => {
     it('returns cached commit info on subsequent calls', async () => {
       const stub = sinon.stub().resolves({
         statusCode: 200,
-        body: JSON.stringify({ sha: 'deadbeef' })
+        body: Buffer.from(JSON.stringify({ sha: 'deadbeef' }))
       })
 
       __clearGitHubCache()
