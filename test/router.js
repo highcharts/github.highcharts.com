@@ -124,8 +124,7 @@ describe('public router delegation', () => {
       'cache-control': 'no-store',
       'cdn-cache-control': 'no-store',
       'x-github-ratelimit-remaining': '12',
-      'x-github-ratelimit-reset': '1234',
-      'x-github-ratelimit-limit': '5000'
+      'x-github-ratelimit-reset': '1234'
     })
     expect(router.opsSnapshot().activity[0]).to.nested.include({ 'request.commit': SHA })
     expect(router.opsSnapshot().activity[0].request.buildMode).to.equal(null)

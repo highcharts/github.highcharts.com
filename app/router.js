@@ -146,7 +146,6 @@ function createRouter (options = {}) {
         startTrace(commit)
         setPublicHeaders(res, 302, rate)
         res.set({ 'Cache-Control': 'no-store', 'CDN-Cache-Control': 'no-store' })
-        if (rate.limit !== undefined) res.set('X-GitHub-RateLimit-Limit', String(rate.limit))
         return res.redirect(302, url)
       }
       const dashboards = req.params.filepath !== undefined
