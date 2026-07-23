@@ -25,7 +25,7 @@ function response (body, headers = {}) {
 function services (needsEsbuild = false) {
   return {
     downloader: {
-      json: sinon.stub().resolves({ commit: SHA, needsEsbuild, rate: { remaining: 12, reset: 1234 } }),
+      json: sinon.stub().resolves({ commit: SHA, needsEsbuild, rate: { remaining: 12, reset: 1234, limit: 5000 } }),
       request: sinon.stub().resolves(response('downloaded'))
     },
     builder: {
@@ -68,11 +68,12 @@ describe('public router delegation', () => {
   it('streams ordinary files from downloader with public cache, ETag, and rate headers', async () => {
     const clients = services()
     const router = createRouter({ ...clients, disableRateLimit: true })
-    const result = await request(router, '/trettan/highcharts.js', { headers: { 'X-Correlation-ID': 'browser-value' } })
+    const result = await request(router, `/${SHA}/highcharts.js`, { headers: { 'X-Correlation-ID': 'browser-value' } })
     expect(result).to.include({ status: 200, body: 'downloaded' })
     expect(result.headers).to.include({ etag: SHA, 'cache-control': 'max-age=3600', 'cdn-cache-control': 'max-age=3600', 'x-github-ratelimit-remaining': '12' })
     expect(result.headers['x-correlation-id']).to.match(/^[0-9a-f-]{36}$/).and.not.equal('browser-value')
     expect(clients.downloader.request.firstCall.args[0]).to.equal(`/v1/files/${SHA}/js/highcharts.src.js`)
+    expect(clients.downloader.json.firstCall.args[1].body).to.deep.equal({ ref: SHA, detectEsbuild: true })
     expect(clients.downloader.json.firstCall.args[1].correlationId).to.equal(result.headers['x-correlation-id'])
     expect(clients.downloader.request.firstCall.args[1].correlationId).to.equal(result.headers['x-correlation-id'])
     const activity = router.opsSnapshot().activity
@@ -81,17 +82,88 @@ describe('public router delegation', () => {
       correlationId: result.headers['x-correlation-id'],
       state: 'completed',
       'request.commit': SHA,
-      'request.resource': '/trettan/highcharts.js',
+      'request.resource': `/${SHA}/highcharts.js`,
       'request.buildMode': 'static',
       'outcome.status': 'succeeded'
     })
     expect(JSON.stringify(activity)).not.to.include('browser-value')
   })
 
+  it('redirects explicit single-segment branch refs to the resolved commit', async () => {
+    const clients = services()
+    const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/trettan/highcharts.js')
+    expect(result).to.include({ status: 302 })
+    expect(result.headers.location).to.equal(`/${SHA}/highcharts.js`)
+    expect(clients.downloader.json.firstCall.args[1].body).to.deep.equal({ ref: 'trettan', detectEsbuild: false })
+  })
+
+  it('redirects slash-containing branch refs while preserving path and bare esbuild query', async () => {
+    const clients = services()
+    const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/feature/foo/modules/exporting.js?esbuild')
+    expect(result).to.include({ status: 302 })
+    expect(result.headers.location).to.equal(`/${SHA}/modules/exporting.js?esbuild`)
+    expect(clients.downloader.json.firstCall.args[1].body).to.deep.equal({ ref: 'feature/foo', detectEsbuild: false })
+  })
+
+  it('redirects tag refs to the resolved commit', async () => {
+    const result = await request(createRouter({ ...services(), disableRateLimit: true }), '/v11.4.8/highcharts.js')
+    expect(result).to.include({ status: 302 })
+    expect(result.headers.location).to.equal(`/${SHA}/highcharts.js`)
+  })
+
+  it('redirects short SHA refs to the resolved commit', async () => {
+    const result = await request(createRouter({ ...services(), disableRateLimit: true }), `/${SHA.slice(0, 7)}/highcharts.js`)
+    expect(result).to.include({ status: 302 })
+    expect(result.headers.location).to.equal(`/${SHA}/highcharts.js`)
+  })
+
+  it('sends no-store and rate headers on canonical ref redirects', async () => {
+    const router = createRouter({ ...services(), disableRateLimit: true })
+    const result = await request(router, '/master/highcharts.js')
+    expect(result.headers).to.include({
+      'cache-control': 'no-store',
+      'cdn-cache-control': 'no-store',
+      'x-github-ratelimit-remaining': '12',
+      'x-github-ratelimit-reset': '1234'
+    })
+    expect(router.opsSnapshot().activity[0]).to.nested.include({ 'request.commit': SHA })
+    expect(router.opsSnapshot().activity[0].request.buildMode).to.equal(null)
+  })
+
+  it('does not call downloader files or builder on canonical ref redirects', async () => {
+    const clients = services()
+    await request(createRouter({ ...clients, disableRateLimit: true }), '/master/highcharts.js')
+    expect(clients.downloader.request.called).to.equal(false)
+    expect(clients.builder.request.called).to.equal(false)
+  })
+
+  it('serves full canonical SHA refs directly without a Location header', async () => {
+    const clients = services()
+    const result = await request(createRouter({ ...clients, disableRateLimit: true }), `/${SHA}/highcharts.js`)
+    expect(result).to.include({ status: 200, body: 'downloaded' })
+    expect(result.headers).not.to.have.property('location')
+    expect(clients.downloader.json.firstCall.args[1].body).to.deep.equal({ ref: SHA, detectEsbuild: true })
+  })
+
+  it('serves ref-less URLs directly without a Location header', async () => {
+    const clients = services(true)
+    const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/highcharts.src.js?esbuild')
+    expect(result).to.include({ status: 200, body: 'built' })
+    expect(result.headers).not.to.have.property('location')
+    expect(clients.downloader.json.firstCall.args[1].body).to.deep.equal({ ref: 'master', detectEsbuild: false })
+  })
+
+  it('keeps automatic detection enabled for ref-less URLs without esbuild query', async () => {
+    const clients = services(true)
+    const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/highcharts.src.js')
+    expect(result).to.include({ status: 200, body: 'built' })
+    expect(clients.downloader.json.firstCall.args[1].body).to.deep.equal({ ref: 'master', detectEsbuild: true })
+  })
+
   it('falls back to explicit legacy builder mode while retaining downloader rate metadata', async () => {
     const clients = services()
     clients.downloader.request.rejects(new ServiceError('FILE_NOT_FOUND', 'File was not found', 404))
-    const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/feature/foo/modules/exporting.js')
+    const result = await request(createRouter({ ...clients, disableRateLimit: true }), `/${SHA}/modules/exporting.js`)
     expect(result).to.include({ status: 200, body: 'built' })
     expect(result.headers).to.include({ 'x-built-with': 'assembler', 'x-github-ratelimit-remaining': '12' })
     expect(clients.builder.request.firstCall.args[1].body).to.include({ commit: SHA, path: 'modules/exporting.src.js', mode: 'legacy' })
@@ -99,12 +171,13 @@ describe('public router delegation', () => {
 
   it('delegates explicit and detected esbuild plus Dashboards directly to builder', async () => {
     for (const [path, detected, mode, output] of [
-      ['/master/highcharts.js?esbuild', false, 'esbuild', 'highcharts.src.js'],
-      ['/master/highcharts.js', true, 'esbuild', 'highcharts.src.js'],
-      ['/feature/foo/dashboards/dashboards.js', false, 'dashboards', 'dashboards.js']
+      [`/${SHA}/highcharts.js?esbuild=1`, false, 'esbuild', 'highcharts.src.js'],
+      [`/${SHA}/highcharts.js`, true, 'esbuild', 'highcharts.src.js'],
+      [`/${SHA}/dashboards/dashboards.js`, false, 'dashboards', 'dashboards.js']
     ]) {
       const clients = services(detected)
       await request(createRouter({ ...clients, disableRateLimit: true }), path)
+      if (path.includes('?esbuild')) expect(clients.downloader.json.firstCall.args[1].body).to.deep.equal({ ref: SHA, detectEsbuild: false })
       expect(clients.downloader.request.called).to.equal(false)
       expect(clients.builder.request.firstCall.args[1].body).to.include({ mode, path: output })
     }
@@ -120,7 +193,7 @@ describe('public router delegation', () => {
     for (const [target, error] of cases) {
       const clients = services(target === 'builder')
       clients[target].request.rejects(error)
-      const result = await request(createRouter({ ...clients, disableRateLimit: true }), '/master/highcharts.js')
+      const result = await request(createRouter({ ...clients, disableRateLimit: true }), `/${SHA}/highcharts.js`)
       expect(result.status).to.equal(error.code === 'QUEUE_FULL' ? 202 : error.status)
       expect(result.body).to.equal(error.message)
     }
@@ -196,7 +269,7 @@ describe('public router delegation', () => {
     const clients = services()
     const router = createRouter({ ...clients, disableRateLimit: true })
     expect(await request(router, '/test.html')).to.include({ status: 200 })
-    expect(await request(router, '/master/highcharts.js')).to.include({ status: 200, body: 'downloaded' })
+    expect(await request(router, `/${SHA}/highcharts.js`)).to.include({ status: 200, body: 'downloaded' })
   })
 
   it('only inspects cache files for canonical commit SHAs', async () => {

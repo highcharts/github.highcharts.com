@@ -121,12 +121,16 @@ function createDownloaderService (options = {}) {
     }
   }
 
+  /**
+   * Full SHAs skip metadata lookup because immutable delivery confirms existence.
+   */
   async function resolveRef (ref, context = {}) {
-    let info = await observe(context.correlationId, 'github_branch_lookup', () => download.getBranchInfo(ref), true)
-    let commit = info && info.commit && info.commit.sha
+    let commit = typeof ref === 'string' && SHA_PATTERN.test(ref) ? ref : null
     if (!commit) {
-      info = await observe(context.correlationId, 'github_commit_lookup', () => download.getCommitInfo(ref), true)
-      commit = info && info.sha
+      commit = (await observe(context.correlationId, 'github_branch_lookup', () => download.getBranchInfo(ref), true))?.commit?.sha
+      if (!commit) {
+        commit = (await observe(context.correlationId, 'github_commit_lookup', () => download.getCommitInfo(ref), true))?.sha
+      }
     }
     if (!SHA_PATTERN.test(commit || '')) {
       throw new DownloaderError('REF_NOT_FOUND', 'Ref was not found', 404)
@@ -134,7 +138,7 @@ function createDownloaderService (options = {}) {
     commit = commit.toLowerCase()
     return {
       commit,
-      needsEsbuild: await needsEsbuild(commit, context),
+      needsEsbuild: context.detectEsbuild === false ? false : await needsEsbuild(commit, context),
       rate: download.getRateLimitState()
     }
   }

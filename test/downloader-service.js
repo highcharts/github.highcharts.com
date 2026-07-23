@@ -83,6 +83,20 @@ describe('downloader service', () => {
     expect(service.cacheManager.execute.callCount).to.equal(0)
   })
 
+  it('passes a strict detection option through authenticated resolve requests', async () => {
+    const service = { resolveRef: sinon.stub().resolves({}), cacheManager: null }
+    const app = createApp({ token: 'secret', service })
+    const options = { method: 'POST', headers: { Authorization: 'Bearer secret', 'Content-Type': 'application/json' } }
+
+    await request(app, '/v1/resolve', { ...options, body: { ref: 'missing' } })
+    await request(app, '/v1/resolve', { ...options, body: { ref: 'missing', detectEsbuild: false } })
+    await request(app, '/v1/resolve', { ...options, body: { ref: 'missing', detectEsbuild: 'false' } })
+
+    expect(service.resolveRef.getCall(0).args[1].detectEsbuild).to.equal(true)
+    expect(service.resolveRef.getCall(1).args[1].detectEsbuild).to.equal(false)
+    expect(service.resolveRef.getCall(2).args[1].detectEsbuild).to.equal(true)
+  })
+
   it('fails startup without an internal service token', () => {
     const token = process.env.INTERNAL_SERVICE_TOKEN
     try {
@@ -117,6 +131,30 @@ describe('downloader service', () => {
     })
     expect(second.commit).to.equal(SHA)
     expect(github.callCount).to.equal(1)
+    expect(fetch.callCount).to.equal(1)
+    expect(fetch.firstCall.args[1].method).to.equal('HEAD')
+  })
+
+  it('bypasses GitHub metadata for a full SHA and skips detection only when disabled', async () => {
+    const github = sinon.stub()
+    const fetch = sinon.stub().resolves({ ok: true, status: 200 })
+    download.__setGitHubRequest(github)
+    const service = createDownloaderService({ cacheRoot, fetch })
+
+    const result = await service.resolveRef(SHA, { detectEsbuild: false })
+
+    expect(result).to.deep.include({ commit: SHA, needsEsbuild: false })
+    expect(github.called).to.equal(false)
+    expect(fetch.called).to.equal(false)
+  })
+
+  it('keeps detection enabled by default for a full SHA', async () => {
+    const fetch = sinon.stub().resolves({ ok: false, status: 404 })
+    const service = createDownloaderService({ cacheRoot, fetch })
+
+    const result = await service.resolveRef(SHA)
+
+    expect(result.needsEsbuild).to.equal(false)
     expect(fetch.callCount).to.equal(1)
     expect(fetch.firstCall.args[1].method).to.equal('HEAD')
   })
@@ -161,6 +199,20 @@ describe('downloader service', () => {
     expect(result.commit).to.equal(SHA)
     expect(github.callCount).to.equal(2)
     expect(github.secondCall.args[0].path).to.include('/commits/deadbeef')
+  })
+
+  it('preserves branch-then-commit fallback while skipping disabled detection', async () => {
+    const github = sinon.stub()
+    github.onFirstCall().resolves({ statusCode: 404, headers: {} })
+    github.onSecondCall().resolves({ statusCode: 200, body: JSON.stringify({ sha: SHA }), headers: {} })
+    const fetch = sinon.stub()
+    download.__setGitHubRequest(github)
+
+    const result = await createDownloaderService({ cacheRoot, fetch }).resolveRef('deadbeef', { detectEsbuild: false })
+
+    expect(result).to.deep.include({ commit: SHA, needsEsbuild: false })
+    expect(github.callCount).to.equal(2)
+    expect(fetch.called).to.equal(false)
   })
 
   it('returns structured timeout errors', async () => {
