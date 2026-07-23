@@ -12,6 +12,8 @@ body contains "<title>Test chart please ignore</title>"
 
 # Explicit esbuild
 GET http://localhost:8080/master/highcharts-autoload.src.js?esbuild
+[Options]
+location: true
 HTTP 200
 [Asserts]
 header "X-Built-With" == "esbuild"
@@ -20,7 +22,7 @@ header "ETag" exists
 body contains "Highcharts"
 
 # Automatic esbuild
-GET http://localhost:8080/master/highcharts-autoload.src.js
+GET http://localhost:8080/highcharts-autoload.src.js
 HTTP 200
 [Asserts]
 header "X-Built-With" == "esbuild"
@@ -29,6 +31,8 @@ body contains "Highcharts"
 
 # Pre-webpack assembler release
 GET http://localhost:8080/v10.3.3/highcharts.src.js
+[Options]
+location: true
 HTTP 200
 [Asserts]
 header "X-Built-With" == "assembler"
@@ -37,6 +41,8 @@ body contains "Highcharts"
 
 # Webpack release (public header retains the assembler contract)
 GET http://localhost:8080/v12.4.0/highcharts.src.js
+[Options]
+location: true
 HTTP 200
 [Asserts]
 header "X-Built-With" == "assembler"
@@ -45,6 +51,8 @@ body contains "Highcharts"
 
 # Dashboards
 GET http://localhost:8080/master/dashboards/dashboards.src.js
+[Options]
+location: true
 HTTP 200
 [Asserts]
 header "ETag" exists
