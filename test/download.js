@@ -143,13 +143,13 @@ describe('download.js', () => {
       ]))
 
       return downloadFile(
-        downloadURL + 'master/ts/masters/highcharts.src.ts',
+        downloadURL + 'main/ts/masters/highcharts.src.ts',
         './tmp/test/downloaded-file1.js'
       ).then(({ outputPath, statusCode, success, url }) => {
         expect(outputPath).to.equal('./tmp/test/downloaded-file1.js')
         expect(statusCode).to.equal(200)
         expect(success).to.equal(true)
-        expect(url).to.equal(downloadURL + 'master/ts/masters/highcharts.src.ts')
+        expect(url).to.equal(downloadURL + 'main/ts/masters/highcharts.src.ts')
         expect(fs.lstatSync('./tmp/test/downloaded-file1.js').size).to.be.greaterThan(0)
         expect(fs.readFileSync('./tmp/test/downloaded-file1.js', 'utf8')).to.equal(body)
       })
@@ -160,7 +160,7 @@ describe('download.js', () => {
       ], 404))
 
       return downloadFile(
-        downloadURL + 'master/i-do-not-exist.js',
+        downloadURL + 'main/i-do-not-exist.js',
         './tmp/test/downloaded-file2.js'
       ).then(({ outputPath, statusCode, success, url }) => {
         let exists = true
